@@ -2,17 +2,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Sparkles, 
-  Send, 
   Copy, 
   Check, 
-  BookOpen,
   Lightbulb,
   Wand2,
-  ArrowRight
+  ArrowRight,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GeneratedQuestion {
   id: string;
@@ -42,15 +41,25 @@ const suggestedTopics = [
   "Tarix: Azərbaycan Xalq Cümhuriyyəti",
 ];
 
+const subjectLabels: Record<string, string> = {
+  math: "Riyaziyyat",
+  physics: "Fizika",
+  chemistry: "Kimya",
+  biology: "Biologiya",
+  history: "Tarix",
+  geography: "Coğrafiya",
+};
+
 export default function AIAssistantPage() {
   const navigate = useNavigate();
   const [topic, setTopic] = useState("");
   const [subject, setSubject] = useState("");
-  const [difficulty, setDifficulty] = useState("");
+  const [difficulty, setDifficulty] = useState("medium");
   const [questionCount, setQuestionCount] = useState("5");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!topic.trim()) {
@@ -63,37 +72,41 @@ export default function AIAssistantPage() {
     }
 
     setIsGenerating(true);
+    setError(null);
+    setGeneratedQuestions([]);
 
-    // Simulate AI generation
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('generate-quiz', {
+        body: {
+          topic,
+          subject: subjectLabels[subject] || subject,
+          difficulty,
+          questionCount: parseInt(questionCount)
+        }
+      });
 
-    const mockQuestions: GeneratedQuestion[] = [
-      {
-        id: '1',
-        question: `${topic} mövzusunda birinci sual nədir?`,
-        options: ['Birinci variant', 'İkinci variant', 'Üçüncü variant', 'Dördüncü variant'],
-        correctAnswer: 0,
-        explanation: 'Bu sualın izahı burada göstərilir.',
-      },
-      {
-        id: '2',
-        question: `${topic} ilə bağlı ikinci konsepsiya nədir?`,
-        options: ['A variantı', 'B variantı', 'C variantı', 'D variantı'],
-        correctAnswer: 2,
-        explanation: 'Düzgün cavab C-dir, çünki...',
-      },
-      {
-        id: '3',
-        question: `${topic} mövzusunda hansı bərabərlik doğrudur?`,
-        options: ['2 + 2 = 5', '3 × 3 = 9', '4 - 1 = 2', '5 ÷ 5 = 0'],
-        correctAnswer: 1,
-        explanation: '3 × 3 = 9 düzgün cavabdır.',
-      },
-    ];
+      if (fnError) {
+        throw new Error(fnError.message);
+      }
 
-    setGeneratedQuestions(mockQuestions);
-    setIsGenerating(false);
-    toast.success("Suallar uğurla yaradıldı!");
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (data.questions && data.questions.length > 0) {
+        setGeneratedQuestions(data.questions);
+        toast.success(`${data.questions.length} sual uğurla yaradıldı!`);
+      } else {
+        throw new Error("Sual yaradıla bilmədi");
+      }
+    } catch (err) {
+      console.error('Quiz generation error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Xəta baş verdi';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const copyQuestion = (question: GeneratedQuestion) => {
@@ -105,7 +118,6 @@ export default function AIAssistantPage() {
   };
 
   const useAllQuestions = () => {
-    // In a real app, this would add questions to a new quiz
     toast.success("Suallar quizə əlavə edildi!");
     navigate('/teacher/create');
   };
@@ -213,6 +225,13 @@ export default function AIAssistantPage() {
               </div>
             </div>
 
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-4 text-destructive">
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                <p className="text-sm">{error}</p>
+              </div>
+            )}
+
             <Button
               variant="game"
               size="lg"
@@ -223,7 +242,7 @@ export default function AIAssistantPage() {
               {isGenerating ? (
                 <>
                   <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Suallar yaradılır...
+                  AI suallar yaradır...
                 </>
               ) : (
                 <>
