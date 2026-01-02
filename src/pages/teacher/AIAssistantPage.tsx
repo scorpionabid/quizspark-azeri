@@ -2,8 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Sparkles, 
-  Copy, 
-  Check, 
   Lightbulb,
   Wand2,
   ArrowRight,
@@ -12,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -23,14 +20,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-
-interface GeneratedQuestion {
-  id: string;
-  question: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
-}
+import { EditableQuestionCard, GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
 
 const suggestedTopics = [
   "Cəbr: Xətti tənliklər",
@@ -58,7 +48,6 @@ export default function AIAssistantPage() {
   const [questionCount, setQuestionCount] = useState("5");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
@@ -109,12 +98,15 @@ export default function AIAssistantPage() {
     }
   };
 
-  const copyQuestion = (question: GeneratedQuestion) => {
-    const text = `Sual: ${question.question}\n\nVariantlar:\n${question.options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join('\n')}\n\nDüzgün cavab: ${String.fromCharCode(65 + question.correctAnswer)}\n\nİzahı: ${question.explanation}`;
-    navigator.clipboard.writeText(text);
-    setCopiedId(question.id);
-    toast.success("Sual kopyalandı!");
-    setTimeout(() => setCopiedId(null), 2000);
+  const handleUpdateQuestion = (updatedQuestion: GeneratedQuestion) => {
+    setGeneratedQuestions(prev => 
+      prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q)
+    );
+  };
+
+  const handleDeleteQuestion = (id: string) => {
+    setGeneratedQuestions(prev => prev.filter(q => q.id !== id));
+    toast.success("Sual silindi");
   };
 
   const useAllQuestions = () => {
@@ -273,68 +265,13 @@ export default function AIAssistantPage() {
             </div>
 
             {generatedQuestions.map((question, index) => (
-              <div
+              <EditableQuestionCard
                 key={question.id}
-                className="rounded-2xl bg-gradient-card border border-border/50 p-6 animate-slide-up"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="mb-4 flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-sm font-bold text-primary">
-                      {index + 1}
-                    </div>
-                    <Badge variant="default">Çoxseçimli</Badge>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyQuestion(question)}
-                  >
-                    {copiedId === question.id ? (
-                      <Check className="mr-2 h-4 w-4 text-success" />
-                    ) : (
-                      <Copy className="mr-2 h-4 w-4" />
-                    )}
-                    {copiedId === question.id ? 'Kopyalandı' : 'Kopyala'}
-                  </Button>
-                </div>
-
-                <h3 className="mb-4 text-lg font-medium text-foreground">
-                  {question.question}
-                </h3>
-
-                <div className="mb-4 space-y-2">
-                  {question.options.map((option, optIndex) => (
-                    <div
-                      key={optIndex}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg border-2 p-3",
-                        optIndex === question.correctAnswer
-                          ? "border-success bg-success/10"
-                          : "border-border/50 bg-muted/30"
-                      )}
-                    >
-                      <div className={cn(
-                        "flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold",
-                        optIndex === question.correctAnswer
-                          ? "bg-success text-success-foreground"
-                          : "bg-muted text-muted-foreground"
-                      )}>
-                        {String.fromCharCode(65 + optIndex)}
-                      </div>
-                      <span className={optIndex === question.correctAnswer ? "text-success" : ""}>
-                        {option}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rounded-lg bg-muted/30 p-3">
-                  <p className="text-sm text-muted-foreground">
-                    <strong className="text-foreground">İzahı:</strong> {question.explanation}
-                  </p>
-                </div>
-              </div>
+                question={question}
+                index={index}
+                onUpdate={handleUpdateQuestion}
+                onDelete={handleDeleteQuestion}
+              />
             ))}
           </div>
         )}
