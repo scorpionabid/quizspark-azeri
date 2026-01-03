@@ -9,7 +9,9 @@ import {
   MessageSquare,
   FileText,
   Settings2,
-  Upload
+  Upload,
+  Database,
+  Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +32,8 @@ import { AgentSelector, agents } from "@/components/ai/AgentSelector";
 import { ChatInterface } from "@/components/ai/ChatInterface";
 import { TemplateLibrary, PromptTemplate } from "@/components/ai/TemplateLibrary";
 import { DocumentUploader } from "@/components/ai/DocumentUploader";
+import { QuestionBank } from "@/components/quiz/QuestionBank";
+import { supabase as supabaseClient } from "@/integrations/supabase/client";
 
 interface UploadedDocument {
   id: string;
@@ -188,7 +192,7 @@ export default function AIAssistantPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="generate" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
             <TabsTrigger value="generate" className="gap-2">
               <Wand2 className="h-4 w-4" />
               <span className="hidden sm:inline">Sual Yarat</span>
@@ -201,6 +205,10 @@ export default function AIAssistantPage() {
                   {uploadedDocuments.length}
                 </span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="bank" className="gap-2">
+              <Database className="h-4 w-4" />
+              <span className="hidden sm:inline">Sual Bankı</span>
             </TabsTrigger>
             <TabsTrigger value="chat" className="gap-2">
               <MessageSquare className="h-4 w-4" />
@@ -351,7 +359,7 @@ export default function AIAssistantPage() {
             {/* Generated Questions */}
             {generatedQuestions.length > 0 && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/20">
                       <Lightbulb className="h-5 w-5 text-success" />
@@ -360,10 +368,42 @@ export default function AIAssistantPage() {
                       Yaradılmış Suallar
                     </h2>
                   </div>
-                  <Button variant="game" onClick={useAllQuestions}>
-                    Hamısını İstifadə Et
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={async () => {
+                        try {
+                          const questionsToSave = generatedQuestions.map(q => ({
+                            question: q.question,
+                            type: 'multiple_choice',
+                            options: q.options,
+                            correctAnswer: q.options[q.correctAnswer] || q.options[0],
+                            explanation: q.explanation,
+                            category: subject ? subjectLabels[subject] : undefined,
+                            difficulty: difficulty === 'easy' ? 'asan' : difficulty === 'hard' ? 'çətin' : 'orta',
+                          }));
+                          
+                          const { error } = await supabaseClient.functions.invoke('question-bank', {
+                            body: { action: 'save', questions: questionsToSave }
+                          });
+                          
+                          if (error) throw error;
+                          toast.success(`${generatedQuestions.length} sual bankına əlavə edildi!`);
+                        } catch (err) {
+                          console.error('Save error:', err);
+                          toast.error('Sualları saxlamaq mümkün olmadı');
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <Save className="h-4 w-4" />
+                      Bankına Saxla
+                    </Button>
+                    <Button variant="game" onClick={useAllQuestions}>
+                      Hamısını İstifadə Et
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 {generatedQuestions.map((question, index) => (
@@ -406,6 +446,11 @@ export default function AIAssistantPage() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          {/* Question Bank Tab */}
+          <TabsContent value="bank">
+            <QuestionBank />
           </TabsContent>
 
           {/* Chat Tab */}

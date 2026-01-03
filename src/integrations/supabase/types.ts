@@ -47,12 +47,94 @@ export type Database = {
         }
         Relationships: []
       }
+      question_bank: {
+        Row: {
+          bloom_level: string | null
+          category: string | null
+          correct_answer: string
+          created_at: string
+          difficulty: string | null
+          embedding: string | null
+          explanation: string | null
+          id: string
+          options: Json | null
+          question_text: string
+          question_type: string
+          source_document_id: string | null
+          tags: string[] | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          bloom_level?: string | null
+          category?: string | null
+          correct_answer: string
+          created_at?: string
+          difficulty?: string | null
+          embedding?: string | null
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          question_text: string
+          question_type?: string
+          source_document_id?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          bloom_level?: string | null
+          category?: string | null
+          correct_answer?: string
+          created_at?: string
+          difficulty?: string | null
+          embedding?: string | null
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          question_text?: string
+          question_type?: string
+          source_document_id?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      search_questions: {
+        Args: {
+          filter_user_id?: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          bloom_level: string
+          category: string
+          correct_answer: string
+          difficulty: string
+          explanation: string
+          id: string
+          options: Json
+          question_text: string
+          question_type: string
+          similarity: number
+          tags: string[]
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
