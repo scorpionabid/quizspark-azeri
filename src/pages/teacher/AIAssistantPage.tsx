@@ -8,7 +8,8 @@ import {
   AlertCircle,
   MessageSquare,
   FileText,
-  Settings2
+  Settings2,
+  Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,14 @@ import { EditableQuestionCard, GeneratedQuestion } from "@/components/quiz/Edita
 import { AgentSelector, agents } from "@/components/ai/AgentSelector";
 import { ChatInterface } from "@/components/ai/ChatInterface";
 import { TemplateLibrary, PromptTemplate } from "@/components/ai/TemplateLibrary";
+import { DocumentUploader } from "@/components/ai/DocumentUploader";
+
+interface UploadedDocument {
+  id: string;
+  fileName: string;
+  content: string;
+  fullContent: string;
+}
 
 const suggestedTopics = [
   "Cəbr: Xətti tənliklər",
@@ -58,8 +67,25 @@ export default function AIAssistantPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState("quiz-master");
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
+  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
 
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
+
+  const handleDocumentProcessed = (document: UploadedDocument) => {
+    setUploadedDocuments(prev => [...prev, document]);
+  };
+
+  const handleRemoveDocument = (id: string) => {
+    setUploadedDocuments(prev => prev.filter(doc => doc.id !== id));
+  };
+
+  // Get combined document context for AI
+  const getDocumentContext = () => {
+    if (uploadedDocuments.length === 0) return '';
+    return uploadedDocuments.map(doc => 
+      `--- Sənəd: ${doc.fileName} ---\n${doc.fullContent}`
+    ).join('\n\n');
+  };
 
   const handleGenerate = async () => {
     if (!topic.trim()) {
@@ -76,6 +102,8 @@ export default function AIAssistantPage() {
     setGeneratedQuestions([]);
 
     try {
+      const documentContext = getDocumentContext();
+      
       const { data, error: fnError } = await supabase.functions.invoke('generate-quiz', {
         body: {
           topic,
@@ -83,7 +111,8 @@ export default function AIAssistantPage() {
           difficulty,
           questionCount: parseInt(questionCount),
           agentId: selectedAgentId,
-          templatePrompt: selectedTemplate?.prompt
+          templatePrompt: selectedTemplate?.prompt,
+          documentContext: documentContext || undefined
         }
       });
 
@@ -159,10 +188,19 @@ export default function AIAssistantPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="generate" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
             <TabsTrigger value="generate" className="gap-2">
               <Wand2 className="h-4 w-4" />
               <span className="hidden sm:inline">Sual Yarat</span>
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="gap-2">
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Sənəddən</span>
+              {uploadedDocuments.length > 0 && (
+                <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                  {uploadedDocuments.length}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="chat" className="gap-2">
               <MessageSquare className="h-4 w-4" />
@@ -339,6 +377,35 @@ export default function AIAssistantPage() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          {/* Documents Tab */}
+          <TabsContent value="documents" className="space-y-6">
+            <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
+              <div className="mb-6">
+                <h3 className="font-display text-lg font-bold text-foreground mb-2">
+                  Sənəddən Sual Yaradın
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  PDF, DOCX və ya TXT sənədləri yükləyin. AI həmin sənədlərin məzmunundan suallar yaradacaq.
+                </p>
+              </div>
+              
+              <DocumentUploader
+                onDocumentProcessed={handleDocumentProcessed}
+                uploadedDocuments={uploadedDocuments}
+                onRemoveDocument={handleRemoveDocument}
+              />
+
+              {uploadedDocuments.length > 0 && (
+                <div className="mt-6 p-4 rounded-lg bg-primary/10 border border-primary/30">
+                  <p className="text-sm text-primary font-medium">
+                    ✓ {uploadedDocuments.length} sənəd yüklənib. 
+                    "Sual Yarat" tabına keçərək bu sənədlərdən sual yarada bilərsiniz.
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Chat Tab */}
