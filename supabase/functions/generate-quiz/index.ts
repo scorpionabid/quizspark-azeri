@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, subject, difficulty, questionCount } = await req.json();
+    const { topic, subject, difficulty, questionCount, agentId, templatePrompt, documentContext } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -20,15 +20,36 @@ serve(async (req) => {
     }
 
     console.log(`Generating ${questionCount} questions for topic: ${topic}, subject: ${subject}, difficulty: ${difficulty}`);
+    console.log(`Agent: ${agentId}, Has template: ${!!templatePrompt}, Has document context: ${!!documentContext}`);
 
-    const difficultyInstructions = {
+    const difficultyInstructions: Record<string, string> = {
       easy: "Suallar sadə olmalı, əsas anlayışları əhatə etməlidir.",
       medium: "Suallar orta çətinlikdə olmalı, mövzunun dərindən başa düşülməsini tələb etməlidir.",
       hard: "Suallar çətin olmalı, analitik düşüncə və mürəkkəb problemlərin həllini tələb etməlidir."
     };
 
-    const systemPrompt = `Sən Azərbaycan dilində təhsil məzmunu yaradan ekspert müəllimsən. 
-Sənin vəzifən verilmiş mövzu üzrə çoxseçimli test sualları yaratmaqdır.
+    // Agent-specific system prompts
+    const agentPrompts: Record<string, string> = {
+      'quiz-master': `Sən Azərbaycan dilində test sualları yaradan ekspert müəllimsən.
+Sənin vəzifən verilmiş mövzu üzrə keyfiyyətli çoxseçimli test sualları yaratmaqdır.`,
+      'curriculum-designer': `Sən kurikulum dizayner və təhsil planlaşdırıcısısan.
+Sualları öyrənmə nəticələrinə uyğun və pedaqoji cəhətdən düzgün yarat.`,
+      'assessment-expert': `Sən qiymətləndirmə mütəxəssisisən.
+Sualları Bloom taksonomiyasına uyğun yarat və müxtəlif səviyyələri əhatə et.`,
+      'subject-specialist': `Sən fənn mütəxəssisisən.
+Sualları fənnin dərin biliyinə əsaslanaraq, dəqiq və elmi cəhətdən düzgün yarat.`,
+      'language-coach': `Sən dil və linqvistika mütəxəssisisən.
+Sualları aydın, anlaşılan və qrammatik cəhətdən mükəmməl yarat.`
+    };
+
+    let systemPrompt = agentPrompts[agentId] || agentPrompts['quiz-master'];
+    
+    // Add template if provided
+    if (templatePrompt) {
+      systemPrompt += `\n\nXüsusi təlimatlar:\n${templatePrompt}`;
+    }
+    
+    systemPrompt += `
 
 Vacib qaydalar:
 1. Suallar Azərbaycan dilində olmalıdır
@@ -37,13 +58,27 @@ Vacib qaydalar:
 4. Hər sual üçün izah yazılmalıdır
 5. Suallar mövzuya uyğun və dəqiq olmalıdır
 
-Çətinlik səviyyəsi: ${difficultyInstructions[difficulty as keyof typeof difficultyInstructions] || difficultyInstructions.medium}`;
+Çətinlik səviyyəsi: ${difficultyInstructions[difficulty] || difficultyInstructions.medium}`;
 
-    const userPrompt = `Mövzu: ${topic}
+    // Build user prompt
+    let userPrompt = `Mövzu: ${topic}
 Fənn: ${subject}
-Sual sayı: ${questionCount}
+Sual sayı: ${questionCount}`;
+
+    // Add document context if provided (RAG)
+    if (documentContext) {
+      userPrompt += `
+
+Aşağıdakı sənəd məzmununa əsaslanaraq suallar yarat:
+
+${documentContext}
+
+Bu sənəddəki məlumatlardan istifadə edərək ${questionCount} ədəd çoxseçimli test sualı yarat.`;
+    } else {
+      userPrompt += `
 
 Bu mövzu üzrə ${questionCount} ədəd çoxseçimli test sualı yarat.`;
+    }
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
