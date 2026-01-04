@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Database, Filter, Trash2, Copy, Loader2 } from "lucide-react";
+import { Search, Database, Filter, Trash2, Copy, Loader2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { CreateQuizFromBank } from "./CreateQuizFromBank";
 
 interface Question {
   id: string;
@@ -33,6 +34,7 @@ export function QuestionBank({ onSelectQuestions }: QuestionBankProps) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
+  const [showCreateQuiz, setShowCreateQuiz] = useState(false);
   const [filters, setFilters] = useState({
     category: "",
     difficulty: "",
@@ -120,6 +122,11 @@ export function QuestionBank({ onSelectQuestions }: QuestionBankProps) {
       if (error) throw error;
       
       setQuestions(prev => prev.filter(q => q.id !== questionId));
+      setSelectedQuestions(prev => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
+      });
       toast.success("Sual silindi");
     } catch (error) {
       console.error("Delete error:", error);
@@ -139,12 +146,44 @@ export function QuestionBank({ onSelectQuestions }: QuestionBankProps) {
     });
   };
 
+  const toggleSelectAll = () => {
+    if (selectedQuestions.size === questions.length) {
+      setSelectedQuestions(new Set());
+    } else {
+      setSelectedQuestions(new Set(questions.map(q => q.id)));
+    }
+  };
+
   const handleUseSelected = () => {
     const selected = questions.filter(q => selectedQuestions.has(q.id));
     if (onSelectQuestions) {
       onSelectQuestions(selected);
     }
     toast.success(`${selected.length} sual seçildi`);
+  };
+
+  const handleCreateQuizClick = () => {
+    if (selectedQuestions.size === 0) {
+      toast.error("Ən azı 1 sual seçin");
+      return;
+    }
+    setShowCreateQuiz(true);
+  };
+
+  const handleRemoveFromQuiz = (questionId: string) => {
+    setSelectedQuestions(prev => {
+      const next = new Set(prev);
+      next.delete(questionId);
+      return next;
+    });
+  };
+
+  const handleQuizCreated = () => {
+    setSelectedQuestions(new Set());
+  };
+
+  const getSelectedQuestionsList = () => {
+    return questions.filter(q => selectedQuestions.has(q.id));
   };
 
   const parseOptions = (options: unknown): string[] => {
@@ -250,14 +289,41 @@ export function QuestionBank({ onSelectQuestions }: QuestionBankProps) {
               <Filter className="h-4 w-4" />
               Filtr
             </Button>
-
-            {selectedQuestions.size > 0 && (
-              <Button onClick={handleUseSelected} className="gap-2 ml-auto">
-                <Copy className="h-4 w-4" />
-                Seçilənləri istifadə et ({selectedQuestions.size})
-              </Button>
-            )}
           </div>
+
+          {/* Selection Actions */}
+          {questions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/30">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleSelectAll}
+                className="text-xs"
+              >
+                {selectedQuestions.size === questions.length ? "Hamısını Sil" : "Hamısını Seç"}
+              </Button>
+
+              {selectedQuestions.size > 0 && (
+                <>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedQuestions.size} sual seçilib
+                  </span>
+                  <div className="flex gap-2 ml-auto">
+                    {onSelectQuestions && (
+                      <Button onClick={handleUseSelected} size="sm" variant="outline" className="gap-2">
+                        <Copy className="h-4 w-4" />
+                        İstifadə et
+                      </Button>
+                    )}
+                    <Button onClick={handleCreateQuizClick} size="sm" className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      Quiz Yarat ({selectedQuestions.size})
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -348,6 +414,15 @@ export function QuestionBank({ onSelectQuestions }: QuestionBankProps) {
           ))
         )}
       </div>
+
+      {/* Create Quiz Dialog */}
+      <CreateQuizFromBank
+        open={showCreateQuiz}
+        onOpenChange={setShowCreateQuiz}
+        selectedQuestions={getSelectedQuestionsList()}
+        onRemoveQuestion={handleRemoveFromQuiz}
+        onQuizCreated={handleQuizCreated}
+      />
     </div>
   );
 }
