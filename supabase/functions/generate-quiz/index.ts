@@ -1,12 +1,54 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function logUsage(supabase: any, userId: string | null, provider: string, model: string, inputTokens: number, outputTokens: number, requestType: string) {
+  try {
+    // Log to ai_usage_logs
+    await supabase.from('ai_usage_logs').insert({
+      user_id: userId,
+      provider,
+      model,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      request_type: requestType,
+    });
+
+    // Update daily usage
+    const today = new Date().toISOString().split('T')[0];
+    const { data: existing } = await supabase
+      .from('ai_daily_usage')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('usage_date', today)
+      .single();
+
+    if (existing) {
+      await supabase
+        .from('ai_daily_usage')
+        .update({
+          total_requests: existing.total_requests + 1,
+          total_tokens: existing.total_tokens + inputTokens + outputTokens,
+        })
+        .eq('id', existing.id);
+    } else {
+      await supabase.from('ai_daily_usage').insert({
+        user_id: userId,
+        usage_date: today,
+        total_requests: 1,
+        total_tokens: inputTokens + outputTokens,
+      });
+    }
+  } catch (error) {
+    console.error('Error logging usage:', error);
+  }
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -19,6 +61,20 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
+    // Setup Supabase for usage logging
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user ID from auth header if present
+    let userId: string | null = null;
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id || null;
+    }
+
     console.log(`Generating ${questionCount} questions for topic: ${topic}, subject: ${subject}, difficulty: ${difficulty}`);
     console.log(`Agent: ${agentId}, Has template: ${!!templatePrompt}, Has document context: ${!!documentContext}`);
 
@@ -28,7 +84,6 @@ serve(async (req) => {
       hard: "Suallar çətin olmalı, analitik düşüncə və mürəkkəb problemlərin həllini tələb etməlidir."
     };
 
-    // Agent-specific system prompts
     const agentPrompts: Record<string, string> = {
       'quiz-master': `Sən Azərbaycan dilində test sualları yaradan ekspert müəllimsən.
 Sənin vəzifən verilmiş mövzu üzrə keyfiyyətli çoxseçimli test sualları yaratmaqdır.`,
@@ -44,7 +99,6 @@ Sualları aydın, anlaşılan və qrammatik cəhətdən mükəmməl yarat.`
 
     let systemPrompt = agentPrompts[agentId] || agentPrompts['quiz-master'];
     
-    // Add template if provided
     if (templatePrompt) {
       systemPrompt += `\n\nXüsusi təlimatlar:\n${templatePrompt}`;
     }
@@ -60,12 +114,10 @@ Vacib qaydalar:
 
 Çətinlik səviyyəsi: ${difficultyInstructions[difficulty] || difficultyInstructions.medium}`;
 
-    // Build user prompt
     let userPrompt = `Mövzu: ${topic}
 Fənn: ${subject}
 Sual sayı: ${questionCount}`;
 
-    // Add document context if provided (RAG)
     if (documentContext) {
       userPrompt += `
 
@@ -106,23 +158,10 @@ Bu mövzu üzrə ${questionCount} ədəd çoxseçimli test sualı yarat.`;
                     items: {
                       type: 'object',
                       properties: {
-                        question: { 
-                          type: 'string',
-                          description: 'The question text in Azerbaijani'
-                        },
-                        options: { 
-                          type: 'array',
-                          items: { type: 'string' },
-                          description: 'Array of 4 answer options'
-                        },
-                        correctAnswer: { 
-                          type: 'number',
-                          description: 'Index of correct answer (0-3)'
-                        },
-                        explanation: { 
-                          type: 'string',
-                          description: 'Explanation for the correct answer in Azerbaijani'
-                        }
+                        question: { type: 'string', description: 'The question text in Azerbaijani' },
+                        options: { type: 'array', items: { type: 'string' }, description: 'Array of 4 answer options' },
+                        correctAnswer: { type: 'number', description: 'Index of correct answer (0-3)' },
+                        explanation: { type: 'string', description: 'Explanation for the correct answer in Azerbaijani' }
                       },
                       required: ['question', 'options', 'correctAnswer', 'explanation'],
                       additionalProperties: false
@@ -162,7 +201,18 @@ Bu mövzu üzrə ${questionCount} ədəd çoxseçimli test sualı yarat.`;
     const data = await response.json();
     console.log('AI response received:', JSON.stringify(data).substring(0, 500));
 
-    // Extract the tool call result
+    // Log usage
+    const usage = data.usage || {};
+    await logUsage(
+      supabase,
+      userId,
+      'lovable',
+      'google/gemini-2.5-flash',
+      usage.prompt_tokens || 0,
+      usage.completion_tokens || 0,
+      'quiz_generation'
+    );
+
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall || toolCall.function.name !== 'create_quiz_questions') {
       console.error('Unexpected response format:', data);
@@ -171,7 +221,6 @@ Bu mövzu üzrə ${questionCount} ədəd çoxseçimli test sualı yarat.`;
 
     const questionsData = JSON.parse(toolCall.function.arguments);
     
-    // Add IDs to questions
     const questions = questionsData.questions.map((q: any, index: number) => ({
       id: `ai-${Date.now()}-${index}`,
       ...q
@@ -187,9 +236,7 @@ Bu mövzu üzrə ${questionCount} ədəd çoxseçimli test sualı yarat.`;
   } catch (error) {
     console.error('Error in generate-quiz function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Naməlum xəta baş verdi' 
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Naməlum xəta baş verdi' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

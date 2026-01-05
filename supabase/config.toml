@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.question-bank]
 verify_jwt = false
+
+[functions.ai-config]
+verify_jwt = false
