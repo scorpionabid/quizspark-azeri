@@ -14,6 +14,197 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_config: {
+        Row: {
+          default_model_id: string | null
+          default_provider_id: string | null
+          global_daily_limit: number | null
+          id: string
+          is_enabled: boolean | null
+          teacher_daily_limit: number | null
+          temperature: number | null
+          timeout_seconds: number | null
+          updated_at: string | null
+          user_daily_limit: number | null
+        }
+        Insert: {
+          default_model_id?: string | null
+          default_provider_id?: string | null
+          global_daily_limit?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          teacher_daily_limit?: number | null
+          temperature?: number | null
+          timeout_seconds?: number | null
+          updated_at?: string | null
+          user_daily_limit?: number | null
+        }
+        Update: {
+          default_model_id?: string | null
+          default_provider_id?: string | null
+          global_daily_limit?: number | null
+          id?: string
+          is_enabled?: boolean | null
+          teacher_daily_limit?: number | null
+          temperature?: number | null
+          timeout_seconds?: number | null
+          updated_at?: string | null
+          user_daily_limit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_config_default_model_id_fkey"
+            columns: ["default_model_id"]
+            isOneToOne: false
+            referencedRelation: "ai_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_config_default_provider_id_fkey"
+            columns: ["default_provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_daily_usage: {
+        Row: {
+          id: string
+          total_requests: number | null
+          total_tokens: number | null
+          usage_date: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          total_requests?: number | null
+          total_tokens?: number | null
+          usage_date?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          total_requests?: number | null
+          total_tokens?: number | null
+          usage_date?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_models: {
+        Row: {
+          cost_per_1k_input: number | null
+          cost_per_1k_output: number | null
+          created_at: string | null
+          display_name: string
+          id: string
+          is_default: boolean | null
+          max_tokens: number | null
+          model_id: string
+          provider_id: string | null
+          supports_streaming: boolean | null
+        }
+        Insert: {
+          cost_per_1k_input?: number | null
+          cost_per_1k_output?: number | null
+          created_at?: string | null
+          display_name: string
+          id?: string
+          is_default?: boolean | null
+          max_tokens?: number | null
+          model_id: string
+          provider_id?: string | null
+          supports_streaming?: boolean | null
+        }
+        Update: {
+          cost_per_1k_input?: number | null
+          cost_per_1k_output?: number | null
+          created_at?: string | null
+          display_name?: string
+          id?: string
+          is_default?: boolean | null
+          max_tokens?: number | null
+          model_id?: string
+          provider_id?: string | null
+          supports_streaming?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_models_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_providers: {
+        Row: {
+          api_endpoint: string | null
+          created_at: string | null
+          display_name: string
+          id: string
+          is_enabled: boolean | null
+          name: string
+          requires_api_key: boolean | null
+        }
+        Insert: {
+          api_endpoint?: string | null
+          created_at?: string | null
+          display_name: string
+          id?: string
+          is_enabled?: boolean | null
+          name: string
+          requires_api_key?: boolean | null
+        }
+        Update: {
+          api_endpoint?: string | null
+          created_at?: string | null
+          display_name?: string
+          id?: string
+          is_enabled?: boolean | null
+          name?: string
+          requires_api_key?: boolean | null
+        }
+        Relationships: []
+      }
+      ai_usage_logs: {
+        Row: {
+          created_at: string | null
+          id: string
+          input_tokens: number | null
+          model: string
+          output_tokens: number | null
+          provider: string
+          request_type: string | null
+          total_tokens: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          input_tokens?: number | null
+          model: string
+          output_tokens?: number | null
+          provider: string
+          request_type?: string | null
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          input_tokens?: number | null
+          model?: string
+          output_tokens?: number | null
+          provider?: string
+          request_type?: string | null
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           content: string | null
@@ -109,11 +300,39 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       search_questions: {
         Args: {
           filter_user_id?: string
@@ -137,7 +356,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "teacher" | "student"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -264,6 +483,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "teacher", "student"],
+    },
   },
 } as const

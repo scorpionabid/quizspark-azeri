@@ -1,297 +1,272 @@
-import { useState } from "react";
-import { 
-  Cpu, 
-  Key, 
-  Activity, 
-  AlertTriangle,
-  Save,
-  Eye,
-  EyeOff,
-  RefreshCw
-} from "lucide-react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-
-interface UsageStats {
-  label: string;
-  used: number;
-  limit: number;
-  unit: string;
-}
-
-const usageStats: UsageStats[] = [
-  { label: "API Sorğuları", used: 8500, limit: 10000, unit: "sorğu" },
-  { label: "Token İstifadəsi", used: 450000, limit: 1000000, unit: "token" },
-  { label: "Sual Yaratma", used: 320, limit: 500, unit: "sual" },
-];
+import { useToast } from "@/hooks/use-toast";
+import { Save, RefreshCw, Bot, Shield } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { ProviderCard } from "@/components/admin/ProviderCard";
+import { UsageStatsCard } from "@/components/admin/UsageStatsCard";
+import { UserUsageTable } from "@/components/admin/UserUsageTable";
+import { ConfigSettingsCard } from "@/components/admin/ConfigSettingsCard";
+import { AIProvider, AIConfig, AIUsageStats, AIUserUsage } from "@/types/ai-config";
 
 export default function AIConfigPage() {
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [apiKey, setApiKey] = useState("sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-  const [model, setModel] = useState("gpt-4");
-  const [maxTokens, setMaxTokens] = useState("2000");
-  const [temperature, setTemperature] = useState("0.7");
-  const [isEnabled, setIsEnabled] = useState(true);
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  
+  const [providers, setProviders] = useState<AIProvider[]>([]);
+  const [config, setConfig] = useState<AIConfig | null>(null);
+  const [usageStats, setUsageStats] = useState<AIUsageStats | null>(null);
+  const [userUsage, setUserUsage] = useState<AIUserUsage[]>([]);
 
-  const handleSave = () => {
-    toast.success("AI konfiqurasiyası yeniləndi!");
-    setHasChanges(false);
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch providers directly from database
+      const { data: dbProviders } = await supabase
+        .from("ai_providers")
+        .select(`
+          *,
+          models:ai_models(*)
+        `)
+        .order("created_at");
+
+      if (dbProviders) {
+        // Check API key status for each provider
+        const providersWithStatus = dbProviders.map((p: any) => ({
+          ...p,
+          hasApiKey: p.name === "lovable", // Lovable AI is always available
+        }));
+        setProviders(providersWithStatus as AIProvider[]);
+      }
+
+      // Fetch config
+      const { data: configData } = await supabase
+        .from("ai_config")
+        .select("*")
+        .single();
+
+      if (configData) {
+        setConfig(configData as unknown as AIConfig);
+      }
+
+      // Fetch usage stats
+      const today = new Date().toISOString().split("T")[0];
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: todayLogs } = await supabase
+        .from("ai_usage_logs")
+        .select("total_tokens")
+        .gte("created_at", today);
+
+      const { data: weekLogs } = await supabase
+        .from("ai_usage_logs")
+        .select("total_tokens")
+        .gte("created_at", weekAgo);
+
+      const { data: monthLogs } = await supabase
+        .from("ai_usage_logs")
+        .select("total_tokens")
+        .gte("created_at", monthAgo);
+
+      setUsageStats({
+        today: {
+          requests: todayLogs?.length || 0,
+          tokens: todayLogs?.reduce((sum, l) => sum + (l.total_tokens || 0), 0) || 0,
+        },
+        week: {
+          requests: weekLogs?.length || 0,
+          tokens: weekLogs?.reduce((sum, l) => sum + (l.total_tokens || 0), 0) || 0,
+        },
+        month: {
+          requests: monthLogs?.length || 0,
+          tokens: monthLogs?.reduce((sum, l) => sum + (l.total_tokens || 0), 0) || 0,
+        },
+      });
+
+      // Fetch user usage
+      const { data: dailyUsage } = await supabase
+        .from("ai_daily_usage")
+        .select("*")
+        .eq("usage_date", today)
+        .order("total_requests", { ascending: false })
+        .limit(50);
+
+      setUserUsage((dailyUsage as unknown as AIUserUsage[]) || []);
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast({
+        title: "Xəta",
+        description: "Məlumatlar yüklənərkən xəta baş verdi",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleChange = () => {
-    setHasChanges(true);
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleProviderToggle = async (id: string, enabled: boolean) => {
+    try {
+      await supabase
+        .from("ai_providers")
+        .update({ is_enabled: enabled })
+        .eq("id", id);
+
+      setProviders(providers.map(p => 
+        p.id === id ? { ...p, is_enabled: enabled } : p
+      ));
+
+      toast({
+        title: "Uğurlu",
+        description: `Provayder ${enabled ? "aktivləşdirildi" : "deaktiv edildi"}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Xəta",
+        description: "Provayder yenilənərkən xəta baş verdi",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddApiKey = (providerName: string) => {
+    const keyNames: Record<string, string> = {
+      openai: "OPENAI_API_KEY",
+      anthropic: "ANTHROPIC_API_KEY",
+      google: "GOOGLE_AI_API_KEY",
+    };
+    
+    toast({
+      title: "API Açarı Tələb Olunur",
+      description: `${providerName.toUpperCase()} üçün ${keyNames[providerName]} əlavə edin`,
+    });
+  };
+
+  const handleConfigChange = (updates: Partial<AIConfig>) => {
+    if (config) {
+      setConfig({ ...config, ...updates });
+      setHasChanges(true);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!config) return;
+    
+    setIsSaving(true);
+    try {
+      await supabase
+        .from("ai_config")
+        .update({
+          default_provider_id: config.default_provider_id,
+          default_model_id: config.default_model_id,
+          global_daily_limit: config.global_daily_limit,
+          user_daily_limit: config.user_daily_limit,
+          teacher_daily_limit: config.teacher_daily_limit,
+          temperature: config.temperature,
+          timeout_seconds: config.timeout_seconds,
+          is_enabled: config.is_enabled,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", config.id);
+
+      setHasChanges(false);
+      toast({
+        title: "Uğurlu",
+        description: "Konfiqurasiya yadda saxlanıldı",
+      });
+    } catch (error) {
+      toast({
+        title: "Xəta",
+        description: "Konfiqurasiya saxlanarkən xəta baş verdi",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">AI Konfiqurasiyası</h1>
-            <p className="text-muted-foreground">AI xidmət parametrlərini idarə edin</p>
-          </div>
-          {hasChanges && (
-            <Button variant="game" onClick={handleSave}>
-              <Save className="mr-2 h-4 w-4" />
-              Dəyişiklikləri Saxla
-            </Button>
-          )}
-        </div>
-
-        {/* Status */}
-        <div className="mb-8 flex items-center gap-4 rounded-2xl bg-gradient-card border border-border/50 p-6">
-          <div className={cn(
-            "flex h-14 w-14 items-center justify-center rounded-2xl",
-            isEnabled ? "bg-success/20" : "bg-muted"
-          )}>
-            <Cpu className={cn("h-7 w-7", isEnabled ? "text-success" : "text-muted-foreground")} />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-foreground">AI Xidməti</span>
-              <Badge variant={isEnabled ? "success" : "muted"}>
-                {isEnabled ? "Aktiv" : "Deaktiv"}
-              </Badge>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Bot className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-sm text-muted-foreground">
-              AI köməkçisi və sual yaratma xidmətləri
-            </p>
-          </div>
-          <Switch
-            checked={isEnabled}
-            onCheckedChange={(checked) => {
-              setIsEnabled(checked);
-              handleChange();
-            }}
-          />
-        </div>
-
-        {/* Usage Stats */}
-        <div className="mb-8 rounded-2xl bg-gradient-card border border-border/50 p-6">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">
-              <Activity className="h-5 w-5 text-primary" />
+            <div>
+              <h1 className="text-2xl font-bold">AI Konfiqurasiyası</h1>
+              <p className="text-muted-foreground">
+                AI provayderlərini, modelləri və istifadə limitlərini idarə edin
+              </p>
             </div>
-            <h2 className="font-display text-xl font-bold text-foreground">İstifadə Statistikası</h2>
           </div>
-
-          <div className="space-y-6">
-            {usageStats.map((stat) => {
-              const percentage = (stat.used / stat.limit) * 100;
-              const isWarning = percentage >= 80;
-              
-              return (
-                <div key={stat.label}>
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{stat.label}</span>
-                      {isWarning && (
-                        <Badge variant="warning" className="text-xs">
-                          <AlertTriangle className="mr-1 h-3 w-3" />
-                          Limit yaxınlaşır
-                        </Badge>
-                      )}
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {stat.used.toLocaleString()} / {stat.limit.toLocaleString()} {stat.unit}
-                    </span>
-                  </div>
-                  <Progress 
-                    value={percentage} 
-                    className={cn("h-2", isWarning && "[&>div]:bg-warning")} 
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 flex items-center justify-between rounded-xl bg-muted/30 p-4">
-            <span className="text-sm text-muted-foreground">Son yenilənmə: Bu gün, 14:30</span>
-            <Button variant="ghost" size="sm">
-              <RefreshCw className="mr-2 h-4 w-4" />
+          
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={fetchData} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
               Yenilə
             </Button>
+            {hasChanges && (
+              <Button onClick={handleSave} disabled={isSaving}>
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? "Saxlanılır..." : "Yadda Saxla"}
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* API Configuration */}
-        <div className="mb-8 rounded-2xl bg-gradient-card border border-border/50 p-6">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/20">
-              <Key className="h-5 w-5 text-secondary" />
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Providers */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">AI Provayderləri</h2>
             </div>
-            <h2 className="font-display text-xl font-bold text-foreground">API Parametrləri</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {providers.map((provider) => (
+                <ProviderCard
+                  key={provider.id}
+                  provider={provider}
+                  onToggle={handleProviderToggle}
+                  onAddApiKey={handleAddApiKey}
+                  isDefault={provider.id === config?.default_provider_id}
+                />
+              ))}
+            </div>
           </div>
 
-          <div className="grid gap-6">
-            <div>
-              <Label htmlFor="apiKey">API Açarı</Label>
-              <div className="relative mt-2">
-                <Input
-                  id="apiKey"
-                  type={showApiKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => {
-                    setApiKey(e.target.value);
-                    handleChange();
-                  }}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <Label>Model</Label>
-                <Select value={model} onValueChange={(value) => {
-                  setModel(value);
-                  handleChange();
-                }}>
-                  <SelectTrigger className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gpt-4">GPT-4</SelectItem>
-                    <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                    <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="maxTokens">Maksimum Token</Label>
-                <Input
-                  id="maxTokens"
-                  type="number"
-                  value={maxTokens}
-                  onChange={(e) => {
-                    setMaxTokens(e.target.value);
-                    handleChange();
-                  }}
-                  className="mt-2"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="temperature">Temperature</Label>
-                <Input
-                  id="temperature"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="2"
-                  value={temperature}
-                  onChange={(e) => {
-                    setTemperature(e.target.value);
-                    handleChange();
-                  }}
-                  className="mt-2"
-                />
-              </div>
-            </div>
+          {/* Right Column - Settings */}
+          <div className="space-y-6">
+            <ConfigSettingsCard
+              config={config}
+              providers={providers}
+              onConfigChange={handleConfigChange}
+            />
           </div>
         </div>
 
-        {/* Limits Configuration */}
-        <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/20">
-              <AlertTriangle className="h-5 w-5 text-accent" />
-            </div>
-            <h2 className="font-display text-xl font-bold text-foreground">Limit Ayarları</h2>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="dailyLimit">Gündəlik API Limiti</Label>
-              <Input
-                id="dailyLimit"
-                type="number"
-                defaultValue="1000"
-                className="mt-2"
-                onChange={handleChange}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">Gündə maksimum sorğu sayı</p>
-            </div>
-
-            <div>
-              <Label htmlFor="userLimit">İstifadəçi Limiti</Label>
-              <Input
-                id="userLimit"
-                type="number"
-                defaultValue="50"
-                className="mt-2"
-                onChange={handleChange}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">Hər istifadəçi üçün gündəlik limit</p>
-            </div>
-
-            <div>
-              <Label htmlFor="questionLimit">Sual Yaratma Limiti</Label>
-              <Input
-                id="questionLimit"
-                type="number"
-                defaultValue="20"
-                className="mt-2"
-                onChange={handleChange}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">Hər quiz üçün maksimum AI sual sayı</p>
-            </div>
-
-            <div>
-              <Label htmlFor="timeout">Timeout (saniyə)</Label>
-              <Input
-                id="timeout"
-                type="number"
-                defaultValue="30"
-                className="mt-2"
-                onChange={handleChange}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">API sorğu timeout müddəti</p>
-            </div>
-          </div>
+        {/* Usage Statistics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <UsageStatsCard
+            stats={usageStats}
+            dailyLimit={config?.global_daily_limit || 10000}
+            isLoading={isLoading}
+          />
+          <UserUsageTable
+            usage={userUsage}
+            userLimit={config?.user_daily_limit || 100}
+            isLoading={isLoading}
+          />
         </div>
       </div>
     </div>
