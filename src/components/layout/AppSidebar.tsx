@@ -13,10 +13,11 @@ import {
   Cpu,
   GraduationCap,
   Sparkles,
-  User
+  User,
+  LogIn
 } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useAuth, AppRole } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -33,11 +34,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+type NavRole = AppRole | 'guest';
+
 interface NavItem {
   title: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
-  roles: UserRole[];
+  roles: NavRole[];
 }
 
 interface NavGroup {
@@ -76,12 +79,13 @@ const navigationGroups: NavGroup[] = [
 ];
 
 export function AppSidebar() {
-  const { user, logout, switchRole } = useAuth();
+  const { user, role, profile, signOut, isAuthenticated } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
-  const currentRole = user?.role || 'guest';
+  const currentRole: NavRole = role || 'guest';
 
   const filteredGroups = navigationGroups
     .map(group => ({
@@ -90,8 +94,8 @@ export function AppSidebar() {
     }))
     .filter(group => group.items.length > 0);
 
-  const getRoleIcon = (role: UserRole) => {
-    switch (role) {
+  const getRoleIcon = (r: NavRole) => {
+    switch (r) {
       case 'admin': return Shield;
       case 'teacher': return GraduationCap;
       case 'student': return User;
@@ -99,8 +103,8 @@ export function AppSidebar() {
     }
   };
 
-  const getRoleColor = (role: UserRole) => {
-    switch (role) {
+  const getRoleColor = (r: NavRole) => {
+    switch (r) {
       case 'admin': return 'text-destructive';
       case 'teacher': return 'text-secondary';
       case 'student': return 'text-primary';
@@ -108,7 +112,23 @@ export function AppSidebar() {
     }
   };
 
+  const getRoleLabel = (r: NavRole) => {
+    switch (r) {
+      case 'admin': return 'Administrator';
+      case 'teacher': return 'Müəllim';
+      case 'student': return 'Tələbə';
+      default: return 'Qonaq';
+    }
+  };
+
   const RoleIcon = getRoleIcon(currentRole);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'İstifadəçi';
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -164,37 +184,10 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
-
-        {/* Demo Role Switcher */}
-        {!collapsed && (
-          <SidebarGroup className="mt-4">
-            <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Demo Rol Dəyişdir
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="flex flex-wrap gap-1.5 px-2">
-                {(['admin', 'teacher', 'student', 'guest'] as UserRole[]).map((role) => (
-                  <Button
-                    key={role}
-                    variant={currentRole === role ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => switchRole(role)}
-                    className="h-7 px-2 text-xs capitalize"
-                  >
-                    {role === 'admin' && 'Admin'}
-                    {role === 'teacher' && 'Müəllim'}
-                    {role === 'student' && 'Tələbə'}
-                    {role === 'guest' && 'Qonaq'}
-                  </Button>
-                ))}
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
-        {user ? (
+        {isAuthenticated && user ? (
           <div className="flex items-center gap-3">
             <div className={cn(
               "flex h-10 w-10 items-center justify-center rounded-full bg-muted",
@@ -204,24 +197,22 @@ export function AppSidebar() {
             </div>
             {!collapsed && (
               <div className="flex flex-1 flex-col">
-                <span className="text-sm font-medium text-foreground">{user.name}</span>
-                <span className="text-xs text-muted-foreground capitalize">
-                  {user.role === 'admin' && 'Administrator'}
-                  {user.role === 'teacher' && 'Müəllim'}
-                  {user.role === 'student' && 'Tələbə'}
-                  {user.role === 'guest' && 'Qonaq'}
+                <span className="text-sm font-medium text-foreground">{displayName}</span>
+                <span className="text-xs text-muted-foreground">
+                  {getRoleLabel(currentRole)}
                 </span>
               </div>
             )}
             {!collapsed && (
-              <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground hover:text-destructive">
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-destructive">
                 <LogOut className="h-4 w-4" />
               </Button>
             )}
           </div>
         ) : (
           !collapsed && (
-            <Button variant="default" className="w-full" onClick={() => switchRole('student')}>
+            <Button variant="default" className="w-full" onClick={() => navigate('/auth')}>
+              <LogIn className="mr-2 h-4 w-4" />
               Daxil Ol
             </Button>
           )
