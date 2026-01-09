@@ -27,112 +27,70 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { useMyQuizzes, useDeleteQuiz } from "@/hooks/useQuizzes";
+import { PageLoader } from "@/components/ui/loading-spinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 
-interface TeacherQuiz {
-  id: string;
-  title: string;
-  subject: string;
-  grade: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  questionCount: number;
-  playCount: number;
-  avgScore: number;
-  status: 'draft' | 'active' | 'archived';
-  createdAt: string;
-  updatedAt: string;
-}
-
-const myQuizzes: TeacherQuiz[] = [
-  {
-    id: '1',
-    title: 'Cəbr Əsasları: Tənliklər',
-    subject: 'Riyaziyyat',
-    grade: '9-cu sinif',
-    difficulty: 'medium',
-    questionCount: 15,
-    playCount: 145,
-    avgScore: 78,
-    status: 'active',
-    createdAt: '2024-01-15',
-    updatedAt: '2024-01-20',
-  },
-  {
-    id: '2',
-    title: 'Həndəsə: Üçbucaqlar',
-    subject: 'Riyaziyyat',
-    grade: '8-ci sinif',
-    difficulty: 'easy',
-    questionCount: 10,
-    playCount: 89,
-    avgScore: 82,
-    status: 'active',
-    createdAt: '2024-01-10',
-    updatedAt: '2024-01-18',
-  },
-  {
-    id: '3',
-    title: 'Tənliklər Sistemi',
-    subject: 'Riyaziyyat',
-    grade: '10-cu sinif',
-    difficulty: 'hard',
-    questionCount: 20,
-    playCount: 0,
-    avgScore: 0,
-    status: 'draft',
-    createdAt: '2024-01-22',
-    updatedAt: '2024-01-22',
-  },
-  {
-    id: '4',
-    title: 'Faiz Hesablamaları',
-    subject: 'Riyaziyyat',
-    grade: '7-ci sinif',
-    difficulty: 'easy',
-    questionCount: 12,
-    playCount: 67,
-    avgScore: 85,
-    status: 'active',
-    createdAt: '2024-01-05',
-    updatedAt: '2024-01-12',
-  },
-  {
-    id: '5',
-    title: 'Köhnə Quiz',
-    subject: 'Riyaziyyat',
-    grade: '6-cı sinif',
-    difficulty: 'easy',
-    questionCount: 8,
-    playCount: 234,
-    avgScore: 75,
-    status: 'archived',
-    createdAt: '2023-12-01',
-    updatedAt: '2024-01-01',
-  },
-];
-
-const difficultyLabels = {
+const difficultyLabels: Record<string, string> = {
   easy: 'Asan',
   medium: 'Orta',
   hard: 'Çətin',
-};
-
-const statusLabels = {
-  draft: 'Qaralama',
-  active: 'Aktiv',
-  archived: 'Arxiv',
 };
 
 export default function MyQuizzesPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [quizToDelete, setQuizToDelete] = useState<string | null>(null);
 
-  const filteredQuizzes = myQuizzes.filter((quiz) => {
+  const { data: quizzes = [], isLoading, error } = useMyQuizzes();
+  const deleteQuiz = useDeleteQuiz();
+
+  const filteredQuizzes = quizzes.filter((quiz) => {
     const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || quiz.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "active" && quiz.is_published) ||
+      (statusFilter === "draft" && !quiz.is_published);
     return matchesSearch && matchesStatus;
   });
+
+  const handleDelete = async () => {
+    if (!quizToDelete) return;
+    try {
+      await deleteQuiz.mutateAsync(quizToDelete);
+      setDeleteDialogOpen(false);
+      setQuizToDelete(null);
+    } catch (error) {
+      toast.error("Quiz silinərkən xəta baş verdi");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
+        <PageLoader text="Quizlər yüklənir..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
+        <EmptyState
+          icon="❌"
+          title="Xəta baş verdi"
+          description="Quizlər yüklənərkən xəta baş verdi."
+          action={{
+            label: "Yenidən cəhd et",
+            onClick: () => window.location.reload(),
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
@@ -167,9 +125,8 @@ export default function MyQuizzesPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Hamısı</SelectItem>
-              <SelectItem value="active">Aktiv</SelectItem>
+              <SelectItem value="active">Dərc Olunmuş</SelectItem>
               <SelectItem value="draft">Qaralama</SelectItem>
-              <SelectItem value="archived">Arxiv</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -188,30 +145,25 @@ export default function MyQuizzesPage() {
                       <h3 className="font-display text-lg font-bold text-foreground">
                         {quiz.title}
                       </h3>
-                      <Badge variant={
-                        quiz.status === 'active' ? 'success' : 
-                        quiz.status === 'draft' ? 'warning' : 'muted'
-                      }>
-                        {statusLabels[quiz.status]}
+                      <Badge variant={quiz.is_published ? 'success' : 'warning'}>
+                        {quiz.is_published ? 'Dərc Olunmuş' : 'Qaralama'}
                       </Badge>
-                      <Badge variant={quiz.difficulty}>
-                        {difficultyLabels[quiz.difficulty]}
-                      </Badge>
+                      {quiz.difficulty && (
+                        <Badge variant={quiz.difficulty}>
+                          {difficultyLabels[quiz.difficulty] || quiz.difficulty}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                      <span>{quiz.subject}</span>
-                      <span>•</span>
-                      <span>{quiz.grade}</span>
-                      <span>•</span>
-                      <span>{quiz.questionCount} sual</span>
-                      {quiz.status !== 'draft' && (
+                      {quiz.subject && <span>{quiz.subject}</span>}
+                      {quiz.grade && (
                         <>
                           <span>•</span>
-                          <span>{quiz.playCount} oyun</span>
-                          <span>•</span>
-                          <span>Orta: {quiz.avgScore}%</span>
+                          <span>{quiz.grade}</span>
                         </>
                       )}
+                      <span>•</span>
+                      <span>{quiz.play_count || 0} oyun</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -242,7 +194,13 @@ export default function MyQuizzesPage() {
                           <Archive className="mr-2 h-4 w-4" />
                           Arxivlə
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => {
+                            setQuizToDelete(quiz.id);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Sil
                         </DropdownMenuItem>
@@ -253,18 +211,28 @@ export default function MyQuizzesPage() {
               </div>
             ))
           ) : (
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-card/50 py-16 text-center">
-              <div className="mb-4 text-6xl">📝</div>
-              <h3 className="mb-2 text-xl font-semibold text-foreground">Quiz tapılmadı</h3>
-              <p className="mb-4 text-muted-foreground">Axtarış filterini dəyişdirin və ya yeni quiz yaradın</p>
-              <Button variant="game" onClick={() => navigate('/teacher/create')}>
-                <Plus className="mr-2 h-4 w-4" />
-                Yeni Quiz Yarat
-              </Button>
-            </div>
+            <EmptyState
+              icon="📝"
+              title="Quiz tapılmadı"
+              description="Axtarış filterini dəyişdirin və ya yeni quiz yaradın"
+              action={{
+                label: "Yeni Quiz Yarat",
+                onClick: () => navigate('/teacher/create'),
+              }}
+            />
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Quizi silmək istəyirsiniz?"
+        description="Bu əməliyyat geri qaytarıla bilməz. Quiz və bütün suallar silinəcək."
+        confirmLabel="Sil"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

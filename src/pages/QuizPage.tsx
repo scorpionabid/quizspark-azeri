@@ -4,8 +4,14 @@ import { ArrowLeft, Clock, CheckCircle, XCircle, Trophy, RotateCcw, Home } from 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { sampleQuizzes, sampleQuestions } from "@/data/sampleQuizzes";
 import { cn } from "@/lib/utils";
+import { useQuiz } from "@/hooks/useQuizzes";
+import { useQuestions } from "@/hooks/useQuestions";
+import { useStartAttempt, useCompleteAttempt } from "@/hooks/useQuizAttempts";
+import { useAuth } from "@/contexts/AuthContext";
+import { PageLoader } from "@/components/ui/loading-spinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { toast } from "sonner";
 
 type QuizState = 'intro' | 'playing' | 'result';
 
@@ -20,8 +26,12 @@ export default function QuizPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isPreview = searchParams.get('preview') === 'true';
+  const { user } = useAuth();
 
-  const quiz = sampleQuizzes.find(q => q.id === id);
+  const { data: quiz, isLoading: quizLoading } = useQuiz(id);
+  const { data: questions = [], isLoading: questionsLoading } = useQuestions(id);
+  const startAttempt = useStartAttempt();
+  const completeAttempt = useCompleteAttempt();
   
   const [quizState, setQuizState] = useState<QuizState>('intro');
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -29,6 +39,10 @@ export default function QuizPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+
+  const isLoading = quizLoading || questionsLoading;
 
   useEffect(() => {
     if (quizState === 'playing' && timeLeft > 0) {
@@ -46,38 +60,83 @@ export default function QuizPage() {
   }, [quizState, timeLeft]);
 
   const handleTimeUp = () => {
-    if (selectedOption === null) {
+    if (selectedOption === null && questions.length > 0) {
       handleAnswer(-1);
     }
   };
 
-  const startQuiz = () => {
-    setQuizState('playing');
-    setCurrentQuestion(0);
-    setAnswers([]);
-    setTimeLeft((quiz?.duration || 20) * 60);
+  const startQuiz = async () => {
+    if (!quiz || !user) {
+      if (!user) {
+        toast.error("Quiz başlamaq üçün daxil olmalısınız");
+        navigate('/auth');
+        return;
+      }
+      return;
+    }
+
+    try {
+      const attempt = await startAttempt.mutateAsync({
+        quizId: quiz.id,
+        totalQuestions: questions.length,
+      });
+      setAttemptId(attempt.id);
+      setStartTime(new Date());
+      setQuizState('playing');
+      setCurrentQuestion(0);
+      setAnswers([]);
+      setTimeLeft((quiz.duration || 20) * 60);
+    } catch (error) {
+      console.error("Error starting quiz:", error);
+      toast.error("Quiz başladılarkən xəta baş verdi");
+    }
   };
 
-  const handleAnswer = (optionIndex: number) => {
-    if (showFeedback) return;
+  const handleAnswer = async (optionIndex: number) => {
+    if (showFeedback || questions.length === 0) return;
+    
+    const question = questions[currentQuestion];
+    const options = (question.options as string[]) || [];
     
     setSelectedOption(optionIndex);
     setShowFeedback(true);
 
-    const isCorrect = optionIndex === sampleQuestions[currentQuestion].correctAnswer;
+    const selectedAnswer = optionIndex >= 0 ? options[optionIndex] : "";
+    const isCorrect = selectedAnswer === question.correct_answer;
     
-    setAnswers(prev => [...prev, {
+    const newAnswer = {
       questionIndex: currentQuestion,
       selectedOption: optionIndex,
       isCorrect,
-    }]);
+    };
+    
+    const updatedAnswers = [...answers, newAnswer];
+    setAnswers(updatedAnswers);
 
-    setTimeout(() => {
-      if (currentQuestion < sampleQuestions.length - 1) {
+    setTimeout(async () => {
+      if (currentQuestion < questions.length - 1) {
         setCurrentQuestion(prev => prev + 1);
         setSelectedOption(null);
         setShowFeedback(false);
       } else {
+        // Quiz completed
+        if (attemptId && startTime && user && quiz) {
+          const correctCount = updatedAnswers.filter(a => a.isCorrect).length;
+          const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+          
+          try {
+            await completeAttempt.mutateAsync({
+              attemptId,
+              quizId: quiz.id,
+              score: correctCount,
+              totalQuestions: questions.length,
+              timeSpent,
+              answers: updatedAnswers as any,
+            });
+          } catch (error) {
+            console.error("Error completing quiz:", error);
+          }
+        }
         setQuizState('result');
       }
     }, 1500);
@@ -90,15 +149,29 @@ export default function QuizPage() {
   };
 
   const correctAnswers = answers.filter(a => a.isCorrect).length;
-  const score = Math.round((correctAnswers / sampleQuestions.length) * 100);
+  const score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-hero">
+        <PageLoader text="Quiz yüklənir..." />
+      </div>
+    );
+  }
 
   if (!quiz) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 text-6xl">😕</div>
-          <h2 className="mb-2 text-2xl font-bold text-foreground">Quiz tapılmadı</h2>
-          <Button onClick={() => navigate('/')}>Ana Səhifəyə Qayıt</Button>
+      <div className="min-h-screen bg-gradient-hero p-4 sm:p-8">
+        <div className="mx-auto max-w-2xl">
+          <EmptyState
+            icon="😕"
+            title="Quiz tapılmadı"
+            description="Bu quiz mövcud deyil və ya silinib."
+            action={{
+              label: "Ana Səhifəyə Qayıt",
+              onClick: () => navigate('/'),
+            }}
+          />
         </div>
       </div>
     );
@@ -129,7 +202,7 @@ export default function QuizPage() {
 
             <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div className="rounded-xl bg-muted/50 p-4 text-center">
-                <div className="text-2xl font-bold text-primary">{sampleQuestions.length}</div>
+                <div className="text-2xl font-bold text-primary">{questions.length}</div>
                 <div className="text-xs text-muted-foreground">Sual</div>
               </div>
               <div className="rounded-xl bg-muted/50 p-4 text-center">
@@ -137,7 +210,7 @@ export default function QuizPage() {
                 <div className="text-xs text-muted-foreground">Dəqiqə</div>
               </div>
               <div className="rounded-xl bg-muted/50 p-4 text-center">
-                <Badge variant={quiz.difficulty} className="mb-1">
+                <Badge variant={quiz.difficulty || "medium"} className="mb-1">
                   {quiz.difficulty === 'easy' ? 'Asan' : quiz.difficulty === 'medium' ? 'Orta' : 'Çətin'}
                 </Badge>
                 <div className="text-xs text-muted-foreground">Çətinlik</div>
@@ -148,16 +221,36 @@ export default function QuizPage() {
               </div>
             </div>
 
-            {isPreview ? (
+            {isPreview || !user ? (
               <div className="text-center">
                 <p className="mb-4 text-muted-foreground">Bu quizi başlamaq üçün daxil olmalısınız.</p>
+                <div className="flex gap-2 justify-center">
+                  <Button variant="outline" onClick={() => navigate('/')}>
+                    Ana Səhifəyə Qayıt
+                  </Button>
+                  {!user && (
+                    <Button variant="game" onClick={() => navigate('/auth')}>
+                      Daxil Ol
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : questions.length === 0 ? (
+              <div className="text-center">
+                <p className="mb-4 text-muted-foreground">Bu quizdə hələ sual yoxdur.</p>
                 <Button variant="outline" onClick={() => navigate('/')}>
                   Ana Səhifəyə Qayıt
                 </Button>
               </div>
             ) : (
-              <Button variant="game" size="xl" className="w-full" onClick={startQuiz}>
-                Quizə Başla
+              <Button 
+                variant="game" 
+                size="xl" 
+                className="w-full" 
+                onClick={startQuiz}
+                disabled={startAttempt.isPending}
+              >
+                {startAttempt.isPending ? "Yüklənir..." : "Quizə Başla"}
               </Button>
             )}
           </div>
@@ -167,9 +260,11 @@ export default function QuizPage() {
   }
 
   // Playing Screen
-  if (quizState === 'playing') {
-    const question = sampleQuestions[currentQuestion];
-    const progress = ((currentQuestion + 1) / sampleQuestions.length) * 100;
+  if (quizState === 'playing' && questions.length > 0) {
+    const question = questions[currentQuestion];
+    const options = (question.options as string[]) || [];
+    const progress = ((currentQuestion + 1) / questions.length) * 100;
+    const correctOptionIndex = options.findIndex(opt => opt === question.correct_answer);
 
     return (
       <div className="min-h-screen bg-gradient-hero p-4 sm:p-8">
@@ -200,7 +295,7 @@ export default function QuizPage() {
           {/* Progress */}
           <div className="mb-8">
             <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
-              <span>Sual {currentQuestion + 1} / {sampleQuestions.length}</span>
+              <span>Sual {currentQuestion + 1} / {questions.length}</span>
               <span>{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} className="h-2" />
@@ -209,13 +304,13 @@ export default function QuizPage() {
           {/* Question Card */}
           <div className="animate-slide-up rounded-3xl bg-gradient-card border border-border/50 p-6 shadow-elevated sm:p-8">
             <h2 className="mb-8 text-center font-display text-xl font-bold text-foreground sm:text-2xl">
-              {question.question}
+              {question.question_text}
             </h2>
 
             <div className="grid gap-3 sm:gap-4">
-              {question.options.map((option, index) => {
+              {options.map((option, index) => {
                 const isSelected = selectedOption === index;
-                const isCorrect = index === question.correctAnswer;
+                const isCorrect = index === correctOptionIndex;
                 const showResult = showFeedback;
 
                 return (
@@ -259,10 +354,10 @@ export default function QuizPage() {
             </div>
 
             {/* Feedback */}
-            {showFeedback && (
+            {showFeedback && question.explanation && (
               <div className={cn(
                 "mt-6 rounded-xl p-4",
-                selectedOption === question.correctAnswer ? "bg-success/10" : "bg-muted/50"
+                selectedOption !== null && options[selectedOption] === question.correct_answer ? "bg-success/10" : "bg-muted/50"
               )}>
                 <p className="text-sm text-muted-foreground">
                   <strong className="text-foreground">İzahı:</strong> {question.explanation}
@@ -318,18 +413,26 @@ export default function QuizPage() {
               <div className="text-xs text-muted-foreground">Düzgün</div>
             </div>
             <div className="rounded-xl bg-destructive/10 p-4">
-              <div className="text-2xl font-bold text-destructive">{sampleQuestions.length - correctAnswers}</div>
+              <div className="text-2xl font-bold text-destructive">{questions.length - correctAnswers}</div>
               <div className="text-xs text-muted-foreground">Yanlış</div>
             </div>
             <div className="rounded-xl bg-muted/50 p-4">
-              <div className="text-2xl font-bold text-foreground">{sampleQuestions.length}</div>
+              <div className="text-2xl font-bold text-foreground">{questions.length}</div>
               <div className="text-xs text-muted-foreground">Ümumi</div>
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button variant="game" className="flex-1" onClick={startQuiz}>
+            <Button variant="game" className="flex-1" onClick={() => {
+              setQuizState('intro');
+              setAttemptId(null);
+              setStartTime(null);
+              setAnswers([]);
+              setCurrentQuestion(0);
+              setSelectedOption(null);
+              setShowFeedback(false);
+            }}>
               <RotateCcw className="mr-2 h-4 w-4" />
               Yenidən Cəhd Et
             </Button>
