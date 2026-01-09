@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { QuizCard, Quiz } from "@/components/quiz/QuizCard";
 import { CategoryFilter } from "@/components/quiz/CategoryFilter";
 import { useAuth } from "@/contexts/AuthContext";
-import { sampleQuizzes, categories } from "@/data/sampleQuizzes";
+import { usePublicQuizzes } from "@/hooks/useQuizzes";
+import { categories } from "@/data/sampleQuizzes";
+import { PageLoader } from "@/components/ui/loading-spinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Select,
   SelectContent,
@@ -23,9 +26,27 @@ export default function QuizzesPage() {
   const [difficulty, setDifficulty] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("popular");
 
+  const { data: quizzes = [], isLoading, error } = usePublicQuizzes();
+
   const isGuest = !user || user.role === 'guest';
 
-  const filteredQuizzes = sampleQuizzes
+  // Transform database quizzes to Quiz type
+  const transformedQuizzes: Quiz[] = quizzes.map((quiz) => ({
+    id: quiz.id,
+    title: quiz.title,
+    description: quiz.description || "",
+    subject: quiz.subject || "Digər",
+    grade: quiz.grade || "",
+    difficulty: (quiz.difficulty as "easy" | "medium" | "hard") || "medium",
+    questionCount: 0, // Will be fetched separately if needed
+    duration: quiz.duration || 20,
+    playCount: quiz.play_count || 0,
+    rating: Number(quiz.rating) || 0,
+    isPopular: quiz.is_popular || false,
+    isNew: quiz.is_new || false,
+  }));
+
+  const filteredQuizzes = transformedQuizzes
     .filter((quiz) => {
       const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quiz.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -59,6 +80,32 @@ export default function QuizzesPage() {
   const handlePreviewQuiz = (quiz: Quiz) => {
     navigate(`/quiz/${quiz.id}?preview=true`);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
+        <PageLoader text="Quizlər yüklənir..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-7xl">
+          <EmptyState
+            icon="❌"
+            title="Xəta baş verdi"
+            description="Quizlər yüklənərkən xəta baş verdi. Zəhmət olmasa yenidən cəhd edin."
+            action={{
+              label: "Yenidən cəhd et",
+              onClick: () => window.location.reload(),
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
@@ -140,18 +187,19 @@ export default function QuizzesPage() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-2xl bg-card/50 py-16 text-center">
-            <div className="mb-4 text-6xl">🔍</div>
-            <h3 className="mb-2 text-xl font-semibold text-foreground">Quiz tapılmadı</h3>
-            <p className="mb-4 text-muted-foreground">Filterləri dəyişdirməyə çalışın</p>
-            <Button variant="outline" onClick={() => {
-              setSearchQuery("");
-              setSelectedCategory(null);
-              setDifficulty("all");
-            }}>
-              Filterləri Sıfırla
-            </Button>
-          </div>
+          <EmptyState
+            icon="🔍"
+            title="Quiz tapılmadı"
+            description="Filterləri dəyişdirməyə çalışın"
+            action={{
+              label: "Filterləri Sıfırla",
+              onClick: () => {
+                setSearchQuery("");
+                setSelectedCategory(null);
+                setDifficulty("all");
+              },
+            }}
+          />
         )}
       </div>
     </div>

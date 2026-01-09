@@ -5,10 +5,8 @@ import {
   Plus, 
   Trash2, 
   Save, 
-  Eye, 
   Upload, 
   Sparkles,
-  GripVertical,
   CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +24,10 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useCreateQuiz } from "@/hooks/useQuizzes";
+import { useBulkCreateQuestions } from "@/hooks/useQuestions";
+import { useAuth } from "@/contexts/AuthContext";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface Question {
   id: string;
@@ -38,6 +40,10 @@ interface Question {
 
 export default function CreateQuizPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const createQuiz = useCreateQuiz();
+  const createQuestions = useBulkCreateQuestions();
+  
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [subject, setSubject] = useState("");
@@ -45,6 +51,7 @@ export default function CreateQuizPage() {
   const [difficulty, setDifficulty] = useState("");
   const [duration, setDuration] = useState("20");
   const [isPublic, setIsPublic] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: '1',
@@ -91,7 +98,12 @@ export default function CreateQuizPage() {
     }));
   };
 
-  const handleSave = (publish: boolean = false) => {
+  const handleSave = async (publish: boolean = false) => {
+    if (!user) {
+      toast.error("Daxil olmalısınız");
+      return;
+    }
+
     if (!quizTitle.trim()) {
       toast.error("Quiz başlığı daxil edin");
       return;
@@ -107,8 +119,44 @@ export default function CreateQuizPage() {
       return;
     }
 
-    toast.success(publish ? "Quiz uğurla dərc edildi!" : "Quiz qaralama olaraq saxlanıldı");
-    navigate('/teacher/my-quizzes');
+    setIsSubmitting(true);
+
+    try {
+      // Create the quiz first
+      const quiz = await createQuiz.mutateAsync({
+        title: quizTitle.trim(),
+        description: quizDescription.trim() || null,
+        subject: subject,
+        grade: grade || null,
+        difficulty: (difficulty || null) as "easy" | "medium" | "hard" | null,
+        duration: parseInt(duration) || 20,
+        is_public: isPublic,
+        is_published: publish,
+      });
+
+      // Then create questions
+      const questionsToCreate = questions.map((q, index) => ({
+        quiz_id: quiz.id,
+        question_text: q.question,
+        question_type: q.type === 'mcq' ? 'multiple_choice' : q.type === 'true-false' ? 'true_false' : 'short_answer',
+        options: q.type !== 'short-answer' ? q.options : null,
+        correct_answer: typeof q.correctAnswer === 'number' 
+          ? q.options[q.correctAnswer] 
+          : q.correctAnswer.toString(),
+        explanation: q.explanation || null,
+        order_index: index,
+      }));
+
+      await createQuestions.mutateAsync(questionsToCreate);
+
+      toast.success(publish ? "Quiz uğurla dərc edildi!" : "Quiz qaralama olaraq saxlanıldı");
+      navigate('/teacher/my-quizzes');
+    } catch (error) {
+      console.error("Error creating quiz:", error);
+      toast.error("Quiz yaradılarkən xəta baş verdi");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -125,12 +173,28 @@ export default function CreateQuizPage() {
             Geri
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => handleSave(false)}>
-              <Save className="mr-2 h-4 w-4" />
+            <Button 
+              variant="outline" 
+              onClick={() => handleSave(false)}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <LoadingSpinner size="sm" className="mr-2" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
               Qaralama
             </Button>
-            <Button variant="game" onClick={() => handleSave(true)}>
-              <CheckCircle className="mr-2 h-4 w-4" />
+            <Button 
+              variant="game" 
+              onClick={() => handleSave(true)}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <LoadingSpinner size="sm" className="mr-2" />
+              ) : (
+                <CheckCircle className="mr-2 h-4 w-4" />
+              )}
               Dərc Et
             </Button>
           </div>
@@ -172,14 +236,14 @@ export default function CreateQuizPage() {
                     <SelectValue placeholder="Seçin" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="math">Riyaziyyat</SelectItem>
-                    <SelectItem value="physics">Fizika</SelectItem>
-                    <SelectItem value="chemistry">Kimya</SelectItem>
-                    <SelectItem value="biology">Biologiya</SelectItem>
-                    <SelectItem value="history">Tarix</SelectItem>
-                    <SelectItem value="geography">Coğrafiya</SelectItem>
-                    <SelectItem value="literature">Ədəbiyyat</SelectItem>
-                    <SelectItem value="english">İngilis dili</SelectItem>
+                    <SelectItem value="Riyaziyyat">Riyaziyyat</SelectItem>
+                    <SelectItem value="Fizika">Fizika</SelectItem>
+                    <SelectItem value="Kimya">Kimya</SelectItem>
+                    <SelectItem value="Biologiya">Biologiya</SelectItem>
+                    <SelectItem value="Tarix">Tarix</SelectItem>
+                    <SelectItem value="Coğrafiya">Coğrafiya</SelectItem>
+                    <SelectItem value="Ədəbiyyat">Ədəbiyyat</SelectItem>
+                    <SelectItem value="İngilis dili">İngilis dili</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -192,7 +256,7 @@ export default function CreateQuizPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {[5, 6, 7, 8, 9, 10, 11].map(g => (
-                      <SelectItem key={g} value={g.toString()}>{g}-ci sinif</SelectItem>
+                      <SelectItem key={g} value={`${g}-ci sinif`}>{g}-ci sinif</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
