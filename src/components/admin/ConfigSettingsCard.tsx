@@ -59,7 +59,7 @@ export function ConfigSettingsCard({ config, providers, onConfigChange }: Config
         <div className="space-y-2">
           <Label>Default Provayder</Label>
           <Select
-            value={config.default_provider_id}
+            value={config.default_provider_id || undefined}
             onValueChange={(value) => {
               const provider = providers.find(p => p.id === value);
               const defaultModel = provider?.models.find(m => m.is_default) || provider?.models[0];
@@ -73,11 +73,17 @@ export function ConfigSettingsCard({ config, providers, onConfigChange }: Config
               <SelectValue placeholder="Provayder seçin" />
             </SelectTrigger>
             <SelectContent>
-              {enabledProviders.map((provider) => (
-                <SelectItem key={provider.id} value={provider.id}>
-                  {provider.display_name}
-                </SelectItem>
-              ))}
+              {enabledProviders.length > 0 ? (
+                enabledProviders.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.id}>
+                    {provider.display_name}
+                  </SelectItem>
+                ))
+              ) : (
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                  Aktiv provayder yoxdur
+                </div>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -86,18 +92,24 @@ export function ConfigSettingsCard({ config, providers, onConfigChange }: Config
         <div className="space-y-2">
           <Label>Default Model</Label>
           <Select
-            value={config.default_model_id}
+            value={config.default_model_id || undefined}
             onValueChange={(value) => onConfigChange({ default_model_id: value })}
           >
             <SelectTrigger>
               <SelectValue placeholder="Model seçin" />
             </SelectTrigger>
             <SelectContent>
-              {availableModels.map((model) => (
-                <SelectItem key={model.id} value={model.id}>
-                  {model.display_name}
-                </SelectItem>
-              ))}
+              {availableModels.length > 0 ? (
+                availableModels.map((model) => (
+                  <SelectItem key={model.id} value={model.id}>
+                    {model.display_name}
+                  </SelectItem>
+                ))
+              ) : (
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                  Model yoxdur
+                </div>
+              )}
             </SelectContent>
           </Select>
         </div>
