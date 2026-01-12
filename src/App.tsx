@@ -20,6 +20,7 @@ import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import CreateQuizPage from "./pages/teacher/CreateQuizPage";
 import MyQuizzesPage from "./pages/teacher/MyQuizzesPage";
 import AIAssistantPage from "./pages/teacher/AIAssistantPage";
+import QuestionBankPage from "./pages/teacher/QuestionBankPage";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -66,6 +67,11 @@ const App = () => (
             <Route path="/teacher/ai-assistant" element={
               <ProtectedRoute allowedRoles={['teacher', 'admin']}>
                 <MainLayout><AIAssistantPage /></MainLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/question-bank" element={
+              <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+                <MainLayout><QuestionBankPage /></MainLayout>
               </ProtectedRoute>
             } />
             <Route path="/teacher/edit/:id" element={
