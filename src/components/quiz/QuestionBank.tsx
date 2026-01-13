@@ -241,14 +241,14 @@ export function QuestionBank({ onSelectQuestions }: QuestionBankProps) {
           {/* Filters */}
           <div className="flex flex-wrap gap-2">
             <Select
-              value={filters.category}
-              onValueChange={(v) => setFilters(prev => ({ ...prev, category: v }))}
+              value={filters.category || "all"}
+              onValueChange={(v) => setFilters(prev => ({ ...prev, category: v === "all" ? "" : v }))}
             >
               <SelectTrigger className="w-[150px] bg-background/50">
                 <SelectValue placeholder="Kateqoriya" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Hamısı</SelectItem>
+                <SelectItem value="all">Hamısı</SelectItem>
                 {categories.map(cat => (
                   <SelectItem key={cat} value={cat!}>{cat}</SelectItem>
                 ))}
@@ -256,14 +256,14 @@ export function QuestionBank({ onSelectQuestions }: QuestionBankProps) {
             </Select>
 
             <Select
-              value={filters.difficulty}
-              onValueChange={(v) => setFilters(prev => ({ ...prev, difficulty: v }))}
+              value={filters.difficulty || "all"}
+              onValueChange={(v) => setFilters(prev => ({ ...prev, difficulty: v === "all" ? "" : v }))}
             >
               <SelectTrigger className="w-[120px] bg-background/50">
                 <SelectValue placeholder="Çətinlik" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Hamısı</SelectItem>
+                <SelectItem value="all">Hamısı</SelectItem>
                 <SelectItem value="asan">Asan</SelectItem>
                 <SelectItem value="orta">Orta</SelectItem>
                 <SelectItem value="çətin">Çətin</SelectItem>
@@ -271,14 +271,14 @@ export function QuestionBank({ onSelectQuestions }: QuestionBankProps) {
             </Select>
 
             <Select
-              value={filters.type}
-              onValueChange={(v) => setFilters(prev => ({ ...prev, type: v }))}
+              value={filters.type || "all"}
+              onValueChange={(v) => setFilters(prev => ({ ...prev, type: v === "all" ? "" : v }))}
             >
               <SelectTrigger className="w-[150px] bg-background/50">
                 <SelectValue placeholder="Sual növü" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Hamısı</SelectItem>
+                <SelectItem value="all">Hamısı</SelectItem>
                 <SelectItem value="multiple_choice">Çoxseçimli</SelectItem>
                 <SelectItem value="true_false">Doğru/Yanlış</SelectItem>
                 <SelectItem value="open">Açıq sual</SelectItem>
