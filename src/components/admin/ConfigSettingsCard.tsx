@@ -74,7 +74,7 @@ export function ConfigSettingsCard({ config, providers, onConfigChange }: Config
             </SelectTrigger>
             <SelectContent>
               {enabledProviders.length > 0 ? (
-                enabledProviders.map((provider) => (
+                enabledProviders.filter(p => p.id).map((provider) => (
                   <SelectItem key={provider.id} value={provider.id}>
                     {provider.display_name}
                   </SelectItem>
@@ -100,7 +100,7 @@ export function ConfigSettingsCard({ config, providers, onConfigChange }: Config
             </SelectTrigger>
             <SelectContent>
               {availableModels.length > 0 ? (
-                availableModels.map((model) => (
+                availableModels.filter(m => m.id).map((model) => (
                   <SelectItem key={model.id} value={model.id}>
                     {model.display_name}
                   </SelectItem>
