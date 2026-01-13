@@ -14,7 +14,8 @@ import {
   GraduationCap,
   Sparkles,
   User,
-  LogIn
+  LogIn,
+  Database
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -63,6 +64,7 @@ const navigationGroups: NavGroup[] = [
       { title: "İdarə Paneli", url: "/teacher/dashboard", icon: LayoutDashboard, roles: ['admin', 'teacher'] },
       { title: "Quiz Yarat", url: "/teacher/create", icon: PlusCircle, roles: ['admin', 'teacher'] },
       { title: "Quizlərim", url: "/teacher/my-quizzes", icon: FileText, roles: ['admin', 'teacher'] },
+      { title: "Sual Bankı", url: "/teacher/question-bank", icon: Database, roles: ['admin', 'teacher'] },
       { title: "AI Köməkçi", url: "/teacher/ai-assistant", icon: Sparkles, roles: ['admin', 'teacher'] },
     ],
   },
