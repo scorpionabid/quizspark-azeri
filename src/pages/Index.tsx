@@ -1,31 +1,79 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { QuizCard, Quiz } from "@/components/quiz/QuizCard";
 import { CategoryFilter } from "@/components/quiz/CategoryFilter";
+import { QuizFilters, QuizFilterValues } from "@/components/quiz/QuizFilters";
 import { useAuth } from "@/contexts/AuthContext";
 import { sampleQuizzes, categories } from "@/data/sampleQuizzes";
+
+const defaultFilters: QuizFilterValues = {
+  difficulty: "all",
+  duration: "all",
+  sortBy: "newest",
+};
 
 export default function Index() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [filters, setFilters] = useState<QuizFilterValues>(defaultFilters);
 
   const isGuest = !user || user.role === 'guest';
+  const isLoggedIn = !!user && user.role !== 'guest';
 
-  const filteredQuizzes = sampleQuizzes.filter((quiz) => {
-    const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      quiz.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      quiz.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = !selectedCategory || 
-      quiz.subject.toLowerCase().includes(selectedCategory.toLowerCase());
-    
-    return matchesSearch && matchesCategory;
-  });
+  const filteredQuizzes = useMemo(() => {
+    let result = sampleQuizzes.filter((quiz) => {
+      // Search filter
+      const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        quiz.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        quiz.subject.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Category filter
+      const matchesCategory = !selectedCategory || 
+        quiz.subject.toLowerCase().includes(selectedCategory.toLowerCase());
+      
+      // Difficulty filter
+      const matchesDifficulty = filters.difficulty === "all" || 
+        quiz.difficulty === filters.difficulty;
+      
+      // Duration filter
+      let matchesDuration = true;
+      if (filters.duration !== "all") {
+        if (filters.duration === "short") {
+          matchesDuration = quiz.duration <= 10;
+        } else if (filters.duration === "medium") {
+          matchesDuration = quiz.duration > 10 && quiz.duration <= 20;
+        } else if (filters.duration === "long") {
+          matchesDuration = quiz.duration > 20;
+        }
+      }
+      
+      return matchesSearch && matchesCategory && matchesDifficulty && matchesDuration;
+    });
+
+    // Sort
+    switch (filters.sortBy) {
+      case "popular":
+        result = [...result].sort((a, b) => b.playCount - a.playCount);
+        break;
+      case "rating":
+        result = [...result].sort((a, b) => b.rating - a.rating);
+        break;
+      case "questions":
+        result = [...result].sort((a, b) => b.questionCount - a.questionCount);
+        break;
+      case "newest":
+      default:
+        // Keep original order for newest
+        break;
+    }
+
+    return result;
+  }, [searchQuery, selectedCategory, filters]);
 
   const popularQuizzes = sampleQuizzes.filter(q => q.isPopular);
   const newQuizzes = sampleQuizzes.filter(q => q.isNew);
@@ -36,6 +84,12 @@ export default function Index() {
 
   const handlePreviewQuiz = (quiz: Quiz) => {
     navigate(`/quiz/${quiz.id}?preview=true`);
+  };
+
+  const handleClearFilters = () => {
+    setFilters(defaultFilters);
+    setSelectedCategory(null);
+    setSearchQuery("");
   };
 
   return (
@@ -105,7 +159,7 @@ export default function Index() {
       </section>
 
       {/* Categories */}
-      <section className="px-4 pb-8 sm:px-6 lg:px-8">
+      <section className="px-4 pb-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <CategoryFilter
             categories={categories}
@@ -114,6 +168,21 @@ export default function Index() {
           />
         </div>
       </section>
+
+      {/* Advanced Filters - Show for logged in users */}
+      {isLoggedIn && (
+        <section className="px-4 pb-8 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="rounded-2xl border border-border/50 bg-card/30 p-4 backdrop-blur-sm">
+              <QuizFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                onClearFilters={handleClearFilters}
+              />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Popular Quizzes */}
       {!searchQuery && !selectedCategory && popularQuizzes.length > 0 && (
