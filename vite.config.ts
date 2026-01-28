@@ -16,3 +16,5 @@ export default defineConfig(({ mode }) => ({
     },
   },
 }));
+
+// Forced restart for route sync

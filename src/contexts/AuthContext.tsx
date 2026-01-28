@@ -14,6 +14,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Defer fetching additional data with setTimeout to prevent deadlock
         if (session?.user) {
           setTimeout(() => {
@@ -48,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         fetchUserData(session.user.id);
       }
@@ -66,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('role')
         .eq('user_id', userId)
         .maybeSingle();
-      
+
       if (roleData) {
         setRole(roleData.role as AppRole);
       }
@@ -77,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('full_name, avatar_url')
         .eq('user_id', userId)
         .maybeSingle();
-      
+
       if (result.data) {
         setProfile(result.data as { full_name: string | null; avatar_url: string | null });
       }
@@ -92,11 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
       });
-      
+
       if (error) {
         return { error };
       }
-      
+
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -106,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, fullName: string): Promise<{ error: Error | null }> => {
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -117,11 +118,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         },
       });
-      
+
       if (error) {
         return { error };
       }
-      
+
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -136,6 +137,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchUserData(user.id);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -148,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
+        refreshProfile,
       }}
     >
       {children}

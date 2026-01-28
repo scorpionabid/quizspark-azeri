@@ -108,10 +108,10 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link to="/profile" className="flex items-center">
+        <DropdownMenuItem asChild>
+          <Link to="/profile" className="flex w-full items-center cursor-pointer">
             <User className="mr-2 h-4 w-4" />
-            Profil
+            <span>Profil</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="cursor-pointer">

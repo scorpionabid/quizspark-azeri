@@ -1,10 +1,10 @@
-import { 
-  Home, 
-  BookOpen, 
-  Users, 
-  Settings, 
-  LogOut, 
-  Trophy, 
+import {
+  Home,
+  BookOpen,
+  Users,
+  Settings,
+  LogOut,
+  Trophy,
   PlusCircle,
   LayoutDashboard,
   FileText,
@@ -56,6 +56,7 @@ const navigationGroups: NavGroup[] = [
       { title: "Ana Səhifə", url: "/", icon: Home, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Quizlər", url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Liderlik Lövhəsi", url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student'] },
+      { title: "Profil", url: "/profile", icon: User, roles: ['admin', 'teacher', 'student'] },
     ],
   },
   {

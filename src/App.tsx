@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import QuizPage from "./pages/QuizPage";
 import QuizzesPage from "./pages/QuizzesPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
+import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
 
@@ -42,8 +43,11 @@ const App = () => (
             {/* Auth Route - No Layout */}
             <Route path="/auth" element={<AuthPage />} />
 
+            {/* Profile Route - Debugging 404 */}
+            <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
+
             {/* Routes with Layout */}
-            <Route element={<MainLayout><Index /></MainLayout>} path="/" />
+            <Route path="/" element={<MainLayout><Index /></MainLayout>} />
             <Route path="/quiz/:id" element={<MainLayout><QuizPage /></MainLayout>} />
             <Route path="/quizzes" element={<MainLayout><QuizzesPage /></MainLayout>} />
             <Route path="/leaderboard" element={<MainLayout><LeaderboardPage /></MainLayout>} />
