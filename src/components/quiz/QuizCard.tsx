@@ -2,6 +2,7 @@ import { BookOpen, Clock, Users, Star, Trophy, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FavoriteButton } from "./FavoriteButton";
 
 export interface Quiz {
   id: string;
@@ -54,8 +55,9 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
       {/* Decorative gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       
-      {/* Popular/New badges */}
-      <div className="absolute right-3 top-3 z-10 flex gap-2">
+      {/* Favorite button & badges */}
+      <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+        <FavoriteButton quizId={quiz.id} />
         {quiz.isPopular && (
           <Badge variant="secondary" className="flex items-center gap-1">
             <Trophy className="h-3 w-3" />
