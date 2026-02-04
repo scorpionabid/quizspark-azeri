@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
+import { useQuestionCategories, useCreateQuestionCategory } from '@/hooks/useQuestionCategories';
 
 interface QuestionEditDialogProps {
   open: boolean;
@@ -62,11 +63,20 @@ export function QuestionEditDialog({
   open,
   onOpenChange,
   question,
-  categories,
+  categories: propCategories,
   onSave,
   isLoading,
   mode,
 }: QuestionEditDialogProps) {
+  // Fetch categories from database
+  const { data: dbCategories = [] } = useQuestionCategories();
+  const createCategory = useCreateQuestionCategory();
+  
+  // Use database categories, fall back to prop categories
+  const categories = dbCategories.length > 0 
+    ? dbCategories.map(c => c.name) 
+    : propCategories;
+
   const [formData, setFormData] = useState({
     question_text: '',
     question_type: 'multiple_choice',
@@ -319,10 +329,19 @@ export function QuestionEditDialog({
                   variant="outline"
                   size="sm"
                   className="h-8"
+                  disabled={createCategory.isPending}
                   onClick={() => {
                     if (newCategory.trim()) {
-                      setFormData({ ...formData, category: newCategory.trim() });
-                      setNewCategory('');
+                      // Create category in database
+                      createCategory.mutate(
+                        { name: newCategory.trim() },
+                        {
+                          onSuccess: () => {
+                            setFormData({ ...formData, category: newCategory.trim() });
+                            setNewCategory('');
+                          },
+                        }
+                      );
                     }
                   }}
                 >
