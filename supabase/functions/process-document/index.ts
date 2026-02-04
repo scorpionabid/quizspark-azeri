@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,7 +54,8 @@ serve(async (req) => {
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       if (LOVABLE_API_KEY) {
         const arrayBuffer = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        // Use Deno's base64 encoding to avoid stack overflow with large files
+        const base64 = encodeBase64(arrayBuffer);
         
         const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
@@ -94,7 +96,8 @@ serve(async (req) => {
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       if (LOVABLE_API_KEY) {
         const arrayBuffer = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        // Use Deno's base64 encoding to avoid stack overflow with large files
+        const base64 = encodeBase64(arrayBuffer);
         
         const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
