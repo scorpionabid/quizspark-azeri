@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Plus, 
   Upload, 
-  Download, 
   Database, 
   TrendingUp, 
   Layers, 
-  BarChart3 
+  BarChart3,
+  FolderOpen,
 } from 'lucide-react';
 import {
   Pagination,
@@ -23,7 +23,6 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   useQuestionBankList,
   useQuestionBankStats,
-  useQuestionBankCategories,
   useCreateQuestionBank,
   useUpdateQuestionBank,
   useDeleteQuestionBank,
@@ -33,6 +32,7 @@ import {
   QuestionBankItem,
   QuestionFilters as Filters,
 } from '@/hooks/useQuestionBank';
+import { useQuestionCategories, QuestionCategory } from '@/hooks/useQuestionCategories';
 
 import { QuestionFilters } from '@/components/question-bank/QuestionFilters';
 import { BulkActionsBar } from '@/components/question-bank/BulkActionsBar';
@@ -40,6 +40,7 @@ import { QuestionTable } from '@/components/question-bank/QuestionTable';
 import { QuestionEditDialog } from '@/components/question-bank/QuestionEditDialog';
 import { QuestionViewDialog } from '@/components/question-bank/QuestionViewDialog';
 import { ImportExportDialog } from '@/components/question-bank/ImportExportDialog';
+import { CategoryManagementDialog } from '@/components/question-bank/CategoryManagementDialog';
 
 const PAGE_SIZE = 50;
 
@@ -59,6 +60,7 @@ export default function QuestionBankPage() {
   const [importExportOpen, setImportExportOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   
   // Current question for dialogs
   const [currentQuestion, setCurrentQuestion] = useState<QuestionBankItem | null>(null);
@@ -71,7 +73,13 @@ export default function QuestionBankPage() {
     filters
   );
   const { data: stats } = useQuestionBankStats();
-  const { data: categories = [] } = useQuestionBankCategories();
+  const { data: questionCategories = [] } = useQuestionCategories();
+  
+  // Extract category names for filters and other components
+  const categories = useMemo(() => 
+    questionCategories.map((c: QuestionCategory) => c.name), 
+    [questionCategories]
+  );
 
   // Mutations
   const createQuestion = useCreateQuestionBank();
@@ -231,6 +239,10 @@ export default function QuestionBankPage() {
         description="Bütün suallarınızı bir yerdə idarə edin"
       >
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Kateqoriyalar
+          </Button>
           <Button variant="outline" onClick={() => setImportExportOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
             Import/Export
@@ -367,6 +379,11 @@ export default function QuestionBankPage() {
       </div>
 
       {/* Dialogs */}
+      <CategoryManagementDialog
+        open={categoryDialogOpen}
+        onOpenChange={setCategoryDialogOpen}
+      />
+
       <QuestionEditDialog
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}

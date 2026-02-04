@@ -26,10 +26,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { EditableQuestionCard, GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
-import { AgentSelector, agents } from "@/components/ai/AgentSelector";
+import { agents } from "@/components/ai/AgentSelector";
 import { TemplateLibrary, PromptTemplate } from "@/components/ai/TemplateLibrary";
 import { DocumentUploader } from "@/components/ai/DocumentUploader";
-import { supabase as supabaseClient } from "@/integrations/supabase/client";
+import { useCreateQuestionBank } from "@/hooks/useQuestionBank";
 
 interface UploadedDocument {
   id: string;
@@ -69,6 +69,44 @@ export default function AIAssistantPage() {
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
 
   const selectedAgent = agents[0]; // Quiz Master
+  const createQuestion = useCreateQuestionBank();
+
+  // Add single question to bank
+  const handleAddToBank = async (question: GeneratedQuestion) => {
+    const difficultyMap: Record<string, string> = {
+      easy: 'asan',
+      medium: 'orta',
+      hard: 'çətin',
+    };
+
+    return new Promise<void>((resolve, reject) => {
+      createQuestion.mutate(
+        {
+          question_text: question.question,
+          question_type: 'multiple_choice',
+          options: question.options,
+          correct_answer: question.options[question.correctAnswer] || question.options[0],
+          explanation: question.explanation || null,
+          category: subject ? subjectLabels[subject] : null,
+          difficulty: difficultyMap[difficulty] || 'orta',
+          bloom_level: null,
+          tags: null,
+          user_id: null,
+          source_document_id: null,
+        },
+        {
+          onSuccess: () => {
+            toast.success('Sual bankına əlavə edildi');
+            resolve();
+          },
+          onError: (err) => {
+            toast.error('Xəta baş verdi');
+            reject(err);
+          },
+        }
+      );
+    });
+  };
 
   const handleDocumentProcessed = (document: UploadedDocument) => {
     setUploadedDocuments(prev => [...prev, document]);
@@ -348,36 +386,6 @@ export default function AIAssistantPage() {
                     </h2>
                   </div>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={async () => {
-                        try {
-                          const questionsToSave = generatedQuestions.map(q => ({
-                            question: q.question,
-                            type: 'multiple_choice',
-                            options: q.options,
-                            correctAnswer: q.options[q.correctAnswer] || q.options[0],
-                            explanation: q.explanation,
-                            category: subject ? subjectLabels[subject] : undefined,
-                            difficulty: difficulty === 'easy' ? 'asan' : difficulty === 'hard' ? 'çətin' : 'orta',
-                          }));
-                          
-                          const { error } = await supabaseClient.functions.invoke('question-bank', {
-                            body: { action: 'save', questions: questionsToSave }
-                          });
-                          
-                          if (error) throw error;
-                          toast.success(`${generatedQuestions.length} sual bankına əlavə edildi!`);
-                        } catch (err) {
-                          console.error('Save error:', err);
-                          toast.error('Sualları saxlamaq mümkün olmadı');
-                        }
-                      }}
-                      className="gap-2"
-                    >
-                      <Save className="h-4 w-4" />
-                      Bankına Saxla
-                    </Button>
                     <Button variant="game" onClick={useAllQuestions}>
                       Hamısını İstifadə Et
                       <ArrowRight className="ml-2 h-4 w-4" />
@@ -392,6 +400,7 @@ export default function AIAssistantPage() {
                     index={index}
                     onUpdate={handleUpdateQuestion}
                     onDelete={handleDeleteQuestion}
+                    onAddToBank={handleAddToBank}
                   />
                 ))}
               </div>

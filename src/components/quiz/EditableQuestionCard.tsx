@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, Edit2, Save, X, Trash2 } from "lucide-react";
+import { Check, Database, Edit2, Save, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,20 +20,23 @@ interface EditableQuestionCardProps {
   index: number;
   onUpdate: (updatedQuestion: GeneratedQuestion) => void;
   onDelete: (id: string) => void;
+  onAddToBank?: (question: GeneratedQuestion) => void;
 }
 
 export function EditableQuestionCard({ 
   question, 
   index, 
   onUpdate, 
-  onDelete 
+  onDelete,
+  onAddToBank,
 }: EditableQuestionCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedQuestion, setEditedQuestion] = useState(question.question);
   const [editedOptions, setEditedOptions] = useState([...question.options]);
   const [editedCorrectAnswer, setEditedCorrectAnswer] = useState(question.correctAnswer);
   const [editedExplanation, setEditedExplanation] = useState(question.explanation);
-  const [copied, setCopied] = useState(false);
+  const [addedToBank, setAddedToBank] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   const handleSave = () => {
     if (!editedQuestion.trim()) {
@@ -70,12 +73,18 @@ export function EditableQuestionCard({
     setEditedOptions(newOptions);
   };
 
-  const copyQuestion = () => {
-    const text = `Sual: ${question.question}\n\nVariantlar:\n${question.options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join('\n')}\n\nDüzgün cavab: ${String.fromCharCode(65 + question.correctAnswer)}\n\nİzahı: ${question.explanation}`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success("Sual kopyalandı!");
-    setTimeout(() => setCopied(false), 2000);
+  const handleAddToBank = async () => {
+    if (!onAddToBank || addedToBank || isAdding) return;
+    
+    setIsAdding(true);
+    try {
+      await onAddToBank(question);
+      setAddedToBank(true);
+    } catch (err) {
+      // Error is handled in parent
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   if (isEditing) {
@@ -189,18 +198,26 @@ export function EditableQuestionCard({
             <Edit2 className="mr-1 h-4 w-4" />
             Redaktə
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={copyQuestion}
-          >
-            {copied ? (
-              <Check className="mr-1 h-4 w-4 text-success" />
-            ) : (
-              <Copy className="mr-1 h-4 w-4" />
-            )}
-            {copied ? 'Kopyalandı' : 'Kopyala'}
-          </Button>
+          {onAddToBank && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleAddToBank}
+              disabled={addedToBank || isAdding}
+              className={cn(
+                addedToBank && "text-success"
+              )}
+            >
+              {isAdding ? (
+                <div className="mr-1 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : addedToBank ? (
+                <Check className="mr-1 h-4 w-4 text-success" />
+              ) : (
+                <Database className="mr-1 h-4 w-4" />
+              )}
+              {isAdding ? 'Əlavə edilir...' : addedToBank ? 'Əlavə edildi' : 'Bankına Əlavə Et'}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"

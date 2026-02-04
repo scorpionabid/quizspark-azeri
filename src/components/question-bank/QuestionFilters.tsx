@@ -3,11 +3,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Search, X, Filter } from 'lucide-react';
 import { QuestionFilters as Filters } from '@/hooks/useQuestionBank';
+import { useQuestionCategories } from '@/hooks/useQuestionCategories';
 
 interface QuestionFiltersProps {
   filters: Filters;
   onFiltersChange: (filters: Filters) => void;
-  categories: string[];
+  categories: string[]; // kept for backwards compatibility, but we'll use hook data
   onClearFilters: () => void;
 }
 
@@ -27,9 +28,17 @@ const questionTypes = [
 export function QuestionFilters({
   filters,
   onFiltersChange,
-  categories,
+  categories: propCategories,
   onClearFilters,
 }: QuestionFiltersProps) {
+  // Fetch categories from database
+  const { data: dbCategories = [] } = useQuestionCategories();
+  
+  // Use database categories, fall back to prop categories for backwards compatibility
+  const categories = dbCategories.length > 0 
+    ? dbCategories 
+    : propCategories.map(name => ({ id: name, name, color: '#6366f1' }));
+
   const hasActiveFilters = 
     filters.search || 
     (filters.category && filters.category !== 'all') || 
@@ -77,8 +86,14 @@ export function QuestionFilters({
           <SelectContent>
             <SelectItem value="all">Bütün kateqoriyalar</SelectItem>
             {categories.map((cat) => (
-              <SelectItem key={cat} value={cat}>
-                {cat}
+              <SelectItem key={cat.id || cat.name} value={cat.name}>
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full shrink-0" 
+                    style={{ backgroundColor: cat.color || '#6366f1' }}
+                  />
+                  {cat.name}
+                </div>
               </SelectItem>
             ))}
           </SelectContent>
