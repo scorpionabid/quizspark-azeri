@@ -6,11 +6,9 @@ import {
   Wand2,
   ArrowRight,
   AlertCircle,
-  MessageSquare,
   FileText,
   Settings2,
   Upload,
-  Database,
   Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,10 +27,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { EditableQuestionCard, GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
 import { AgentSelector, agents } from "@/components/ai/AgentSelector";
-import { ChatInterface } from "@/components/ai/ChatInterface";
 import { TemplateLibrary, PromptTemplate } from "@/components/ai/TemplateLibrary";
 import { DocumentUploader } from "@/components/ai/DocumentUploader";
-import { QuestionBank } from "@/components/quiz/QuestionBank";
 import { supabase as supabaseClient } from "@/integrations/supabase/client";
 
 interface UploadedDocument {
@@ -69,11 +65,10 @@ export default function AIAssistantPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [selectedAgentId, setSelectedAgentId] = useState("quiz-master");
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
 
-  const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
+  const selectedAgent = agents[0]; // Quiz Master
 
   const handleDocumentProcessed = (document: UploadedDocument) => {
     setUploadedDocuments(prev => [...prev, document]);
@@ -114,7 +109,7 @@ export default function AIAssistantPage() {
           subject: subjectLabels[subject] || subject,
           difficulty,
           questionCount: parseInt(questionCount),
-          agentId: selectedAgentId,
+          agentId: selectedAgent.id,
           templatePrompt: selectedTemplate?.prompt,
           documentContext: documentContext || undefined
         }
@@ -174,25 +169,17 @@ export default function AIAssistantPage() {
             <span>AI Köməkçi</span>
           </div>
           <h1 className="mb-2 font-display text-3xl font-bold text-foreground">
-            Süni Zəka ilə Quiz Yaradın
+            Süni Zəka ilə Test Sualı Yaradın
           </h1>
           <p className="text-muted-foreground">
-            Agent seçin, şablon istifadə edin və ya AI ilə söhbət edin
+            Şablon istifadə edin və ya sənəddən suallar yaradın
           </p>
         </div>
 
-        {/* Agent Selector */}
-        <div className="mb-8">
-          <Label className="mb-3 block text-sm font-medium">AI Agent Seçin</Label>
-          <AgentSelector 
-            selectedAgentId={selectedAgentId} 
-            onSelectAgent={setSelectedAgentId} 
-          />
-        </div>
 
         {/* Tabs */}
         <Tabs defaultValue="generate" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
             <TabsTrigger value="generate" className="gap-2">
               <Wand2 className="h-4 w-4" />
               <span className="hidden sm:inline">Sual Yarat</span>
@@ -205,14 +192,6 @@ export default function AIAssistantPage() {
                   {uploadedDocuments.length}
                 </span>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="bank" className="gap-2">
-              <Database className="h-4 w-4" />
-              <span className="hidden sm:inline">Sual Bankı</span>
-            </TabsTrigger>
-            <TabsTrigger value="chat" className="gap-2">
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">AI Söhbət</span>
             </TabsTrigger>
             <TabsTrigger value="templates" className="gap-2">
               <FileText className="h-4 w-4" />
@@ -448,15 +427,6 @@ export default function AIAssistantPage() {
             </div>
           </TabsContent>
 
-          {/* Question Bank Tab */}
-          <TabsContent value="bank">
-            <QuestionBank />
-          </TabsContent>
-
-          {/* Chat Tab */}
-          <TabsContent value="chat">
-            <ChatInterface agent={selectedAgent} />
-          </TabsContent>
 
           {/* Templates Tab */}
           <TabsContent value="templates">
