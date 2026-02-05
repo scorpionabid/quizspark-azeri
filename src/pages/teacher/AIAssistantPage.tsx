@@ -30,6 +30,8 @@ import { agents } from "@/components/ai/AgentSelector";
 import { TemplateLibrary, PromptTemplate } from "@/components/ai/TemplateLibrary";
 import { DocumentUploader } from "@/components/ai/DocumentUploader";
 import { useCreateQuestionBank } from "@/hooks/useQuestionBank";
+import { AIParametersPanel, AIParameters } from "@/components/ai/AIParametersPanel";
+import { getBloomLevels } from "@/components/ai/BloomLevelBadge";
 
 interface UploadedDocument {
   id: string;
@@ -67,6 +69,12 @@ export default function AIAssistantPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const [aiParameters, setAIParameters] = useState<AIParameters>({
+    model: 'google/gemini-2.5-flash',
+    temperature: 0.7,
+    maxTokens: 4096,
+  });
+  const [bloomFilter, setBloomFilter] = useState<string>("");
 
   const selectedAgent = agents[0]; // Quiz Master
   const createQuestion = useCreateQuestionBank();
@@ -89,7 +97,7 @@ export default function AIAssistantPage() {
           explanation: question.explanation || null,
           category: subject ? subjectLabels[subject] : null,
           difficulty: difficultyMap[difficulty] || 'orta',
-          bloom_level: null,
+          bloom_level: question.bloomLevel || null,
           tags: null,
           user_id: null,
           source_document_id: null,
@@ -149,7 +157,10 @@ export default function AIAssistantPage() {
           questionCount: parseInt(questionCount),
           agentId: selectedAgent.id,
           templatePrompt: selectedTemplate?.prompt,
-          documentContext: documentContext || undefined
+          documentContext: documentContext || undefined,
+          model: aiParameters.model,
+          temperature: aiParameters.temperature,
+          bloomLevel: bloomFilter || undefined
         }
       });
 
@@ -186,6 +197,10 @@ export default function AIAssistantPage() {
   const handleDeleteQuestion = (id: string) => {
     setGeneratedQuestions(prev => prev.filter(q => q.id !== id));
     toast.success("Sual silindi");
+  };
+
+  const handleSimilarCreated = (newQuestion: GeneratedQuestion) => {
+    setGeneratedQuestions(prev => [...prev, newQuestion]);
   };
 
   const useAllQuestions = () => {
@@ -261,6 +276,12 @@ export default function AIAssistantPage() {
                   </div>
                 )}
 
+                {/* AI Parameters Panel */}
+                <AIParametersPanel
+                  parameters={aiParameters}
+                  onChange={setAIParameters}
+                />
+
                 <div>
                   <Label htmlFor="topic">Mövzu *</Label>
                   <div className="relative mt-2">
@@ -296,7 +317,7 @@ export default function AIAssistantPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
                   <div>
                     <Label>Fənn *</Label>
                     <Select value={subject} onValueChange={setSubject}>
@@ -342,6 +363,23 @@ export default function AIAssistantPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div>
+                    <Label>Bloom Səviyyəsi</Label>
+                    <Select value={bloomFilter} onValueChange={setBloomFilter}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Hamısı" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Hamısı (qarışıq)</SelectItem>
+                        {getBloomLevels().map((level) => (
+                          <SelectItem key={level.value} value={level.value}>
+                            {level.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                   </div>
                 </div>
 
                 {error && (
@@ -401,6 +439,7 @@ export default function AIAssistantPage() {
                     onUpdate={handleUpdateQuestion}
                     onDelete={handleDeleteQuestion}
                     onAddToBank={handleAddToBank}
+                    onSimilarCreated={handleSimilarCreated}
                   />
                 ))}
               </div>

@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { BloomLevelBadge } from "@/components/ai/BloomLevelBadge";
+import { QuestionEnhancer } from "@/components/ai/QuestionEnhancer";
 
 export interface GeneratedQuestion {
   id: string;
@@ -13,6 +15,7 @@ export interface GeneratedQuestion {
   options: string[];
   correctAnswer: number;
   explanation: string;
+  bloomLevel?: string;
 }
 
 interface EditableQuestionCardProps {
@@ -21,6 +24,7 @@ interface EditableQuestionCardProps {
   onUpdate: (updatedQuestion: GeneratedQuestion) => void;
   onDelete: (id: string) => void;
   onAddToBank?: (question: GeneratedQuestion) => void;
+  onSimilarCreated?: (newQuestion: GeneratedQuestion) => void;
 }
 
 export function EditableQuestionCard({ 
@@ -29,6 +33,7 @@ export function EditableQuestionCard({
   onUpdate, 
   onDelete,
   onAddToBank,
+  onSimilarCreated,
 }: EditableQuestionCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedQuestion, setEditedQuestion] = useState(question.question);
@@ -187,13 +192,19 @@ export function EditableQuestionCard({
             {index + 1}
           </div>
           <Badge variant="default">Çoxseçimli</Badge>
+          <BloomLevelBadge level={question.bloomLevel} />
         </div>
         <div className="flex gap-1">
+          <QuestionEnhancer
+            question={question}
+            onEnhanced={onUpdate}
+            onSimilarCreated={onSimilarCreated}
+          />
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsEditing(true)}
-            className="opacity-0 transition-opacity group-hover:opacity-100"
+            className="opacity-70 transition-opacity group-hover:opacity-100"
           >
             <Edit2 className="mr-1 h-4 w-4" />
             Redaktə

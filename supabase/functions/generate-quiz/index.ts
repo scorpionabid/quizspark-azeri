@@ -54,7 +54,18 @@ serve(async (req) => {
   }
 
   try {
-    const { topic, subject, difficulty, questionCount, agentId, templatePrompt, documentContext } = await req.json();
+    const { 
+      topic, 
+      subject, 
+      difficulty, 
+      questionCount, 
+      agentId, 
+      templatePrompt, 
+      documentContext,
+      model = 'google/gemini-2.5-flash',
+      temperature = 0.7,
+      bloomLevel
+    } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -77,6 +88,7 @@ serve(async (req) => {
 
     console.log(`Generating ${questionCount} questions for topic: ${topic}, subject: ${subject}, difficulty: ${difficulty}`);
     console.log(`Agent: ${agentId}, Has template: ${!!templatePrompt}, Has document context: ${!!documentContext}`);
+    console.log(`Model: ${model}, Temperature: ${temperature}, Bloom filter: ${bloomLevel || 'none'}`);
 
     const difficultyInstructions: Record<string, string> = {
       easy: "Suallar sadə olmalı, əsas anlayışları əhatə etməlidir.",
@@ -111,8 +123,15 @@ Vacib qaydalar:
 3. Yalnız bir düzgün cavab olmalıdır
 4. Hər sual üçün izah yazılmalıdır
 5. Suallar mövzuya uyğun və dəqiq olmalıdır
+6. Hər sual üçün Bloom taksonomiyası səviyyəsini təyin et: remembering, understanding, applying, analyzing, evaluating, creating
 
 Çətinlik səviyyəsi: ${difficultyInstructions[difficulty] || difficultyInstructions.medium}`;
+
+    if (bloomLevel) {
+      systemPrompt += `
+
+Vacib: Bütün suallar "${bloomLevel}" Bloom səviyyəsində olmalıdır.`;
+    }
 
     let userPrompt = `Mövzu: ${topic}
 Fənn: ${subject}
@@ -139,7 +158,8 @@ Bu mövzu üzrə ${questionCount} ədəd çoxseçimli test sualı yarat.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: model,
+        temperature: temperature,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -161,9 +181,14 @@ Bu mövzu üzrə ${questionCount} ədəd çoxseçimli test sualı yarat.`;
                         question: { type: 'string', description: 'The question text in Azerbaijani' },
                         options: { type: 'array', items: { type: 'string' }, description: 'Array of 4 answer options' },
                         correctAnswer: { type: 'number', description: 'Index of correct answer (0-3)' },
-                        explanation: { type: 'string', description: 'Explanation for the correct answer in Azerbaijani' }
+                        explanation: { type: 'string', description: 'Explanation for the correct answer in Azerbaijani' },
+                        bloomLevel: { 
+                          type: 'string', 
+                          enum: ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'],
+                          description: 'Bloom taxonomy level of the question' 
+                        }
                       },
-                      required: ['question', 'options', 'correctAnswer', 'explanation'],
+                      required: ['question', 'options', 'correctAnswer', 'explanation', 'bloomLevel'],
                       additionalProperties: false
                     }
                   }
@@ -207,7 +232,7 @@ Bu mövzu üzrə ${questionCount} ədəd çoxseçimli test sualı yarat.`;
       supabase,
       userId,
       'lovable',
-      'google/gemini-2.5-flash',
+      model,
       usage.prompt_tokens || 0,
       usage.completion_tokens || 0,
       'quiz_generation'
