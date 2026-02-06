@@ -17,6 +17,11 @@ export interface QuestionBankItem {
   source_document_id: string | null;
   created_at: string;
   updated_at: string;
+  // Media fields
+  question_image_url: string | null;
+  option_images: Record<number, string> | null;
+  media_type: 'image' | 'audio' | 'video' | null;
+  media_url: string | null;
 }
 
 export interface QuestionFilters {

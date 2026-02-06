@@ -160,6 +160,10 @@ export default function QuestionBankPage() {
       tags: duplicate.tags,
       user_id: null,
       source_document_id: null,
+      question_image_url: duplicate.question_image_url || null,
+      option_images: duplicate.option_images || null,
+      media_type: duplicate.media_type || null,
+      media_url: duplicate.media_url || null,
     });
   };
 
