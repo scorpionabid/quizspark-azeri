@@ -418,7 +418,11 @@ export type Database = {
           embedding: string | null
           explanation: string | null
           id: string
+          media_type: string | null
+          media_url: string | null
+          option_images: Json | null
           options: Json | null
+          question_image_url: string | null
           question_text: string
           question_type: string
           source_document_id: string | null
@@ -435,7 +439,11 @@ export type Database = {
           embedding?: string | null
           explanation?: string | null
           id?: string
+          media_type?: string | null
+          media_url?: string | null
+          option_images?: Json | null
           options?: Json | null
+          question_image_url?: string | null
           question_text: string
           question_type?: string
           source_document_id?: string | null
@@ -452,7 +460,11 @@ export type Database = {
           embedding?: string | null
           explanation?: string | null
           id?: string
+          media_type?: string | null
+          media_url?: string | null
+          option_images?: Json | null
           options?: Json | null
+          question_image_url?: string | null
           question_text?: string
           question_type?: string
           source_document_id?: string | null

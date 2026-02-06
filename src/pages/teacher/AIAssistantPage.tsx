@@ -9,7 +9,10 @@ import {
   FileText,
   Settings2,
   Upload,
-  Save
+  Save,
+  Layers,
+  Plus,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +35,8 @@ import { DocumentUploader } from "@/components/ai/DocumentUploader";
 import { useCreateQuestionBank } from "@/hooks/useQuestionBank";
 import { AIParametersPanel, AIParameters } from "@/components/ai/AIParametersPanel";
 import { getBloomLevels } from "@/components/ai/BloomLevelBadge";
+import { GenerationStats } from "@/components/ai/GenerationStats";
+import { ImageGenerator } from "@/components/ai/ImageGenerator";
 
 interface UploadedDocument {
   id: string;
@@ -58,6 +63,14 @@ const subjectLabels: Record<string, string> = {
   geography: "Coğrafiya",
 };
 
+// Batch topic interface
+interface BatchTopic {
+  id: string;
+  topic: string;
+  subject: string;
+  questionCount: number;
+}
+
 export default function AIAssistantPage() {
   const navigate = useNavigate();
   const [topic, setTopic] = useState("");
@@ -75,6 +88,11 @@ export default function AIAssistantPage() {
     maxTokens: 4096,
   });
   const [bloomFilter, setBloomFilter] = useState<string>("");
+  
+  // Batch mode state
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchTopics, setBatchTopics] = useState<BatchTopic[]>([]);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
 
   const selectedAgent = agents[0]; // Quiz Master
   const createQuestion = useCreateQuestionBank();
@@ -101,6 +119,10 @@ export default function AIAssistantPage() {
           tags: null,
           user_id: null,
           source_document_id: null,
+          question_image_url: null,
+          option_images: null,
+          media_type: null,
+          media_url: null,
         },
         {
           onSuccess: () => {
@@ -185,6 +207,86 @@ export default function AIAssistantPage() {
       toast.error(errorMessage);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // Batch mode functions
+  const handleAddBatchTopic = () => {
+    if (!topic.trim() || !subject) {
+      toast.error("Mövzu və fənn seçin");
+      return;
+    }
+    
+    setBatchTopics(prev => [...prev, {
+      id: `batch-${Date.now()}`,
+      topic: topic.trim(),
+      subject,
+      questionCount: parseInt(questionCount),
+    }]);
+    setTopic("");
+    toast.success("Mövzu siyahıya əlavə edildi");
+  };
+
+  const handleRemoveBatchTopic = (id: string) => {
+    setBatchTopics(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleBatchGenerate = async () => {
+    if (batchTopics.length === 0) {
+      toast.error("Ən azı bir mövzu əlavə edin");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+    setGeneratedQuestions([]);
+    setBatchProgress({ current: 0, total: batchTopics.length });
+
+    try {
+      const allQuestions: GeneratedQuestion[] = [];
+
+      for (let i = 0; i < batchTopics.length; i++) {
+        const batchTopic = batchTopics[i];
+        setBatchProgress({ current: i + 1, total: batchTopics.length });
+
+        const { data, error: fnError } = await supabase.functions.invoke('generate-quiz', {
+          body: {
+            topic: batchTopic.topic,
+            subject: subjectLabels[batchTopic.subject] || batchTopic.subject,
+            difficulty,
+            questionCount: batchTopic.questionCount,
+            agentId: selectedAgent.id,
+            model: aiParameters.model,
+            temperature: aiParameters.temperature,
+            bloomLevel: bloomFilter || undefined
+          }
+        });
+
+        if (fnError) {
+          console.error(`Error for topic ${batchTopic.topic}:`, fnError);
+          continue;
+        }
+
+        if (data.questions) {
+          allQuestions.push(...data.questions);
+        }
+      }
+
+      if (allQuestions.length > 0) {
+        setGeneratedQuestions(allQuestions);
+        toast.success(`${allQuestions.length} sual uğurla yaradıldı!`);
+        setBatchTopics([]);
+      } else {
+        throw new Error("Heç bir sual yaradıla bilmədi");
+      }
+    } catch (err) {
+      console.error('Batch generation error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Xəta baş verdi';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsGenerating(false);
+      setBatchProgress(null);
     }
   };
 
@@ -281,6 +383,52 @@ export default function AIAssistantPage() {
                   parameters={aiParameters}
                   onChange={setAIParameters}
                 />
+
+                {/* Generation Stats */}
+                <GenerationStats />
+
+                {/* Batch Mode Toggle */}
+                <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Toplu Sual Yaratma</span>
+                  </div>
+                  <Button
+                    variant={batchMode ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setBatchMode(!batchMode)}
+                  >
+                    {batchMode ? "Aktiv" : "Aktivləşdir"}
+                  </Button>
+                </div>
+
+                {/* Batch Topics List */}
+                {batchMode && batchTopics.length > 0 && (
+                  <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                    <Label className="text-sm font-medium">Siyahıdakı mövzular:</Label>
+                    {batchTopics.map((bt, idx) => (
+                      <div key={bt.id} className="flex items-center justify-between rounded-md bg-background p-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
+                            {idx + 1}
+                          </span>
+                          <span className="text-sm">{bt.topic}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({subjectLabels[bt.subject]}, {bt.questionCount} sual)
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveBatchTopic(bt.id)}
+                          className="h-6 w-6 p-0 text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor="topic">Mövzu *</Label>
@@ -389,25 +537,58 @@ export default function AIAssistantPage() {
                   </div>
                 )}
 
-                <Button
-                  variant="game"
-                  size="lg"
-                  onClick={handleGenerate}
-                  disabled={isGenerating}
-                  className="w-full"
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      {selectedAgent.name} suallar yaradır...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      {selectedAgent.name} ilə Sual Yarat
-                    </>
-                  )}
-                </Button>
+                {/* Action Buttons */}
+                {batchMode ? (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleAddBatchTopic}
+                      disabled={isGenerating || !topic.trim() || !subject}
+                      className="flex-1"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Siyahıya Əlavə Et
+                    </Button>
+                    <Button
+                      variant="game"
+                      onClick={handleBatchGenerate}
+                      disabled={isGenerating || batchTopics.length === 0}
+                      className="flex-1"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          {batchProgress ? `${batchProgress.current}/${batchProgress.total}` : 'Yaradılır...'}
+                        </>
+                      ) : (
+                        <>
+                          <Layers className="mr-2 h-4 w-4" />
+                          Hamısını Yarat ({batchTopics.reduce((sum, t) => sum + t.questionCount, 0)} sual)
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="game"
+                    size="lg"
+                    onClick={handleGenerate}
+                    disabled={isGenerating}
+                    className="w-full"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        {selectedAgent.name} suallar yaradır...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        {selectedAgent.name} ilə Sual Yarat
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
 
