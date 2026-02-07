@@ -7,7 +7,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
-import { Check, X } from 'lucide-react';
+import { Check, X, Image, Video, Music } from 'lucide-react';
 
 interface QuestionViewDialogProps {
   open: boolean;
@@ -90,6 +90,54 @@ export function QuestionViewDialog({
               {question.question_text}
             </p>
           </div>
+
+          {/* Question Image */}
+          {question.question_image_url && (
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Sual Şəkili
+              </h4>
+              <img
+                src={question.question_image_url}
+                alt="Sual şəkili"
+                className="max-h-64 rounded-lg border object-contain"
+              />
+            </div>
+          )}
+
+          {/* Media */}
+          {question.media_url && (
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                {question.media_type === 'video' ? (
+                  <Video className="h-4 w-4" />
+                ) : question.media_type === 'audio' ? (
+                  <Music className="h-4 w-4" />
+                ) : (
+                  <Image className="h-4 w-4" />
+                )}
+                Media
+              </h4>
+              {question.media_type === 'video' && (
+                <video
+                  src={question.media_url}
+                  controls
+                  className="max-h-64 rounded-lg border w-full"
+                />
+              )}
+              {question.media_type === 'audio' && (
+                <audio src={question.media_url} controls className="w-full" />
+              )}
+              {question.media_type === 'image' && (
+                <img
+                  src={question.media_url}
+                  alt="Media"
+                  className="max-h-64 rounded-lg border object-contain"
+                />
+              )}
+            </div>
+          )}
 
           {/* Options */}
           {showOptions && options.length > 0 && (

@@ -5,7 +5,7 @@
    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
  };
  
- type EnhanceAction = "simplify" | "harder" | "improve_options" | "expand_explanation" | "similar";
+ type EnhanceAction = "simplify" | "harder" | "improve_options" | "expand_explanation" | "similar" | "quality_analysis";
  
  interface Question {
    id: string;
@@ -49,17 +49,98 @@
      return new Response(null, { headers: corsHeaders });
    }
  
-   try {
-     const { question, action } = await req.json() as { question: Question; action: EnhanceAction };
- 
-     if (!question || !action) {
-       throw new Error('Sual və action tələb olunur');
-     }
- 
-     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-     if (!LOVABLE_API_KEY) {
-       throw new Error('LOVABLE_API_KEY is not configured');
-     }
+  try {
+    const { question, action } = await req.json() as { question: Question; action: EnhanceAction };
+
+    if (!question || !action) {
+      throw new Error('Sual və action tələb olunur');
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
+    // Handle quality analysis separately
+    if (action === 'quality_analysis') {
+      const analysisPrompt = `Aşağıdakı test suallarını keyfiyyət baxımından analiz et.
+
+Suallar:
+${question.question}
+
+Aşağıdakı meyarlara görə 0-100 arası bal ver:
+1. clarity (aydınlıq) - sualın aydın və başa düşülən olması
+2. distractorStrength (distraktor gücü) - yanlış variantların inandırıcılığı
+3. bloomAlignment (Bloom uyğunluğu) - müxtəlif düşüncə səviyyələrini əhatə etməsi
+
+Həmçinin konkret təkmilləşdirmə təklifləri ver.`;
+
+      const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: 'Sən test suallarının keyfiyyətini analiz edən ekspertinsən. Azərbaycan dilində cavab ver.' },
+            { role: 'user', content: analysisPrompt }
+          ],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'return_quality_analysis',
+                description: 'Return the quality analysis results',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    clarity: { type: 'number', description: 'Clarity score 0-100' },
+                    distractorStrength: { type: 'number', description: 'Distractor strength score 0-100' },
+                    bloomAlignment: { type: 'number', description: 'Bloom alignment score 0-100' },
+                    overall: { type: 'number', description: 'Overall quality score 0-100' },
+                    suggestions: { type: 'array', items: { type: 'string' }, description: 'List of improvement suggestions in Azerbaijani' }
+                  },
+                  required: ['clarity', 'distractorStrength', 'bloomAlignment', 'overall', 'suggestions'],
+                  additionalProperties: false
+                }
+              }
+            }
+          ],
+          tool_choice: { type: 'function', function: { name: 'return_quality_analysis' } }
+        }),
+      });
+
+      if (!analysisResponse.ok) {
+        if (analysisResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Sorğu limiti aşıldı.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (analysisResponse.status === 402) {
+          return new Response(
+            JSON.stringify({ error: 'Kredit balansı bitib.' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw new Error('AI gateway error for quality analysis');
+      }
+
+      const analysisData = await analysisResponse.json();
+      const toolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
+      
+      if (toolCall && toolCall.function.name === 'return_quality_analysis') {
+        const analysis = JSON.parse(toolCall.function.arguments);
+        return new Response(
+          JSON.stringify({ analysis }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      throw new Error('Quality analysis response format error');
+    }
  
      console.log(`Enhancing question with action: ${action}`);
  
