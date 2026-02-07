@@ -37,6 +37,7 @@ import { AIParametersPanel, AIParameters } from "@/components/ai/AIParametersPan
 import { getBloomLevels } from "@/components/ai/BloomLevelBadge";
 import { GenerationStats } from "@/components/ai/GenerationStats";
 import { ImageGenerator } from "@/components/ai/ImageGenerator";
+import { QualityAnalysis } from "@/components/ai/QualityAnalysis";
 
 interface UploadedDocument {
   id: string;
@@ -611,6 +612,9 @@ export default function AIAssistantPage() {
                     </Button>
                   </div>
                 </div>
+
+                {/* Quality Analysis */}
+                <QualityAnalysis questions={generatedQuestions} />
 
                 {generatedQuestions.map((question, index) => (
                   <EditableQuestionCard

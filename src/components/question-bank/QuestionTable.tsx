@@ -10,7 +10,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, Copy, MoreHorizontal, Eye } from 'lucide-react';
+import { Edit, Trash2, Copy, MoreHorizontal, Eye, Image } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -134,23 +134,36 @@ export function QuestionTable({
               </TableCell>
               <TableCell>
                 <div className="space-y-1">
-                  <p className="font-medium line-clamp-2">
-                    {truncateText(question.question_text, 120)}
-                  </p>
-                  {question.tags && question.tags.length > 0 && (
-                    <div className="flex gap-1 flex-wrap">
-                      {question.tags.slice(0, 3).map((tag, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {question.tags.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{question.tags.length - 3}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex items-start gap-2">
+                    {question.question_image_url && (
+                      <img
+                        src={question.question_image_url}
+                        alt=""
+                        className="h-10 w-10 rounded border object-cover flex-shrink-0 mt-0.5"
+                      />
+                    )}
+                    <p className="font-medium line-clamp-2">
+                      {truncateText(question.question_text, 120)}
+                    </p>
+                  </div>
+                  <div className="flex gap-1 flex-wrap">
+                    {question.media_type && (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Image className="h-3 w-3" />
+                        {question.media_type === 'image' ? 'Şəkil' : question.media_type === 'video' ? 'Video' : 'Audio'}
+                      </Badge>
+                    )}
+                    {question.tags && question.tags.length > 0 && question.tags.slice(0, 3).map((tag, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                    {question.tags && question.tags.length > 3 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{question.tags.length - 3}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </TableCell>
               <TableCell>
