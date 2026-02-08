@@ -515,12 +515,12 @@ export default function AIAssistantPage() {
 
                   <div>
                     <Label>Bloom Səviyyəsi</Label>
-                    <Select value={bloomFilter} onValueChange={setBloomFilter}>
+                    <Select value={bloomFilter || "all"} onValueChange={(val) => setBloomFilter(val === "all" ? "" : val)}>
                       <SelectTrigger className="mt-2">
                         <SelectValue placeholder="Hamısı" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Hamısı (qarışıq)</SelectItem>
+                        <SelectItem value="all">Hamısı (qarışıq)</SelectItem>
                         {getBloomLevels().map((level) => (
                           <SelectItem key={level.value} value={level.value}>
                             {level.label}
