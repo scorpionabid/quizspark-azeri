@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Sparkles, 
@@ -12,7 +12,9 @@ import {
   Save,
   Layers,
   Plus,
-  X
+  X,
+  Database,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,20 +33,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { EditableQuestionCard, GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
 import { agents } from "@/components/ai/AgentSelector";
 import { TemplateLibrary, PromptTemplate } from "@/components/ai/TemplateLibrary";
-import { DocumentUploader } from "@/components/ai/DocumentUploader";
+import { DocumentUploader, UploadedDocument } from "@/components/ai/DocumentUploader";
+import { DocumentQuizGenerator } from "@/components/ai/DocumentQuizGenerator";
 import { useCreateQuestionBank } from "@/hooks/useQuestionBank";
 import { AIParametersPanel, AIParameters } from "@/components/ai/AIParametersPanel";
 import { getBloomLevels } from "@/components/ai/BloomLevelBadge";
 import { GenerationStats } from "@/components/ai/GenerationStats";
-import { ImageGenerator } from "@/components/ai/ImageGenerator";
 import { QualityAnalysis } from "@/components/ai/QualityAnalysis";
+import { SUBJECT_OPTIONS, SUBJECT_LABELS, QUESTION_TYPES } from "@/lib/constants/subjects";
 
-interface UploadedDocument {
-  id: string;
-  fileName: string;
-  content: string;
-  fullContent: string;
-}
+const HISTORY_KEY = "ai-assistant-history";
 
 const suggestedTopics = [
   "Cəbr: Xətti tənliklər",
@@ -55,16 +53,6 @@ const suggestedTopics = [
   "Tarix: Azərbaycan Xalq Cümhuriyyəti",
 ];
 
-const subjectLabels: Record<string, string> = {
-  math: "Riyaziyyat",
-  physics: "Fizika",
-  chemistry: "Kimya",
-  biology: "Biologiya",
-  history: "Tarix",
-  geography: "Coğrafiya",
-};
-
-// Batch topic interface
 interface BatchTopic {
   id: string;
   topic: string;
@@ -76,62 +64,96 @@ export default function AIAssistantPage() {
   const navigate = useNavigate();
   const [topic, setTopic] = useState("");
   const [subject, setSubject] = useState("");
+  const [customSubject, setCustomSubject] = useState("");
   const [difficulty, setDifficulty] = useState("medium");
   const [questionCount, setQuestionCount] = useState("5");
+  const [customCount, setCustomCount] = useState("");
+  const [questionType, setQuestionType] = useState("multiple_choice");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
   const [aiParameters, setAIParameters] = useState<AIParameters>({
-    model: 'google/gemini-2.5-flash',
+    model: "google/gemini-2.5-flash",
     temperature: 0.7,
     maxTokens: 4096,
   });
   const [bloomFilter, setBloomFilter] = useState<string>("");
-  
-  // Batch mode state
   const [batchMode, setBatchMode] = useState(false);
   const [batchTopics, setBatchTopics] = useState<BatchTopic[]>([]);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isBulkAdding, setIsBulkAdding] = useState(false);
 
-  const selectedAgent = agents[0]; // Quiz Master
+  const selectedAgent = agents[0];
   const createQuestion = useCreateQuestionBank();
 
-  // Add single question to bank
+  // Load history from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(HISTORY_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setGeneratedQuestions(parsed);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // Save to localStorage when questions change
+  useEffect(() => {
+    if (generatedQuestions.length > 0) {
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(generatedQuestions));
+      } catch { /* ignore */ }
+    }
+  }, [generatedQuestions]);
+
+  const getEffectiveSubject = () => {
+    if (subject === "custom") return customSubject;
+    return SUBJECT_LABELS[subject] || subject;
+  };
+
+  const getEffectiveCount = () => {
+    if (questionCount === "custom") return parseInt(customCount) || 5;
+    return parseInt(questionCount);
+  };
+
   const handleAddToBank = async (question: GeneratedQuestion) => {
     const difficultyMap: Record<string, string> = {
-      easy: 'asan',
-      medium: 'orta',
-      hard: 'çətin',
+      easy: "asan",
+      medium: "orta",
+      hard: "çətin",
     };
+    const qType = question.questionType || "multiple_choice";
 
     return new Promise<void>((resolve, reject) => {
       createQuestion.mutate(
         {
           question_text: question.question,
-          question_type: 'multiple_choice',
-          options: question.options,
+          question_type: qType,
+          options: qType === "multiple_choice" ? question.options : (qType === "true_false" ? ["Doğru", "Yanlış"] : question.options),
           correct_answer: question.options[question.correctAnswer] || question.options[0],
           explanation: question.explanation || null,
-          category: subject ? subjectLabels[subject] : null,
-          difficulty: difficultyMap[difficulty] || 'orta',
+          category: getEffectiveSubject() || null,
+          difficulty: difficultyMap[difficulty] || "orta",
           bloom_level: question.bloomLevel || null,
           tags: null,
           user_id: null,
           source_document_id: null,
-          question_image_url: null,
+          question_image_url: question.questionImageUrl || null,
           option_images: null,
           media_type: null,
           media_url: null,
         },
         {
           onSuccess: () => {
-            toast.success('Sual bankına əlavə edildi');
+            toast.success("Sual bankına əlavə edildi");
             resolve();
           },
           onError: (err) => {
-            toast.error('Xəta baş verdi');
+            toast.error("Xəta baş verdi");
             reject(err);
           },
         }
@@ -139,20 +161,40 @@ export default function AIAssistantPage() {
     });
   };
 
+  const handleBulkAddToBank = async () => {
+    if (generatedQuestions.length === 0) return;
+    setIsBulkAdding(true);
+    let successCount = 0;
+    for (const q of generatedQuestions) {
+      try {
+        await handleAddToBank(q);
+        successCount++;
+      } catch { /* continue */ }
+    }
+    setIsBulkAdding(false);
+    if (successCount > 0) {
+      toast.success(`${successCount} sual bankına əlavə edildi!`);
+    }
+  };
+
   const handleDocumentProcessed = (document: UploadedDocument) => {
-    setUploadedDocuments(prev => [...prev, document]);
+    setUploadedDocuments((prev) => [...prev, document]);
   };
 
   const handleRemoveDocument = (id: string) => {
-    setUploadedDocuments(prev => prev.filter(doc => doc.id !== id));
+    setUploadedDocuments((prev) => prev.filter((doc) => doc.id !== id));
   };
 
-  // Get combined document context for AI
+  const handleToggleDocument = (id: string) => {
+    setUploadedDocuments((prev) =>
+      prev.map((doc) => (doc.id === id ? { ...doc, active: !doc.active } : doc))
+    );
+  };
+
   const getDocumentContext = () => {
-    if (uploadedDocuments.length === 0) return '';
-    return uploadedDocuments.map(doc => 
-      `--- Sənəd: ${doc.fileName} ---\n${doc.fullContent}`
-    ).join('\n\n');
+    const activeDocs = uploadedDocuments.filter((d) => d.active !== false);
+    if (activeDocs.length === 0) return "";
+    return activeDocs.map((doc) => `--- Sənəd: ${doc.fileName} ---\n${doc.fullContent}`).join("\n\n");
   };
 
   const handleGenerate = async () => {
@@ -160,7 +202,8 @@ export default function AIAssistantPage() {
       toast.error("Mövzu daxil edin");
       return;
     }
-    if (!subject) {
+    const effectiveSubject = getEffectiveSubject();
+    if (!effectiveSubject) {
       toast.error("Fənn seçin");
       return;
     }
@@ -171,29 +214,26 @@ export default function AIAssistantPage() {
 
     try {
       const documentContext = getDocumentContext();
-      
-      const { data, error: fnError } = await supabase.functions.invoke('generate-quiz', {
+      const count = getEffectiveCount();
+
+      const { data, error: fnError } = await supabase.functions.invoke("generate-quiz", {
         body: {
           topic,
-          subject: subjectLabels[subject] || subject,
+          subject: effectiveSubject,
           difficulty,
-          questionCount: parseInt(questionCount),
+          questionCount: count,
           agentId: selectedAgent.id,
           templatePrompt: selectedTemplate?.prompt,
           documentContext: documentContext || undefined,
           model: aiParameters.model,
           temperature: aiParameters.temperature,
-          bloomLevel: bloomFilter || undefined
-        }
+          bloomLevel: bloomFilter || undefined,
+          questionType,
+        },
       });
 
-      if (fnError) {
-        throw new Error(fnError.message);
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      if (fnError) throw new Error(fnError.message);
+      if (data.error) throw new Error(data.error);
 
       if (data.questions && data.questions.length > 0) {
         setGeneratedQuestions(data.questions);
@@ -202,8 +242,8 @@ export default function AIAssistantPage() {
         throw new Error("Sual yaradıla bilmədi");
       }
     } catch (err) {
-      console.error('Quiz generation error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Xəta baş verdi';
+      console.error("Quiz generation error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Xəta baş verdi";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -211,25 +251,27 @@ export default function AIAssistantPage() {
     }
   };
 
-  // Batch mode functions
   const handleAddBatchTopic = () => {
-    if (!topic.trim() || !subject) {
+    const effectiveSubject = getEffectiveSubject();
+    if (!topic.trim() || !effectiveSubject) {
       toast.error("Mövzu və fənn seçin");
       return;
     }
-    
-    setBatchTopics(prev => [...prev, {
-      id: `batch-${Date.now()}`,
-      topic: topic.trim(),
-      subject,
-      questionCount: parseInt(questionCount),
-    }]);
+    setBatchTopics((prev) => [
+      ...prev,
+      {
+        id: `batch-${Date.now()}`,
+        topic: topic.trim(),
+        subject,
+        questionCount: getEffectiveCount(),
+      },
+    ]);
     setTopic("");
     toast.success("Mövzu siyahıya əlavə edildi");
   };
 
   const handleRemoveBatchTopic = (id: string) => {
-    setBatchTopics(prev => prev.filter(t => t.id !== id));
+    setBatchTopics((prev) => prev.filter((t) => t.id !== id));
   };
 
   const handleBatchGenerate = async () => {
@@ -245,34 +287,28 @@ export default function AIAssistantPage() {
 
     try {
       const allQuestions: GeneratedQuestion[] = [];
-
       for (let i = 0; i < batchTopics.length; i++) {
-        const batchTopic = batchTopics[i];
+        const bt = batchTopics[i];
         setBatchProgress({ current: i + 1, total: batchTopics.length });
-
-        const { data, error: fnError } = await supabase.functions.invoke('generate-quiz', {
+        const { data, error: fnError } = await supabase.functions.invoke("generate-quiz", {
           body: {
-            topic: batchTopic.topic,
-            subject: subjectLabels[batchTopic.subject] || batchTopic.subject,
+            topic: bt.topic,
+            subject: SUBJECT_LABELS[bt.subject] || bt.subject,
             difficulty,
-            questionCount: batchTopic.questionCount,
+            questionCount: bt.questionCount,
             agentId: selectedAgent.id,
             model: aiParameters.model,
             temperature: aiParameters.temperature,
-            bloomLevel: bloomFilter || undefined
-          }
+            bloomLevel: bloomFilter || undefined,
+            questionType,
+          },
         });
-
         if (fnError) {
-          console.error(`Error for topic ${batchTopic.topic}:`, fnError);
+          console.error(`Error for topic ${bt.topic}:`, fnError);
           continue;
         }
-
-        if (data.questions) {
-          allQuestions.push(...data.questions);
-        }
+        if (data.questions) allQuestions.push(...data.questions);
       }
-
       if (allQuestions.length > 0) {
         setGeneratedQuestions(allQuestions);
         toast.success(`${allQuestions.length} sual uğurla yaradıldı!`);
@@ -281,8 +317,8 @@ export default function AIAssistantPage() {
         throw new Error("Heç bir sual yaradıla bilmədi");
       }
     } catch (err) {
-      console.error('Batch generation error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Xəta baş verdi';
+      console.error("Batch generation error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Xəta baş verdi";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -292,27 +328,37 @@ export default function AIAssistantPage() {
   };
 
   const handleUpdateQuestion = (updatedQuestion: GeneratedQuestion) => {
-    setGeneratedQuestions(prev => 
-      prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q)
+    setGeneratedQuestions((prev) =>
+      prev.map((q) => (q.id === updatedQuestion.id ? updatedQuestion : q))
     );
   };
 
   const handleDeleteQuestion = (id: string) => {
-    setGeneratedQuestions(prev => prev.filter(q => q.id !== id));
+    setGeneratedQuestions((prev) => prev.filter((q) => q.id !== id));
     toast.success("Sual silindi");
   };
 
   const handleSimilarCreated = (newQuestion: GeneratedQuestion) => {
-    setGeneratedQuestions(prev => [...prev, newQuestion]);
+    setGeneratedQuestions((prev) => [...prev, newQuestion]);
   };
 
   const useAllQuestions = () => {
     toast.success("Suallar quizə əlavə edildi!");
-    navigate('/teacher/create');
+    navigate("/teacher/create");
   };
 
   const handleSelectTemplate = (template: PromptTemplate) => {
     setSelectedTemplate(template);
+  };
+
+  const handleDocumentQuestionsGenerated = (questions: GeneratedQuestion[]) => {
+    setGeneratedQuestions(questions);
+  };
+
+  const handleClearHistory = () => {
+    setGeneratedQuestions([]);
+    localStorage.removeItem(HISTORY_KEY);
+    toast.success("Tarixçə təmizləndi");
   };
 
   return (
@@ -328,10 +374,9 @@ export default function AIAssistantPage() {
             Süni Zəka ilə Test Sualı Yaradın
           </h1>
           <p className="text-muted-foreground">
-            Şablon istifadə edin və ya sənəddən suallar yaradın
+            Şablon istifadə edin, sənəddən və ya mövzu üzrə suallar yaradın
           </p>
         </div>
-
 
         {/* Tabs */}
         <Tabs defaultValue="generate" className="space-y-6">
@@ -355,7 +400,7 @@ export default function AIAssistantPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Generate Tab */}
+          {/* ============ Generate Tab ============ */}
           <TabsContent value="generate" className="space-y-6">
             <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
               <div className="grid gap-6">
@@ -368,24 +413,13 @@ export default function AIAssistantPage() {
                         Şablon: {selectedTemplate.name}
                       </span>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedTemplate(null)}
-                      className="text-xs"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedTemplate(null)} className="text-xs">
                       Ləğv et
                     </Button>
                   </div>
                 )}
 
-                {/* AI Parameters Panel */}
-                <AIParametersPanel
-                  parameters={aiParameters}
-                  onChange={setAIParameters}
-                />
-
-                {/* Generation Stats */}
+                <AIParametersPanel parameters={aiParameters} onChange={setAIParameters} />
                 <GenerationStats />
 
                 {/* Batch Mode Toggle */}
@@ -415,15 +449,10 @@ export default function AIAssistantPage() {
                           </span>
                           <span className="text-sm">{bt.topic}</span>
                           <span className="text-xs text-muted-foreground">
-                            ({subjectLabels[bt.subject]}, {bt.questionCount} sual)
+                            ({SUBJECT_LABELS[bt.subject] || bt.subject}, {bt.questionCount} sual)
                           </span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveBatchTopic(bt.id)}
-                          className="h-6 w-6 p-0 text-destructive"
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveBatchTopic(bt.id)} className="h-6 w-6 p-0 text-destructive">
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
@@ -431,6 +460,7 @@ export default function AIAssistantPage() {
                   </div>
                 )}
 
+                {/* Topic */}
                 <div>
                   <Label htmlFor="topic">Mövzu *</Label>
                   <div className="relative mt-2">
@@ -466,24 +496,49 @@ export default function AIAssistantPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+                {/* Controls Grid */}
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                  {/* Subject */}
                   <div>
                     <Label>Fənn *</Label>
-                    <Select value={subject} onValueChange={setSubject}>
+                    <Select value={subject || "no-selection"} onValueChange={(v) => setSubject(v === "no-selection" ? "" : v)}>
                       <SelectTrigger className="mt-2">
                         <SelectValue placeholder="Seçin" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="math">Riyaziyyat</SelectItem>
-                        <SelectItem value="physics">Fizika</SelectItem>
-                        <SelectItem value="chemistry">Kimya</SelectItem>
-                        <SelectItem value="biology">Biologiya</SelectItem>
-                        <SelectItem value="history">Tarix</SelectItem>
-                        <SelectItem value="geography">Coğrafiya</SelectItem>
+                        <SelectItem value="no-selection" disabled>Seçin</SelectItem>
+                        {SUBJECT_OPTIONS.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                        <SelectItem value="custom">Xüsusi fənn...</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {subject === "custom" && (
+                      <Input
+                        value={customSubject}
+                        onChange={(e) => setCustomSubject(e.target.value)}
+                        placeholder="Fənn adını yazın"
+                        className="mt-1"
+                      />
+                    )}
+                  </div>
+
+                  {/* Question Type */}
+                  <div>
+                    <Label>Sual Tipi</Label>
+                    <Select value={questionType} onValueChange={setQuestionType}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {QUESTION_TYPES.map((qt) => (
+                          <SelectItem key={qt.value} value={qt.value}>{qt.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
+                  {/* Difficulty */}
                   <div>
                     <Label>Çətinlik</Label>
                     <Select value={difficulty} onValueChange={setDifficulty}>
@@ -498,6 +553,7 @@ export default function AIAssistantPage() {
                     </Select>
                   </div>
 
+                  {/* Question Count */}
                   <div>
                     <Label>Sual Sayı</Label>
                     <Select value={questionCount} onValueChange={setQuestionCount}>
@@ -509,10 +565,24 @@ export default function AIAssistantPage() {
                         <SelectItem value="5">5 sual</SelectItem>
                         <SelectItem value="10">10 sual</SelectItem>
                         <SelectItem value="15">15 sual</SelectItem>
+                        <SelectItem value="20">20 sual</SelectItem>
+                        <SelectItem value="custom">Xüsusi...</SelectItem>
                       </SelectContent>
                     </Select>
+                    {questionCount === "custom" && (
+                      <Input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={customCount}
+                        onChange={(e) => setCustomCount(e.target.value)}
+                        placeholder="1-50"
+                        className="mt-1"
+                      />
+                    )}
                   </div>
 
+                  {/* Bloom Level */}
                   <div>
                     <Label>Bloom Səviyyəsi</Label>
                     <Select value={bloomFilter || "all"} onValueChange={(val) => setBloomFilter(val === "all" ? "" : val)}>
@@ -528,7 +598,7 @@ export default function AIAssistantPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                   </div>
+                  </div>
                 </div>
 
                 {error && (
@@ -544,11 +614,10 @@ export default function AIAssistantPage() {
                     <Button
                       variant="outline"
                       onClick={handleAddBatchTopic}
-                      disabled={isGenerating || !topic.trim() || !subject}
+                      disabled={isGenerating || !topic.trim() || !getEffectiveSubject()}
                       className="flex-1"
                     >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Siyahıya Əlavə Et
+                      <Plus className="mr-2 h-4 w-4" /> Siyahıya Əlavə Et
                     </Button>
                     <Button
                       variant="game"
@@ -558,8 +627,8 @@ export default function AIAssistantPage() {
                     >
                       {isGenerating ? (
                         <>
-                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                          {batchProgress ? `${batchProgress.current}/${batchProgress.total}` : 'Yaradılır...'}
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {batchProgress ? `${batchProgress.current}/${batchProgress.total}` : "Yaradılır..."}
                         </>
                       ) : (
                         <>
@@ -579,7 +648,7 @@ export default function AIAssistantPage() {
                   >
                     {isGenerating ? (
                       <>
-                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         {selectedAgent.name} suallar yaradır...
                       </>
                     ) : (
@@ -602,10 +671,34 @@ export default function AIAssistantPage() {
                       <Lightbulb className="h-5 w-5 text-success" />
                     </div>
                     <h2 className="font-display text-xl font-bold text-foreground">
-                      Yaradılmış Suallar
+                      Yaradılmış Suallar ({generatedQuestions.length})
                     </h2>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearHistory}
+                    >
+                      <X className="mr-1 h-4 w-4" /> Təmizlə
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleBulkAddToBank}
+                      disabled={isBulkAdding}
+                    >
+                      {isBulkAdding ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Əlavə edilir...
+                        </>
+                      ) : (
+                        <>
+                          <Database className="mr-2 h-4 w-4" />
+                          Hamısını Banka Əlavə Et
+                        </>
+                      )}
+                    </Button>
                     <Button variant="game" onClick={useAllQuestions}>
                       Hamısını İstifadə Et
                       <ArrowRight className="ml-2 h-4 w-4" />
@@ -613,7 +706,6 @@ export default function AIAssistantPage() {
                   </div>
                 </div>
 
-                {/* Quality Analysis */}
                 <QualityAnalysis questions={generatedQuestions} />
 
                 {generatedQuestions.map((question, index) => (
@@ -631,7 +723,7 @@ export default function AIAssistantPage() {
             )}
           </TabsContent>
 
-          {/* Documents Tab */}
+          {/* ============ Documents Tab ============ */}
           <TabsContent value="documents" className="space-y-6">
             <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
               <div className="mb-6">
@@ -639,29 +731,75 @@ export default function AIAssistantPage() {
                   Sənəddən Sual Yaradın
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  PDF, DOCX və ya TXT sənədləri yükləyin. AI həmin sənədlərin məzmunundan suallar yaradacaq.
+                  PDF, DOCX və ya TXT sənədləri yükləyin. Birbaşa bu tabdan sual yarada bilərsiniz.
                 </p>
               </div>
-              
+
               <DocumentUploader
                 onDocumentProcessed={handleDocumentProcessed}
                 uploadedDocuments={uploadedDocuments}
                 onRemoveDocument={handleRemoveDocument}
+                onToggleDocument={handleToggleDocument}
+                maxDocuments={3}
               />
 
+              {/* Document Quiz Generator - inline */}
               {uploadedDocuments.length > 0 && (
-                <div className="mt-6 p-4 rounded-lg bg-primary/10 border border-primary/30">
-                  <p className="text-sm text-primary font-medium">
-                    ✓ {uploadedDocuments.length} sənəd yüklənib. 
-                    "Sual Yarat" tabına keçərək bu sənədlərdən sual yarada bilərsiniz.
-                  </p>
+                <div className="mt-6">
+                  <DocumentQuizGenerator
+                    documents={uploadedDocuments}
+                    onQuestionsGenerated={handleDocumentQuestionsGenerated}
+                    model={aiParameters.model}
+                    temperature={aiParameters.temperature}
+                  />
                 </div>
               )}
             </div>
+
+            {/* Show generated questions from document too */}
+            {generatedQuestions.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/20">
+                      <Lightbulb className="h-5 w-5 text-success" />
+                    </div>
+                    <h2 className="font-display text-xl font-bold text-foreground">
+                      Yaradılmış Suallar ({generatedQuestions.length})
+                    </h2>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={handleClearHistory}>
+                      <X className="mr-1 h-4 w-4" /> Təmizlə
+                    </Button>
+                    <Button variant="outline" onClick={handleBulkAddToBank} disabled={isBulkAdding}>
+                      {isBulkAdding ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Əlavə edilir...</>
+                      ) : (
+                        <><Database className="mr-2 h-4 w-4" /> Hamısını Banka Əlavə Et</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <QualityAnalysis questions={generatedQuestions} />
+
+                {generatedQuestions.map((question, index) => (
+                  <EditableQuestionCard
+                    key={question.id}
+                    question={question}
+                    index={index}
+                    onUpdate={handleUpdateQuestion}
+                    onDelete={handleDeleteQuestion}
+                    onAddToBank={handleAddToBank}
+                    onSimilarCreated={handleSimilarCreated}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
-
-          {/* Templates Tab */}
+          {/* ============ Templates Tab ============ */}
           <TabsContent value="templates">
             <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
               <TemplateLibrary onSelectTemplate={handleSelectTemplate} />
