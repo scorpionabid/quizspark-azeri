@@ -1,252 +1,138 @@
 
-# AI Köməkçi Səhifəsinin Professional Təkmilləşdirilməsi
+# AI Komekci Sehifesinin Novbeti Tekmillesdirilmesi
 
-## Mövcud Vəziyyət
+## Movcud Veziyyetin Qisa Analizi
 
-AI Köməkçi səhifəsi hazırda aşağıdakı funksiyaları təmin edir:
-- Mövzu üzrə sual yaratma
-- Sənəddən (PDF/DOCX/TXT) sual yaratma
-- Şablon kitabxanası
-- Yaradılmış sualları redaktə etmək
-- Sualları sual bankına əlavə etmək
+Hazirda AI Komekci asagidaki funksiyalara malikdir:
+- Movzu uzre sual yaratma (tek ve batch rejim)
+- AI Parametrleri (model, temperatur, max token)
+- Bloom taksonomiyasi filtri ve badge
+- Senedden sual yaratma (PDF/DOCX/TXT)
+- Sablon kitabxanasi (kateqoriya filtri, axtaris)
+- Sual redaktesinde AI desteki (sadelesd/cetinlesd/variantlari yaxsilasdir/izah genislendir/oxsar yarat)
+- Keyfiyyet analizi
+- Yaratma statistikasi
+- AI ile sekil yaratma (generate-question-image)
 
-## Təklif Olunan Təkmilləşdirmələr
+## Askar Edilmis Catismazliqlar ve Tekmillesdirilecek Saheler
 
-### 1. Media Dəstəyi - Şəkil, Audio, Video
+### 1. "Senedden" Tab - Cok Mehduddur
 
-**a) Sual Mətnində Media**
-- Sual mətninə şəkil əlavə etmək imkanı
-- Cavab variantlarında şəkil istifadəsi
-- AI ilə sual üçün izahedici şəkil yaratma (google/gemini-2.5-flash-image modeli)
-- Audio/video linklərini sualda göstərmək
+Hazirda "Senedden" tabi yalniz fayl yukleyir ve istifadecini "Sual Yarat" tabina yonlendirir. Hecc bir birbaasa islem imkani yoxdur:
+- Senedden sual yaratma birbaasa bu tabdan mumkun deyil
+- Sened mezmununun onizlemesi yoxdur (yalniz 500 simvol)
+- Sened icerisinden xususi bolmeleri secmek mumkun deyil
+- Coxlu sened yukleyerken siyahi icerisinden secim yoxdur
+- Sened tipine gore ikon gosterilmir
+- Yuklenme proqresi gosterilmir (yalniz spin)
 
-**b) Yeni Komponent: MediaQuestionEditor**
-```text
-┌─────────────────────────────────────────────┐
-│  Sual mətni                                 │
-│  ┌───────────────────────────────────────┐  │
-│  │ Rich text editor + şəkil yükləmə      │  │
-│  │ [B] [I] [U] [📷] [🎵] [📹]           │  │
-│  └───────────────────────────────────────┘  │
-│                                             │
-│  Variantlar (şəkillə)                       │
-│  [A] [mətn/şəkil] [B] [mətn/şəkil]         │
-│  [C] [mətn/şəkil] [D] [mətn/şəkil]         │
-└─────────────────────────────────────────────┘
-```
+### 2. Sual Yaratma Interfeysinin Genislendirilmesi
 
-**c) Database Dəyişikliyi**
-`question_bank` cədvəlinə yeni sütunlar:
-- `question_image_url` - sual şəkili
-- `option_images` - variant şəkilləri (JSONB)
-- `media_type` - media növü (image/audio/video)
-- `media_url` - media linki
+- Sual tipi secimi yoxdur (yalniz coxsecimli) - dogru/yanlis, qisa cavab ve s. olmalidir
+- Fenn siyahisi mehdud ve sabitdir (6 fenn)
+- Sual sayisi seciminde mehdud (3/5/10/15)
+- Yaranan suallara media elave etmek asan deyil (ImageGenerator movcuddur amma inteqrasiya zeidir)
+- Hamisi Istifade Et duymesi yalniz quize yonlendirir, sual bankina toplu elave etmir
+- Suallar arasinda surukleme ile siralama yoxdur
 
----
+### 3. Document Tab - Birbaasa Sual Yaratma
 
-### 2. AI Şəkil Yaratma İnteqrasiyası
+Istifadeciler senedi yukledikden sonra hemin tabdan cixmali ve diger taba kecmelidirler. Bu UX problemdir.
 
-**a) Nano Banana Model İnteqrasiyası**
-- `google/gemini-2.5-flash-image` modeli artıq mövcuddur
-- Sual üçün izahedici şəkil yaratmaq
-- Diaqram və qrafiklər yaratmaq
+### 4. Sablon Sistemi - Lokal Saxlama
 
-**b) Yeni Edge Function: generate-question-image**
-```text
-Input: { prompt: "Riyaziyyat: üçbucağın sahəsi formulu" }
-Output: { imageUrl: "data:image/png;base64,..." }
-```
+Sablonlar yalniz React state-de saxlanilir, sehife yenilendikde itirilir. Database-e saxlama yoxdur.
 
-**c) İş Axını**
-```text
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│ Sual yaradılır   │ --> │ "Şəkil yarat"    │ --> │ AI şəkil         │
-│                  │     │ düyməsi          │     │ yaradır          │
-└──────────────────┘     └──────────────────┘     └──────────────────┘
-```
+### 5. Sualin Onizlemesi ve Export
+
+Yaranan suallarin PDF/Word formatinda export edilmesi, cap imkani yoxdur.
 
 ---
 
-### 3. Temperatur və Model Seçimi - AI Köməkçidə
+## Heyata Kecirilecek Deyisiklikler
 
-**a) Ətraflı Parametrlər Paneli**
-```text
-┌─────────────────────────────────────────────┐
-│  ⚙️ AI Parametrləri                    [▼]  │
-│  ─────────────────────────────────────      │
-│  Model: [google/gemini-2.5-flash ▼]         │
-│                                             │
-│  Temperatur: ═══════●═══ 0.7                │
-│  (Aşağı = dəqiq, Yuxarı = yaradıcı)        │
-│                                             │
-│  Max Token: [4096 ▼]                        │
-└─────────────────────────────────────────────┘
-```
+### Faza A: "Senedden" Tabinin Tam Yeniden Islenmesi
 
-**b) Mövcud Modellər**
-- google/gemini-2.5-flash (default)
-- google/gemini-2.5-pro
-- google/gemini-3-flash-preview
-- openai/gpt-5-mini
+**1. Senedden Birbaasa Sual Yaratma**
+- Document tab-a fenn, cetinlik ve sual sayi secimlerini elave etmek
+- "Senedden Sual Yarat" duymesini birbaasa bu taba yerlesdirmek
+- Senedi yukledikden sonra istifadecini yonlendirmemek, evezine butun lazimi alatlari orada gostermek
 
-**c) Temperatur**
-- 0.1-0.4: Dəqiq, faktiki suallar
-- 0.5-0.7: Balanslaşdırılmış (default)
-- 0.8-1.2: Yaradıcı, mürəkkəb suallar
+**2. Sened Mezmununun Tam Onizlemesi**
+- Yuklenmiis senedin tam mezmununu ScrollArea-da gostermek
+- Sened mezmunundan xususi hisseleri secmek (highlight/select) imkani
+- Secilmis hisseye esasen sual yaratma
 
----
+**3. Coxlu Sened Desteki**
+- Eyni anda 3-e qeder sened yuklemek
+- Sened siyahisinda aktiv/deaktiv secim (hansini istifade etmek isteyirsen)
+- Her sened ucun fayl olcusu, tip ikonu ve sehife sayi gostermek
 
-### 4. Sual Redaktəsində AI Dəstəyi
+**4. Yuklenme Proqresi**
+- Fayl yukleme ve emal prosesini mehhelelerle gostermek (Upload -> Emal -> Hazir)
+- Proqres bari ile vizual gosterici
 
-**a) AI Köməkçi Panel (Inline)**
-```text
-┌─────────────────────────────────────────────┐
-│  Sual 1                    [Redaktə] [+Bank]│
-│  ─────────────────────────────────────      │
-│  Sual mətni burada...                       │
-│                                             │
-│  💡 AI Təklifləri:                          │
-│  ├─ [Sualı sadələşdir]                      │
-│  ├─ [Çətinləşdir]                           │
-│  ├─ [Variantları yaxşılaşdır]               │
-│  ├─ [İzahı genişləndir]                     │
-│  └─ [Oxşar sual yarat]                      │
-└─────────────────────────────────────────────┘
-```
+### Faza B: Sual Yaratma Interfeysinin Genislendirilmesi
 
-**b) AI Redaktə Funksiyaları**
-- **Sadələşdir**: Sualı daha asan formaya çevir
-- **Çətinləşdir**: Sualı daha mürəkkəb et
-- **Variantları yaxşılaşdır**: Distraktorları gücləndir
-- **İzahı genişləndir**: Daha ətraflı izah yaz
-- **Oxşar sual yarat**: Eyni mövzuda yeni sual
+**1. Sual Tipi Secimi**
+- Coxsecimli (movcud)
+- Dogru/Yanlis 
+- Qisa Cavab (aciq sual)
+- Eslesdirme (matching)
 
-**c) Yeni Edge Function: enhance-question**
-```text
-Input: {
-  question: {...},
-  action: "simplify" | "harder" | "improve_options" | "expand_explanation" | "similar"
-}
-Output: { enhancedQuestion: {...} }
-```
+Bunu hem UI-da hem de `generate-quiz` edge function-da desdeklemek.
 
----
+**2. Fenn Siyahisinin Genislendirilmesi**
+- Movcud 6 fenne elave olaraq: Edebiyyat, Informatika, Ingilis dili, Musiqi, Idman, Huquq ve s.
+- Istifadecinin oz fenni elave etmesi (xususi fenn inputu)
 
-### 5. Bloom Taksonomiyası İnteqrasiyası
+**3. Xususi Sual Sayi**
+- Movcud secimlerle yanasi, istifadecinin manual reqem daxil etmesi (1-50 arasi)
 
-**a) Avtomatik Bloom Səviyyəsi Təyini**
-- AI sual yaradarkən Bloom səviyyəsini avtomatik təyin etsin
-- Yaradılmış suallarda Bloom badge göstərilsin
+**4. Suallara Media Inteqrasiyasi**
+- Her yaradilmis sualin altinda "Sekil elave et" duymesi (ImageGenerator cagirmaq)
+- AI ile yaradilmis sekli avtomatik `question_image_url`-a yazmaq
+- Sual bankina elave edende media melumatlarini da gonderme
 
-**b) Səviyyələr**
-```text
-┌──────────────────────────────────────┐
-│ 🔵 Yadda saxlama  │ 🟢 Anlama       │
-│ 🟡 Tətbiqetmə     │ 🟠 Analiz       │
-│ 🔴 Sintez         │ 🟣 Qiymətləndirmə│
-└──────────────────────────────────────┘
-```
+**5. Toplu Sual Bankina Elave Etme**
+- "Hamisini Sual Bankina Elave Et" duymesi - tek klikle butun yaradilmis suallari banka elave edir
 
-**c) Filtrlə yaratma**
-- "Yalnız Analiz səviyyəsində suallar yarat" seçimi
+### Faza C: Istifadeci Tecrubesi (UX) Yaxsilasdirmalari
+
+**1. Sual Kartinda Gosterilen Melumat**
+- Sualin altinda media onizlemesi (sekil varsa)
+- Kopyala duymesi (suali clipboard-a kopyalamaq)
+- Suali paylasma linki (opsional)
+
+**2. Sual Yaratma Tarixcesi**
+- Son yaradilmis suallari browser localStorage-da saxlamaq
+- Istifadeci sehifeni yeniledikde sonuncu neticeleri gore bilsin
+- "Sonuncu neticeler" seksiyasi
+
+**3. Senedden Tabinda "Smart Suggestions"**
+- Sened yuklenenden sonra AI-nin avtomatik movzu teklifleri vermesi
+- "Bu senedde hansi movzular var?" analizi
 
 ---
 
-### 6. Sual Yaratma Statistikası
+## Texniki Deyisiklikler (Fayl Siyahisi)
 
-**a) Real-time Progress**
-```text
-┌─────────────────────────────────────────────┐
-│  📊 Yaratma Statistikası                    │
-│  ─────────────────────────────────────      │
-│  Bugün: 15 sual │ Bu həftə: 45 sual        │
-│  Token istifadəsi: 12,450 / 100,000         │
-│  ████████░░ 12%                             │
-└─────────────────────────────────────────────┘
-```
-
----
-
-### 7. Batch Mode - Toplu Sual Yaratma
-
-**a) Çoxlu Mövzu İmkanı**
-```text
-┌─────────────────────────────────────────────┐
-│  📋 Toplu Sual Yaratma                      │
-│  ─────────────────────────────────────      │
-│  Mövzu 1: Cəbr - Xətti tənliklər (5 sual)  │
-│  Mövzu 2: Cəbr - Kvadrat tənliklər (5 sual)│
-│  Mövzu 3: Həndəsə - Üçbucaq (5 sual)       │
-│                        [+ Mövzu əlavə et]   │
-│                                             │
-│              [Hamısını Yarat]               │
-└─────────────────────────────────────────────┘
-```
-
----
-
-### 8. Sual Keyfiyyət Analizi
-
-**a) Avtomatik Keyfiyyət Yoxlaması**
-```text
-┌─────────────────────────────────────────────┐
-│  ✅ Keyfiyyət Hesabatı                      │
-│  ─────────────────────────────────────      │
-│  ● Aydınlıq: ████████░░ 80%                 │
-│  ● Distraktor gücü: ██████░░░░ 60%          │
-│  ● Bloom uyğunluğu: █████████░ 90%          │
-│                                             │
-│  ⚠️ Təklif: B variantı çox açıq görünür    │
-└─────────────────────────────────────────────┘
-```
-
----
-
-### 9. Şablon Təkmilləşdirmələri
-
-**a) Şablon Kateqoriyaları**
-- Fənnə görə qruplaşdırma
-- Bloom səviyyəsinə görə
-- Sual tipinə görə (praktik, nəzəri, analitik)
-
-**b) Şablon Paylaşımı**
-- İstifadəçilər arası şablon paylaşımı
-- Ən populyar şablonlar siyahısı
-
----
-
-## Fayl Dəyişiklikləri Xülasəsi
-
-| Fayl | Əməliyyat | Təsvir |
+| Fayl | Emeliyyat | Tesvir |
 |------|-----------|--------|
-| `src/pages/teacher/AIAssistantPage.tsx` | Dəyişiklik | AI parametrləri, batch mode, statistika |
-| `src/components/quiz/EditableQuestionCard.tsx` | Dəyişiklik | AI inline dəstəyi, media göstərimi |
-| `src/components/ai/AIParametersPanel.tsx` | Yeni | Temperatur, model seçimi |
-| `src/components/ai/MediaUploader.tsx` | Yeni | Şəkil/audio/video yükləmə |
-| `src/components/ai/QuestionEnhancer.tsx` | Yeni | AI ilə sual təkmilləşdirmə |
-| `src/components/ai/BloomLevelBadge.tsx` | Yeni | Bloom səviyyəsi göstəricisi |
-| `src/components/ai/GenerationStats.tsx` | Yeni | Yaratma statistikası |
-| `supabase/functions/generate-question-image/index.ts` | Yeni | AI şəkil yaratma |
-| `supabase/functions/enhance-question/index.ts` | Yeni | Sual təkmilləşdirmə |
-| `supabase/functions/generate-quiz/index.ts` | Dəyişiklik | Temperatur, model parametrləri |
-| DB Migration | Yeni | Media sütunları əlavə etmək |
+| `src/pages/teacher/AIAssistantPage.tsx` | Deyisiklik | Senedden tabi yeniden islenmesi, sual tipi secimi, xususi sual sayi, toplu banka elave, media inteqrasiyasi |
+| `src/components/ai/DocumentUploader.tsx` | Deyisiklik | Coxlu sened desteki, proqres bari, sened onizlemesi, mezmun secimi |
+| `src/components/quiz/EditableQuestionCard.tsx` | Deyisiklik | Media onizlemesi, kopyala duymesi, ImageGenerator inteqrasiyasi |
+| `src/components/ai/DocumentQuizGenerator.tsx` | Yeni | Senedden birbaasa sual yaratma komponenti (fenn/cetinlik/sual sayi secimi + yaratma duymesi) |
+| `supabase/functions/generate-quiz/index.ts` | Deyisiklik | Sual tipi desteyi (dogru/yanlis, qisa cavab), genisledilmis fenn siyahisi |
+| `supabase/functions/process-document/index.ts` | Deyisiklik | Sened analizi ve movzu teklifleri, mehheleli emal |
 
 ---
 
-## Prioritetlər (Mərhələli Tətbiq)
+## Prioritet Sirasi
 
-**Faza 1 - Əsas Təkmilləşdirmələr**
-1. AI Parametrləri Paneli (temperatur, model)
-2. Sual redaktəsində AI dəstəyi
-3. Bloom səviyyəsi avtomatik təyini
+1. **Senedden tabi tam yeniden islenmesi** - esas problem budur, istifadeciler senedden sual yaratmaq ucun coxlu elave addim atmalidilar
+2. **Sual tipi secimi** - yalniz coxsecimli sual yaratmaq mehdudlasdiricidir
+3. **Toplu sual bankina elave** - istifadeciler her suali ayri-ayri elave etmelidir
+4. **Media inteqrasiyasi** - yaradilmis suallara sekil elave etmek
+5. **UX yaxsilasdirilmalari** - tarixce, kopyalama, smart suggestions
 
-**Faza 2 - Media Dəstəyi**
-4. Sual şəkili yükləmə
-5. AI ilə şəkil yaratma
-6. Database media sütunları
-
-**Faza 3 - İrəliləmiş Funksiyalar**
-7. Batch mode
-8. Keyfiyyət analizi
-9. Şablon paylaşımı
-10. Statistika paneli
