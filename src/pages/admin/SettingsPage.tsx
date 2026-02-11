@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { 
-  Settings, 
-  Globe, 
-  Bell, 
-  Shield, 
+import {
+  Settings,
+  Globe,
+  Bell,
+  Shield,
   Database,
   Mail,
   Save,
@@ -25,18 +25,18 @@ import { toast } from "sonner";
 
 export default function SettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
-  
+
   // General settings
-  const [siteName, setSiteName] = useState("QuizMaster");
+  const [siteName, setSiteName] = useState("Sınaq");
   const [siteDescription, setSiteDescription] = useState("Öyrənmək Əyləncəli Ola Bilər");
   const [language, setLanguage] = useState("az");
   const [timezone, setTimezone] = useState("Asia/Baku");
-  
+
   // Notifications
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
   const [weeklyReport, setWeeklyReport] = useState(true);
-  
+
   // Security
   const [twoFactor, setTwoFactor] = useState(false);
   const [sessionTimeout, setSessionTimeout] = useState("60");

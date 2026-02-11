@@ -142,7 +142,7 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="font-display text-lg font-bold text-foreground">QuizMaster</span>
+              <span className="font-display text-lg font-bold text-foreground">Sınaq</span>
               <span className="text-xs text-muted-foreground">Öyrən və Qazan</span>
             </div>
           )}

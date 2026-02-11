@@ -100,7 +100,7 @@ export default function AuthPage() {
               <span className="text-blue-200">Kəşf Edin</span>
             </h1>
             <p className="text-xl text-primary-foreground/80 font-medium">
-              QuizMaster ilə hər gün yeni bir şey öyrənin, biliklərinizi yoxlayın və zirvəyə qalxın.
+              Sınaq ilə hər gün yeni bir şey öyrənin, biliklərinizi yoxlayın və zirvəyə qalxın.
             </p>
           </motion.div>
 
