@@ -12,6 +12,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PageLoader } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
+import { QuizRating } from "@/components/quiz/QuizRating";
+import { QuizComments } from "@/components/quiz/QuizComments";
+import { FavoriteButton } from "@/components/quiz/FavoriteButton";
 
 type QuizState = 'intro' | 'playing' | 'result';
 
@@ -193,8 +196,11 @@ export default function QuizPage() {
 
           <div className="animate-scale-in rounded-3xl bg-gradient-card border border-border/50 p-8 shadow-elevated">
             <div className="mb-6 text-center">
-              <div className="mb-4 inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/20 text-4xl">
-                📝
+              <div className="mb-4 flex items-center justify-center gap-3">
+                <div className="inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/20 text-4xl">
+                  📝
+                </div>
+                <FavoriteButton quizId={quiz.id} variant="button" />
               </div>
               <h1 className="mb-2 font-display text-3xl font-bold text-foreground">{quiz.title}</h1>
               <p className="text-muted-foreground">{quiz.description}</p>
@@ -216,7 +222,9 @@ export default function QuizPage() {
                 <div className="text-xs text-muted-foreground">Çətinlik</div>
               </div>
               <div className="rounded-xl bg-muted/50 p-4 text-center">
-                <div className="text-2xl font-bold text-accent">{quiz.rating}</div>
+                <div className="mb-1">
+                  <QuizRating quizId={quiz.id} showTotal={false} size="sm" interactive={false} />
+                </div>
                 <div className="text-xs text-muted-foreground">Reytinq</div>
               </div>
             </div>
@@ -253,6 +261,17 @@ export default function QuizPage() {
                 {startAttempt.isPending ? "Yüklənir..." : "Quizə Başla"}
               </Button>
             )}
+          </div>
+
+          {/* Rating Section */}
+          <div className="mt-6 animate-scale-in rounded-2xl bg-gradient-card border border-border/50 p-6 shadow-elevated">
+            <h3 className="mb-4 font-semibold text-foreground">Bu quizi qiymətləndirin</h3>
+            <QuizRating quizId={quiz.id} size="lg" />
+          </div>
+
+          {/* Comments Section */}
+          <div className="mt-6 animate-scale-in rounded-2xl bg-gradient-card border border-border/50 p-6 shadow-elevated">
+            <QuizComments quizId={quiz.id} />
           </div>
         </div>
       </div>

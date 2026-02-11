@@ -182,6 +182,10 @@ export function ImportExportDialog({
       tags: q.tags || null,
       user_id: null,
       source_document_id: null,
+      question_image_url: null,
+      option_images: null,
+      media_type: null as 'image' | 'audio' | 'video' | null,
+      media_url: null,
     }));
 
     onImport(formattedQuestions);

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Plus, Save, Trash2, FileText, Check } from "lucide-react";
+import { Plus, Save, Trash2, FileText, Check, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -20,8 +28,18 @@ export interface PromptTemplate {
   description: string;
   prompt: string;
   subject?: string;
+  category?: string;
   createdAt: Date;
 }
+
+const templateCategories = [
+  { value: "all", label: "Hamısı" },
+  { value: "general", label: "Ümumi" },
+  { value: "bloom", label: "Bloom Taksonomiyası" },
+  { value: "practical", label: "Praktik" },
+  { value: "analytical", label: "Analitik" },
+  { value: "creative", label: "Yaradıcı" },
+];
 
 const defaultTemplates: PromptTemplate[] = [
   {
@@ -32,6 +50,7 @@ const defaultTemplates: PromptTemplate[] = [
 Hər sualda 4 variant olsun. Düzgün cavabı və qısa izahı göstər.
 Çətinlik: {difficulty}`,
     subject: "Ümumi",
+    category: "general",
     createdAt: new Date()
   },
   {
@@ -46,6 +65,7 @@ Hər sualda 4 variant olsun. Düzgün cavabı və qısa izahı göstər.
 5. Sintez - yeni ideyalar yaratma
 6. Qiymətləndirmə - mühakimə etmə`,
     subject: "Ümumi",
+    category: "bloom",
     createdAt: new Date()
   },
   {
@@ -60,8 +80,44 @@ Hər məsələdə:
 - Cavab
 Çətinlik: {difficulty}`,
     subject: "Riyaziyyat",
+    category: "practical",
     createdAt: new Date()
-  }
+  },
+  {
+    id: "4",
+    name: "Analitik Suallar",
+    description: "Müqayisə, təhlil və qiymətləndirmə sualları",
+    prompt: `{topic} mövzusu üzrə {count} analitik sual yarat.
+Suallar müqayisə, səbəb-nəticə, təhlil və qiymətləndirmə tələb etməlidir.
+Hər sualda 4 variant, düzgün cavab və ətraflı izah olsun.
+Çətinlik: {difficulty}`,
+    subject: "Ümumi",
+    category: "analytical",
+    createdAt: new Date()
+  },
+  {
+    id: "5",
+    name: "Yaradıcı Düşüncə",
+    description: "Yaradıcı və tənqidi düşüncə sualları",
+    prompt: `{topic} mövzusu üzrə {count} yaradıcı düşüncə sualı yarat.
+Suallar alternativ həllər tapmağı, hipotez qurmağı və ya yeni ideyalar yaratmağı tələb etməlidir.
+Hər sualda 4 variant olsun.
+Çətinlik: {difficulty}`,
+    subject: "Ümumi",
+    category: "creative",
+    createdAt: new Date()
+  },
+  {
+    id: "6",
+    name: "Doğru/Yanlış + İzah",
+    description: "Doğru/Yanlış sualları ətraflı izahla",
+    prompt: `{topic} mövzusu üzrə {count} Doğru/Yanlış sualı yarat.
+Hər sual üçün ətraflı izah yaz ki, şagird niyə doğru və ya yanlış olduğunu başa düşsün.
+Çətinlik: {difficulty}`,
+    subject: "Ümumi",
+    category: "general",
+    createdAt: new Date()
+  },
 ];
 
 interface TemplateLibraryProps {
@@ -72,11 +128,23 @@ export function TemplateLibrary({ onSelectTemplate }: TemplateLibraryProps) {
   const [templates, setTemplates] = useState<PromptTemplate[]>(defaultTemplates);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [newTemplate, setNewTemplate] = useState({
     name: "",
     description: "",
     prompt: "",
-    subject: ""
+    subject: "",
+    category: "general",
+  });
+
+  const filteredTemplates = templates.filter((t) => {
+    const matchesCategory = categoryFilter === "all" || t.category === categoryFilter;
+    const matchesSearch =
+      !searchQuery ||
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
   });
 
   const handleSelectTemplate = (template: PromptTemplate) => {
@@ -97,11 +165,12 @@ export function TemplateLibrary({ onSelectTemplate }: TemplateLibraryProps) {
       description: newTemplate.description,
       prompt: newTemplate.prompt,
       subject: newTemplate.subject || "Ümumi",
+      category: newTemplate.category || "general",
       createdAt: new Date()
     };
 
     setTemplates(prev => [...prev, template]);
-    setNewTemplate({ name: "", description: "", prompt: "", subject: "" });
+    setNewTemplate({ name: "", description: "", prompt: "", subject: "", category: "general" });
     setIsDialogOpen(false);
     toast.success("Şablon yaradıldı!");
   };
@@ -114,7 +183,7 @@ export function TemplateLibrary({ onSelectTemplate }: TemplateLibraryProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h3 className="font-display text-lg font-semibold text-foreground">
             Şablon Kitabxanası
@@ -153,14 +222,32 @@ export function TemplateLibrary({ onSelectTemplate }: TemplateLibraryProps) {
                   className="mt-1.5"
                 />
               </div>
-              <div>
-                <Label>Fənn</Label>
-                <Input
-                  value={newTemplate.subject}
-                  onChange={(e) => setNewTemplate(prev => ({ ...prev, subject: e.target.value }))}
-                  placeholder="Məs: Riyaziyyat"
-                  className="mt-1.5"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Fənn</Label>
+                  <Input
+                    value={newTemplate.subject}
+                    onChange={(e) => setNewTemplate(prev => ({ ...prev, subject: e.target.value }))}
+                    placeholder="Məs: Riyaziyyat"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label>Kateqoriya</Label>
+                  <Select
+                    value={newTemplate.category}
+                    onValueChange={(v) => setNewTemplate(prev => ({ ...prev, category: v }))}
+                  >
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templateCategories.filter(c => c.value !== "all").map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
                 <Label>Prompt Şablonu *</Label>
@@ -183,8 +270,43 @@ export function TemplateLibrary({ onSelectTemplate }: TemplateLibraryProps) {
         </Dialog>
       </div>
 
+      {/* Filter & Search Bar */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <div className="flex gap-1 flex-wrap">
+            {templateCategories.map((cat) => (
+              <button
+                key={cat.value}
+                onClick={() => setCategoryFilter(cat.value)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  categoryFilter === cat.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Şablon axtar..."
+          className="max-w-xs h-8 text-sm"
+        />
+      </div>
+
+      {/* Template Grid */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {templates.map((template) => (
+        {filteredTemplates.length === 0 && (
+          <div className="col-span-full text-center py-8 text-muted-foreground">
+            Bu kateqoriyada şablon tapılmadı
+          </div>
+        )}
+        {filteredTemplates.map((template) => (
           <div
             key={template.id}
             className={cn(
@@ -203,11 +325,18 @@ export function TemplateLibrary({ onSelectTemplate }: TemplateLibraryProps) {
                   {template.subject}
                 </span>
               </div>
-              {selectedId === template.id && (
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <Check className="h-3 w-3" />
-                </div>
-              )}
+              <div className="flex items-center gap-1">
+                {template.category && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    {templateCategories.find(c => c.value === template.category)?.label || template.category}
+                  </Badge>
+                )}
+                {selectedId === template.id && (
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <Check className="h-3 w-3" />
+                  </div>
+                )}
+              </div>
             </div>
             <h4 className="mt-2 font-medium text-foreground">{template.name}</h4>
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">

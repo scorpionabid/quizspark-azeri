@@ -72,15 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(roleData.role as AppRole);
       }
 
-      // Fetch profile - cast to unknown to bypass type checking for new table
-      const result = await (supabase as unknown as { from: (table: string) => any })
+      // Fetch profile from profiles table
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('full_name, avatar_url')
         .eq('user_id', userId)
         .maybeSingle();
-
-      if (result.data) {
-        setProfile(result.data as { full_name: string | null; avatar_url: string | null });
+      if (profileData) {
+        setProfile(profileData);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);

@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.ai-config]
 verify_jwt = false
+
+[functions.enhance-question]
+verify_jwt = false
+
+[functions.generate-question-image]
+verify_jwt = false

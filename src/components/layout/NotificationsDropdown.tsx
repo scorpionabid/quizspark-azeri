@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Bell, Check, FileQuestion, Trophy, MessageSquare } from "lucide-react";
+import { Bell, Check, FileQuestion, Trophy, MessageSquare, Info, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,59 +11,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-
-interface Notification {
-  id: string;
-  title: string;
-  description: string;
-  type: "quiz" | "result" | "comment" | "achievement";
-  read: boolean;
-  createdAt: Date;
-}
-
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "Yeni Quiz Əlavə Edildi",
-    description: "Riyaziyyat - Cəbr mövzusunda yeni quiz mövcuddur.",
-    type: "quiz",
-    read: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 30),
-  },
-  {
-    id: "2",
-    title: "Quiz Nəticəsi",
-    description: "Fizika testində 85% bal topladınız!",
-    type: "result",
-    read: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-  },
-  {
-    id: "3",
-    title: "Yeni Nailiyyət",
-    description: "Ardıcıl 5 quiz tamamladınız! 🎉",
-    type: "achievement",
-    read: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
-  },
-];
+import { useNotifications, type Notification } from "@/hooks/useNotifications";
+import { formatDistanceToNow } from "date-fns";
+import { az } from "date-fns/locale";
 
 export function NotificationsDropdown() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, read: true }))
-    );
-  };
-
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  };
+  const {
+    notifications,
+    loading,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotifications();
 
   const getIcon = (type: Notification["type"]) => {
     switch (type) {
@@ -76,18 +35,21 @@ export function NotificationsDropdown() {
         return <MessageSquare className="h-4 w-4 text-blue-500" />;
       case "achievement":
         return <Trophy className="h-4 w-4 text-green-500" />;
+      case "info":
+      default:
+        return <Info className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
-  const formatTime = (date: Date) => {
-    const diff = Date.now() - date.getTime();
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (minutes < 60) return `${minutes} dəq əvvəl`;
-    if (hours < 24) return `${hours} saat əvvəl`;
-    return `${days} gün əvvəl`;
+  const formatTime = (dateString: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateString), {
+        addSuffix: true,
+        locale: az,
+      });
+    } catch {
+      return "";
+    }
   };
 
   return (
@@ -100,7 +62,7 @@ export function NotificationsDropdown() {
               variant="destructive"
               className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
             >
-              {unreadCount}
+              {unreadCount > 9 ? "9+" : unreadCount}
             </Badge>
           )}
           <span className="sr-only">Bildirişlər</span>
@@ -114,7 +76,10 @@ export function NotificationsDropdown() {
               variant="ghost"
               size="sm"
               className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
-              onClick={markAllAsRead}
+              onClick={(e) => {
+                e.preventDefault();
+                markAllAsRead();
+              }}
             >
               <Check className="mr-1 h-3 w-3" />
               Hamısını oxunmuş et
@@ -123,7 +88,11 @@ export function NotificationsDropdown() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <ScrollArea className="h-[300px]">
-          {notifications.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               Bildiriş yoxdur
             </div>
@@ -135,7 +104,11 @@ export function NotificationsDropdown() {
                   "flex cursor-pointer flex-col items-start gap-1 p-3",
                   !notification.read && "bg-muted/50"
                 )}
-                onClick={() => markAsRead(notification.id)}
+                onClick={() => {
+                  if (!notification.read) {
+                    markAsRead(notification.id);
+                  }
+                }}
               >
                 <div className="flex w-full items-start gap-2">
                   <div className="mt-0.5">{getIcon(notification.type)}</div>
@@ -147,12 +120,25 @@ export function NotificationsDropdown() {
                       {notification.description}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatTime(notification.createdAt)}
+                      {formatTime(notification.created_at)}
                     </p>
                   </div>
-                  {!notification.read && (
-                    <div className="h-2 w-2 rounded-full bg-primary" />
-                  )}
+                  <div className="flex items-center gap-1">
+                    {!notification.read && (
+                      <div className="h-2 w-2 rounded-full bg-primary" />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(notification.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </DropdownMenuItem>
             ))
