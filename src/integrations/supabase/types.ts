@@ -374,11 +374,14 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string | null
+          email: string | null
           full_name: string | null
           grade: string | null
           id: string
+          is_profile_complete: boolean
           phone: string | null
           school: string | null
+          status: string | null
           updated_at: string | null
           user_id: string
         }
@@ -386,11 +389,14 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
+          email?: string | null
           full_name?: string | null
           grade?: string | null
           id?: string
+          is_profile_complete?: boolean
           phone?: string | null
           school?: string | null
+          status?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -398,11 +404,14 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
+          email?: string | null
           full_name?: string | null
           grade?: string | null
           id?: string
+          is_profile_complete?: boolean
           phone?: string | null
           school?: string | null
+          status?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -827,6 +836,7 @@ export type Database = {
           tags: string[]
         }[]
       }
+      select_oauth_role: { Args: { p_role: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "teacher" | "student"
