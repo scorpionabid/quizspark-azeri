@@ -38,11 +38,20 @@
    - Niyə digər variantların yanlış olduğunu izah et
    - Əlaqəli konseptləri qeyd et`,
    
-   similar: `Eyni mövzu və çətinlik səviyyəsində YENİ bir sual yarat.
-   - Oxşar format saxla
-   - Fərqli məzmun istifadə et
-   - Eyni pedaqoji yanaşmanı saxla`,
- };
+  similar: `Eyni mövzu və çətinlik səviyyəsində YENİ bir sual yarat.
+    - Oxşar format saxla
+    - Fərqli məzmun istifadə et
+    - Eyni pedaqoji yanaşmanı saxla`,
+
+  quality_analysis: `Bu sualın keyfiyyətini analiz et və aşağıdakı meyarlara görə qiymətləndir:
+    - Aydınlıq (1-10): Sual nə dərəcədə aydın yazılıb?
+    - Çətinlik uyğunluğu (1-10): Çətinlik səviyyəsinə uyğundurmu?
+    - Bloom taksonomiyası (1-10): Bloom səviyyəsinə uyğundurmu?
+    - Distraktor keyfiyyəti (1-10): Yanlış variantlar inandırıcıdırmı?
+    - İzah keyfiyyəti (1-10): İzah kifayət qədər ətraflıdırmı?
+    - Ümumi qiymət (1-10)
+    JSON formatında cavab ver: {"clarity":X,"difficulty_match":X,"bloom_match":X,"distractor_quality":X,"explanation_quality":X,"overall":X,"suggestions":["təklif1","təklif2"]}`,
+};
  
  serve(async (req) => {
    if (req.method === 'OPTIONS') {
