@@ -27,6 +27,11 @@ export const signupSchema = z.object({
     .min(1, 'Email tələb olunur')
     .email('Düzgün email daxil edin')
     .max(255, 'Email çox uzundur'),
+  phone: z
+    .string()
+    .trim()
+    .min(1, 'Telefon nömrəsi tələb olunur')
+    .regex(/^\+?[0-9\s-]{7,15}$/, 'Düzgün telefon nömrəsi daxil edin'),
   password: z
     .string()
     .min(1, 'Parol tələb olunur')
@@ -35,6 +40,9 @@ export const signupSchema = z.object({
   confirmPassword: z
     .string()
     .min(1, 'Parolu təsdiqləyin'),
+  role: z.enum(['teacher', 'student'], {
+    required_error: 'İstifadəçi tipi seçilməlidir',
+  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Parollar uyğun gəlmir',
   path: ['confirmPassword'],

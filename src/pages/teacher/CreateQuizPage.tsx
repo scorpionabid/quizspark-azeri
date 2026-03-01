@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
-  Save, 
-  Upload, 
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Save,
+  Upload,
   Sparkles,
   CheckCircle
 } from "lucide-react";
@@ -43,7 +43,7 @@ export default function CreateQuizPage() {
   const { user } = useAuth();
   const createQuiz = useCreateQuiz();
   const createQuestions = useBulkCreateQuestions();
-  
+
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [subject, setSubject] = useState("");
@@ -81,8 +81,8 @@ export default function CreateQuizPage() {
     setQuestions(questions.filter(q => q.id !== id));
   };
 
-  const updateQuestion = (id: string, field: keyof Question, value: any) => {
-    setQuestions(questions.map(q => 
+  const updateQuestion = (id: string, field: keyof Question, value: string | number | string[]) => {
+    setQuestions(questions.map(q =>
       q.id === id ? { ...q, [field]: value } : q
     ));
   };
@@ -112,7 +112,7 @@ export default function CreateQuizPage() {
       toast.error("Fənn seçin");
       return;
     }
-    
+
     const emptyQuestions = questions.filter(q => !q.question.trim());
     if (emptyQuestions.length > 0) {
       toast.error("Bütün sualları doldurun");
@@ -140,8 +140,8 @@ export default function CreateQuizPage() {
         question_text: q.question,
         question_type: q.type === 'mcq' ? 'multiple_choice' : q.type === 'true-false' ? 'true_false' : 'short_answer',
         options: q.type !== 'short-answer' ? q.options : null,
-        correct_answer: typeof q.correctAnswer === 'number' 
-          ? q.options[q.correctAnswer] 
+        correct_answer: typeof q.correctAnswer === 'number'
+          ? q.options[q.correctAnswer]
           : q.correctAnswer.toString(),
         explanation: q.explanation || null,
         order_index: index,
@@ -173,8 +173,8 @@ export default function CreateQuizPage() {
             Geri
           </Button>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => handleSave(false)}
               disabled={isSubmitting}
             >
@@ -185,8 +185,8 @@ export default function CreateQuizPage() {
               )}
               Qaralama
             </Button>
-            <Button 
-              variant="game" 
+            <Button
+              variant="game"
               onClick={() => handleSave(true)}
               disabled={isSubmitting}
             >
@@ -203,7 +203,7 @@ export default function CreateQuizPage() {
         {/* Quiz Details */}
         <div className="mb-8 rounded-2xl bg-gradient-card border border-border/50 p-6">
           <h2 className="mb-6 font-display text-xl font-bold text-foreground">Quiz Məlumatları</h2>
-          
+
           <div className="grid gap-6">
             <div>
               <Label htmlFor="title">Quiz Başlığı *</Label>

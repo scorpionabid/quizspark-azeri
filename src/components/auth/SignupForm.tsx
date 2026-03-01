@@ -7,6 +7,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Loader2 } from 'lucide-react';
 import { PasswordField } from './PasswordField';
 import { motion } from 'framer-motion';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { GraduationCap, User } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SignupFormProps {
     onSubmit: (data: SignupFormData) => Promise<void>;
@@ -19,6 +22,8 @@ export function SignupForm({ onSubmit, isSubmitting }: SignupFormProps) {
         defaultValues: {
             fullName: '',
             email: '',
+            phone: '',
+            role: 'student',
             password: '',
             confirmPassword: '',
         },
@@ -46,8 +51,56 @@ export function SignupForm({ onSubmit, isSubmitting }: SignupFormProps) {
                 initial="hidden"
                 animate="show"
                 onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-4"
+                className="space-y-6"
             >
+                <motion.div variants={item}>
+                    <FormField
+                        control={form.control}
+                        name="role"
+                        render={({ field }) => (
+                            <FormItem className="space-y-3">
+                                <FormLabel className="text-base">Mən ...</FormLabel>
+                                <FormControl>
+                                    <RadioGroup
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                        className="grid grid-cols-2 gap-4"
+                                    >
+                                        <FormItem>
+                                            <FormControl>
+                                                <RadioGroupItem value="student" className="sr-only" />
+                                            </FormControl>
+                                            <FormLabel className={cn(
+                                                "flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200",
+                                                field.value === "student" && "border-primary bg-primary/5 ring-1 ring-primary"
+                                            )}>
+                                                <User className={cn("mb-3 h-6 w-6", field.value === "student" ? "text-primary" : "text-muted-foreground")} />
+                                                <span className={cn("text-sm font-semibold", field.value === "student" ? "text-primary" : "text-muted-foreground")}>
+                                                    Şagirdəm
+                                                </span>
+                                            </FormLabel>
+                                        </FormItem>
+                                        <FormItem>
+                                            <FormControl>
+                                                <RadioGroupItem value="teacher" className="sr-only" />
+                                            </FormControl>
+                                            <FormLabel className={cn(
+                                                "flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200",
+                                                field.value === "teacher" && "border-primary bg-primary/5 ring-1 ring-primary"
+                                            )}>
+                                                <GraduationCap className={cn("mb-3 h-6 w-6", field.value === "teacher" ? "text-primary" : "text-muted-foreground")} />
+                                                <span className={cn("text-sm font-semibold", field.value === "teacher" ? "text-primary" : "text-muted-foreground")}>
+                                                    Müəlliməm
+                                                </span>
+                                            </FormLabel>
+                                        </FormItem>
+                                    </RadioGroup>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </motion.div>
                 <motion.div variants={item}>
                     <FormField
                         control={form.control}
@@ -80,6 +133,26 @@ export function SignupForm({ onSubmit, isSubmitting }: SignupFormProps) {
                                         type="email"
                                         placeholder="email@example.com"
                                         autoComplete="email"
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </motion.div>
+
+                <motion.div variants={item}>
+                    <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Telefon nömrəsi</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        placeholder="+994 (__) ___-__-__"
+                                        autoComplete="tel"
                                         {...field}
                                     />
                                 </FormControl>

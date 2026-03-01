@@ -1,12 +1,14 @@
+/// <reference lib="deno.ns" />
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function logUsage(supabase: any, userId: string | null, provider: string, model: string, inputTokens: number, outputTokens: number, requestType: string) {
+async function logUsage(supabase: SupabaseClient, userId: string | null, provider: string, model: string, inputTokens: number, outputTokens: number, requestType: string) {
   try {
     await supabase.from('ai_usage_logs').insert({
       user_id: userId,
@@ -160,7 +162,7 @@ Sual tipi: ÇOXSEÇİMLİ
 - questionType: "multiple_choice" olmalıdır`;
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -320,10 +322,19 @@ Bu mövzu üzrə ${questionCount} ədəd test sualı yarat.`;
 
     const questionsData = JSON.parse(toolCall.function.arguments);
 
-    const questions = questionsData.questions.map((q: any, index: number) => ({
+    interface AIQuestion {
+      question: string;
+      options: string[];
+      correctAnswer: number;
+      explanation: string;
+      bloomLevel: string;
+      questionType: string;
+    }
+
+    const questions = questionsData.questions.map((q: AIQuestion, index: number) => ({
+      ...q,
       id: `ai-${Date.now()}-${index}`,
       questionType: q.questionType || questionType,
-      ...q,
     }));
 
     console.log(`Successfully generated ${questions.length} ${questionType} questions`);

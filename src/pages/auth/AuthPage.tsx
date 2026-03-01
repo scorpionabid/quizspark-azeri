@@ -14,7 +14,7 @@ import { LoginFormData, SignupFormData } from '@/lib/validations/auth';
 export default function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
-  const { signIn, signUp, isAuthenticated, isLoading } = useAuth();
+  const { signIn, signUp, resetPassword, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function AuthPage() {
   const handleSignup = async (data: SignupFormData) => {
     setIsSubmitting(true);
     try {
-      const { error } = await signUp(data.email, data.password, data.fullName);
+      const { error } = await signUp(data.email, data.password, data.fullName, data.phone, data.role);
       if (error) {
         if (error.message.includes('User already registered')) {
           toast.error('Bu email artıq qeydiyyatdan keçib');
@@ -53,8 +53,32 @@ export default function AuthPage() {
           toast.error(error.message);
         }
       } else {
-        toast.success('Qeydiyyat uğurla tamamlandı! Daxil olun.');
+        const successMessage = data.role === 'teacher'
+          ? 'Qeydiyyat uğurla tamamlandı! Hesabınız admin tərəfindən təsdiqləndikdən sonra aktivləşəcək.'
+          : 'Qeydiyyat uğurla tamamlandı! Zəhmət olmasa emailinizi təsdiqləyin.';
+
+        toast.success(successMessage, {
+          duration: 6000,
+        });
         setActiveTab('login');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async (email: string) => {
+    if (!email) {
+      toast.error('Zəhmət olmasa email ünvanınızı daxil edin');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { error } = await resetPassword(email);
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success('Şifrə sıfırlama linki emailinizə göndərildi');
       }
     } finally {
       setIsSubmitting(false);
@@ -166,7 +190,11 @@ export default function AuthPage() {
                         exit={{ opacity: 0, x: 10 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <LoginForm onSubmit={handleLogin} isSubmitting={isSubmitting} />
+                        <LoginForm
+                          onSubmit={handleLogin}
+                          onForgotPassword={handleForgotPassword}
+                          isSubmitting={isSubmitting}
+                        />
                       </motion.div>
                     ) : (
                       <motion.div

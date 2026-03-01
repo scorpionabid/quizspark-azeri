@@ -1,12 +1,14 @@
+/// <reference lib="deno.ns" />
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function logUsage(supabase: any, userId: string | null, provider: string, model: string, inputTokens: number, outputTokens: number, requestType: string) {
+async function logUsage(supabase: SupabaseClient, userId: string | null, provider: string, model: string, inputTokens: number, outputTokens: number, requestType: string) {
   try {
     await supabase.from('ai_usage_logs').insert({
       user_id: userId,
@@ -46,14 +48,14 @@ async function logUsage(supabase: any, userId: string | null, provider: string, 
   }
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { messages, agentId, systemPrompt } = await req.json();
-    
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
@@ -79,7 +81,7 @@ serve(async (req) => {
 Cavablarını aydın, peşəkar və faydalı şəkildə formalaşdır.
 Lazım gələrsə nümunələr və izahlar ver.`;
 
-    const fullSystemPrompt = systemPrompt 
+    const fullSystemPrompt = systemPrompt
       ? `${baseSystemPrompt}\n\n${systemPrompt}`
       : baseSystemPrompt;
 
@@ -102,7 +104,7 @@ Lazım gələrsə nümunələr və izahlar ver.`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI Gateway error:", response.status, errorText);
-      
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limits exceeded, please try again later." }),
@@ -115,7 +117,7 @@ Lazım gələrsə nümunələr və izahlar ver.`;
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
       return new Response(
         JSON.stringify({ error: "AI gateway error" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -123,7 +125,7 @@ Lazım gələrsə nümunələr və izahlar ver.`;
     }
 
     // Log usage (estimate for streaming - actual tokens are in the stream)
-    const estimatedInputTokens = messages.reduce((acc: number, m: any) => acc + (m.content?.length || 0) / 4, 0);
+    const estimatedInputTokens = messages.reduce((acc: number, m: { content?: string }) => acc + (m.content?.length || 0) / 4, 0);
     await logUsage(
       supabase,
       userId,

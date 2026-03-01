@@ -1,27 +1,34 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
-import { lovable } from '@/integrations/lovable/index';
+import { Github, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 export function SocialAuth() {
-    const [isLoading, setIsLoading] = useState(false);
+    const { signInWithOAuth } = useAuth();
+    const [isLoading, setIsLoading] = useState<string | null>(null);
 
     const handleGoogleSignIn = async () => {
-        setIsLoading(true);
+        setIsLoading('google');
         try {
-            const { error } = await lovable.auth.signInWithOAuth('google', {
-                redirect_uri: window.location.origin,
-            });
-            if (error) {
-                toast.error('Google ilə giriş uğursuz oldu');
-                console.error('Google sign-in error:', error);
-            }
-        } catch (err) {
-            toast.error('Google ilə giriş uğursuz oldu');
-            console.error('Google sign-in error:', err);
+            const { error } = await signInWithOAuth('google');
+            if (error) toast.error(error.message);
+        } catch (error) {
+            toast.error('Google ilə giriş zamanı xəta baş verdi');
         } finally {
-            setIsLoading(false);
+            setIsLoading(null);
+        }
+    };
+
+    const handleGithubSignIn = async () => {
+        setIsLoading('github');
+        try {
+            const { error } = await signInWithOAuth('github');
+            if (error) toast.error(error.message);
+        } catch (error) {
+            toast.error('GitHub ilə giriş zamanı xəta baş verdi');
+        } finally {
+            setIsLoading(null);
         }
     };
 
@@ -37,22 +44,38 @@ export function SocialAuth() {
                     </span>
                 </div>
             </div>
-            <Button
-                variant="outline"
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-                className="w-full"
-            >
-                {isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" viewBox="0 0 488 512">
-                        <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z" />
-                    </svg>
-                )}
-                Google ilə daxil ol
-            </Button>
+            <div className="grid grid-cols-2 gap-4">
+                <Button
+                    variant="outline"
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={!!isLoading}
+                    className="w-full"
+                >
+                    {isLoading === 'google' ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                            <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+                        </svg>
+                    )}
+                    Google
+                </Button>
+                <Button
+                    variant="outline"
+                    type="button"
+                    onClick={handleGithubSignIn}
+                    disabled={!!isLoading}
+                    className="w-full"
+                >
+                    {isLoading === 'github' ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Github className="mr-2 h-4 w-4" />
+                    )}
+                    GitHub
+                </Button>
+            </div>
         </div>
     );
 }
