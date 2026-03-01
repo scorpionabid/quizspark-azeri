@@ -14,14 +14,21 @@ import { LoginFormData, SignupFormData } from '@/lib/validations/auth';
 export default function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
-  const { signIn, signUp, resetPassword, isAuthenticated, isLoading } = useAuth();
+  const { signIn, signUp, resetPassword, isAuthenticated, isLoading, role, profile } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      navigate('/');
+    if (isAuthenticated && !isLoading && role !== null) {
+      if (role === 'admin') {
+        navigate('/admin/dashboard');
+      } else if (role === 'teacher' && profile?.status === 'active') {
+        navigate('/teacher/dashboard');
+      } else {
+        // student or pending teacher goes to home
+        navigate('/');
+      }
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, role, profile, navigate]);
 
   const handleLogin = async (data: LoginFormData) => {
     setIsSubmitting(true);

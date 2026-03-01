@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth, AppRole } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { AppRole } from '@/types/auth';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -9,7 +10,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, role } = useAuth();
+  const { isAuthenticated, isLoading, role, profile } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -27,6 +28,11 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   // If specific roles are required, check if user has one of them
   if (allowedRoles && allowedRoles.length > 0) {
     if (!role || !allowedRoles.includes(role)) {
+      return <Navigate to="/" replace />;
+    }
+
+    // Pending teachers cannot access teacher-only routes until approved by admin
+    if (role === 'teacher' && profile?.status === 'pending') {
       return <Navigate to="/" replace />;
     }
   }

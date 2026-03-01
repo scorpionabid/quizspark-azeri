@@ -815,6 +815,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      select_oauth_role: {
+        Args: {
+          p_role: string
+        }
+        Returns: undefined
+      }
       search_questions: {
         Args: {
           filter_user_id?: string

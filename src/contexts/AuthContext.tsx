@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, Session, Provider } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -12,10 +12,12 @@ interface AuthContextType {
   profile: Profile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isProfileComplete: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string, phone: string, role: AppRole) => Promise<{ error: Error | null }>;
   signInWithOAuth: (provider: Provider) => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
+  selectOAuthRole: (role: AppRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -42,14 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(roleData.role as AppRole);
       }
 
-      // Fetch profile from profiles table
+      // Fetch profile including status and is_profile_complete
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, avatar_url')
+        .select('full_name, avatar_url, status, is_profile_complete')
         .eq('user_id', userId)
         .maybeSingle();
+
       if (profileData) {
-        setProfile(profileData);
+        setProfile({
+          full_name: profileData.full_name,
+          avatar_url: profileData.avatar_url,
+          status: profileData.status as Profile['status'],
+          isProfileComplete: profileData.is_profile_complete ?? true,
+        });
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -59,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -158,6 +166,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const selectOAuthRole = async (selectedRole: AppRole): Promise<{ error: Error | null }> => {
+    try {
+      const { error } = await supabase.rpc('select_oauth_role', { p_role: selectedRole });
+      if (error) return { error };
+      // Refresh profile to reflect new role and status
+      if (user) await fetchUserData(user.id);
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -172,6 +192,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const isProfileComplete = profile?.isProfileComplete ?? true;
+
   return (
     <AuthContext.Provider
       value={{
@@ -181,10 +203,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         isLoading,
         isAuthenticated: !!user,
+        isProfileComplete,
         signIn,
         signUp,
         signInWithOAuth,
         resetPassword,
+        selectOAuthRole,
         signOut,
         refreshProfile,
       }}

@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { 
-  Search, 
-  Plus, 
-  MoreVertical, 
-  Edit, 
-  Trash2, 
+import {
+  Search,
+  Plus,
+  MoreVertical,
+  Edit,
+  Trash2,
   Shield,
   UserCheck,
   UserX,
-  Mail
+  Mail,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,25 +40,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'teacher' | 'student';
-  status: 'active' | 'inactive' | 'pending';
-  createdAt: string;
-  lastLogin: string;
-}
-
-const users: User[] = [
-  { id: '1', name: 'Admin İstifadəçi', email: 'admin@quiz.az', role: 'admin', status: 'active', createdAt: '2024-01-01', lastLogin: '2024-01-22' },
-  { id: '2', name: 'Müəllim Əliyev', email: 'teacher@quiz.az', role: 'teacher', status: 'active', createdAt: '2024-01-05', lastLogin: '2024-01-21' },
-  { id: '3', name: 'Tələbə Həsənov', email: 'student@quiz.az', role: 'student', status: 'active', createdAt: '2024-01-10', lastLogin: '2024-01-22' },
-  { id: '4', name: 'Leyla Məmmədova', email: 'leyla@quiz.az', role: 'student', status: 'active', createdAt: '2024-01-12', lastLogin: '2024-01-20' },
-  { id: '5', name: 'Tural Quliyev', email: 'tural@quiz.az', role: 'student', status: 'inactive', createdAt: '2024-01-08', lastLogin: '2024-01-15' },
-  { id: '6', name: 'Yeni Müəllim', email: 'new.teacher@quiz.az', role: 'teacher', status: 'pending', createdAt: '2024-01-20', lastLogin: '-' },
-];
+import { useUsers } from "@/hooks/useUsers";
+import { AppRole } from "@/contexts/AuthContext";
 
 const roleLabels = {
   admin: 'Admin',
@@ -72,12 +56,13 @@ const statusLabels = {
 };
 
 export default function UsersPage() {
+  const { users, isLoading, updateStatus, updateRole } = useUsers();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  const filteredUsers = users.filter((user) => {
+  const filteredUsers = (users || []).filter((user) => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
@@ -86,9 +71,26 @@ export default function UsersPage() {
   });
 
   const handleAddUser = () => {
-    toast.success("İstifadəçi əlavə edildi!");
+    toast.info("Yeni istifadəçi yaratmaq üçün qeydiyyat formundan istifadə edin və ya Supabase dashboard-dan əlavə edin.");
     setIsAddDialogOpen(false);
   };
+
+  const handleStatusChange = (userId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    updateStatus.mutate({ userId, status: newStatus });
+  };
+
+  const handleApproveTeacher = (userId: string) => {
+    updateStatus.mutate({ userId, status: 'active' });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
@@ -110,38 +112,15 @@ export default function UsersPage() {
               <DialogHeader>
                 <DialogTitle>Yeni İstifadəçi</DialogTitle>
                 <DialogDescription>
-                  Yeni istifadəçi yaratmaq üçün məlumatları doldurun.
+                  Məlumatları doldurun.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div>
-                  <Label htmlFor="name">Ad</Label>
-                  <Input id="name" placeholder="İstifadəçi adı" className="mt-2" />
-                </div>
-                <div>
-                  <Label htmlFor="email">E-poçt</Label>
-                  <Input id="email" type="email" placeholder="email@example.com" className="mt-2" />
-                </div>
-                <div>
-                  <Label>Rol</Label>
-                  <Select>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Rol seçin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="student">Tələbə</SelectItem>
-                      <SelectItem value="teacher">Müəllim</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <p className="text-sm text-muted-foreground">İstifadəçiləri manual olaraq qeydiyyat səhifəsindən və ya birbaşa bazadan əlavə etmək tövsiyə olunur.</p>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Ləğv Et
-                </Button>
-                <Button variant="game" onClick={handleAddUser}>
-                  Əlavə Et
+                  Bağla
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -200,7 +179,7 @@ export default function UsersPage() {
                     Status
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Son Giriş
+                    Yaradılma
                   </th>
                   <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Əməliyyatlar
@@ -215,8 +194,8 @@ export default function UsersPage() {
                         <div className={cn(
                           "flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold",
                           user.role === 'admin' ? "bg-destructive/20 text-destructive" :
-                          user.role === 'teacher' ? "bg-secondary/20 text-secondary" :
-                          "bg-primary/20 text-primary"
+                            user.role === 'teacher' ? "bg-secondary/20 text-secondary" :
+                              "bg-primary/20 text-primary"
                         )}>
                           {user.name.charAt(0)}
                         </div>
@@ -229,21 +208,21 @@ export default function UsersPage() {
                     <td className="px-6 py-4">
                       <Badge variant={
                         user.role === 'admin' ? 'destructive' :
-                        user.role === 'teacher' ? 'secondary' : 'default'
+                          user.role === 'teacher' ? 'secondary' : 'default'
                       }>
-                        {roleLabels[user.role]}
+                        {roleLabels[user.role as keyof typeof roleLabels]}
                       </Badge>
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant={
                         user.status === 'active' ? 'success' :
-                        user.status === 'pending' ? 'warning' : 'muted'
+                          user.status === 'pending' ? 'warning' : 'muted'
                       }>
-                        {statusLabels[user.status]}
+                        {statusLabels[user.status as keyof typeof statusLabels]}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">
-                      {user.lastLogin}
+                      {new Date(user.createdAt).toLocaleDateString('az-AZ')}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <DropdownMenu>
@@ -253,26 +232,31 @@ export default function UsersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {user.status === 'pending' && (
+                            <DropdownMenuItem onClick={() => handleApproveTeacher(user.id)}>
+                              <UserCheck className="mr-2 h-4 w-4 text-success" />
+                              Təsdiqlə
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem>
                             <Edit className="mr-2 h-4 w-4" />
                             Redaktə Et
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            const newRole = user.role === 'student' ? 'teacher' : 'student';
+                            updateRole.mutate({ userId: user.id, role: newRole as AppRole });
+                          }}>
                             <Shield className="mr-2 h-4 w-4" />
-                            Rol Dəyiş
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Mail className="mr-2 h-4 w-4" />
-                            E-poçt Göndər
+                            Rolu Dəyiş
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {user.status === 'active' ? (
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'active')}>
                               <UserX className="mr-2 h-4 w-4" />
                               Deaktiv Et
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'inactive')}>
                               <UserCheck className="mr-2 h-4 w-4" />
                               Aktiv Et
                             </DropdownMenuItem>
@@ -293,11 +277,11 @@ export default function UsersPage() {
 
         {/* Stats */}
         <div className="mt-6 flex flex-wrap gap-4 text-sm text-muted-foreground">
-          <span>Ümumi: {users.length}</span>
+          <span>Ümumi: {filteredUsers.length}</span>
           <span>•</span>
-          <span>Aktiv: {users.filter(u => u.status === 'active').length}</span>
+          <span>Aktiv: {filteredUsers.filter(u => u.status === 'active').length}</span>
           <span>•</span>
-          <span>Gözləyən: {users.filter(u => u.status === 'pending').length}</span>
+          <span>Gözləyən: {filteredUsers.filter(u => u.status === 'pending').length}</span>
         </div>
       </div>
     </div>
