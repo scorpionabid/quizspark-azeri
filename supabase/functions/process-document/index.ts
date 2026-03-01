@@ -13,6 +13,37 @@ serve(async (req) => {
   }
 
   try {
+    // --- Authentication check ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'İcazəsiz giriş' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // Create user-scoped client to verify auth
+    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await userSupabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'İcazəsiz giriş' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claimsData.claims.sub as string;
+    console.log(`Authenticated user: ${userId}`);
+
+    // --- Process file ---
     const formData = await req.formData();
     const file = formData.get('file') as File;
     
@@ -22,16 +53,13 @@ serve(async (req) => {
 
     console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${file.size}`);
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Use service role client for storage/db operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Generate unique file path
+    // Upload to user's folder for RLS compliance
     const fileExt = file.name.split('.').pop();
-    const filePath = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `${userId}/${crypto.randomUUID()}.${fileExt}`;
 
-    // Upload file to storage
     const { error: uploadError } = await supabase.storage
       .from('documents')
       .upload(filePath, file, {
@@ -50,11 +78,9 @@ serve(async (req) => {
     if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
       textContent = await file.text();
     } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-      // For PDF, we'll use AI to extract content
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       if (LOVABLE_API_KEY) {
         const arrayBuffer = await file.arrayBuffer();
-        // Use Deno's base64 encoding to avoid stack overflow with large files
         const base64 = encodeBase64(arrayBuffer);
         
         const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -92,11 +118,9 @@ serve(async (req) => {
         }
       }
     } else if (file.name.endsWith('.docx') || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      // For DOCX, extract text using AI
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       if (LOVABLE_API_KEY) {
         const arrayBuffer = await file.arrayBuffer();
-        // Use Deno's base64 encoding to avoid stack overflow with large files
         const base64 = encodeBase64(arrayBuffer);
         
         const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -135,14 +159,13 @@ serve(async (req) => {
       }
     }
 
-    // If we couldn't extract text, provide a message
     if (!textContent) {
       textContent = `Sənəd yükləndi: ${file.name}. Mətn avtomatik çıxarıla bilmədi.`;
     }
 
     console.log(`Extracted text length: ${textContent.length}`);
 
-    // Save document metadata to database
+    // Save document metadata with actual user_id
     const { data: docData, error: dbError } = await supabase
       .from('documents')
       .insert({
@@ -150,7 +173,7 @@ serve(async (req) => {
         file_path: filePath,
         file_type: file.type || fileExt,
         content: textContent,
-        user_id: null // For demo, no auth required
+        user_id: userId
       })
       .select()
       .single();
