@@ -3,6 +3,7 @@ import { User, Session, Provider } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 import { AppRole, Profile } from '@/types/auth';
+export type { AppRole };
 
 interface AuthContextType {
   user: User | null;
