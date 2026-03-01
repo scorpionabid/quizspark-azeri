@@ -139,9 +139,21 @@ export function DocumentUploader({
       // simulate stage transition
       setTimeout(() => setUploadStage("processing"), 800);
 
+      // Get current session token for authentication
+      const { data: { session } } = await (await import("@/integrations/supabase/client")).supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Sənəd yükləmək üçün daxil olmalısınız");
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document`,
-        { method: "POST", body: formData }
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        }
       );
 
       const data = await response.json();
