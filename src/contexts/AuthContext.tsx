@@ -42,14 +42,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (roleData) {
         setRole(roleData.role as AppRole);
+      } else {
+        console.warn('No role data found for user:', userId);
       }
 
       // Fetch profile including status and is_profile_complete
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('full_name, avatar_url, status, is_profile_complete')
         .eq('user_id', userId)
         .maybeSingle();
+
+      if (profileError) {
+        console.error('Error fetching profile data:', profileError);
+      }
 
       if (profileData) {
         setProfile({
@@ -58,9 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           status: profileData.status as Profile['status'],
           isProfileComplete: profileData.is_profile_complete ?? true,
         });
+      } else {
+        console.warn('No profile data found for user:', userId);
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error('AuthContext: fetchUserData exception:', error);
     }
   }, []);
 
@@ -98,18 +106,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchUserData]);
 
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
+    console.log('AuthContext: Attempting signIn for:', email);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('AuthContext: signIn error:', error);
         return { error };
       }
 
+      console.log('AuthContext: signIn successful for:', email, data.user?.id);
       return { error: null };
     } catch (error) {
+      console.error('AuthContext: signIn exception:', error);
       return { error: error as Error };
     }
   };

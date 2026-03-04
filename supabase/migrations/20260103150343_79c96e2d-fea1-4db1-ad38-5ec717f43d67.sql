@@ -14,7 +14,7 @@ CREATE TABLE public.question_bank (
   difficulty TEXT DEFAULT 'orta',
   bloom_level TEXT,
   source_document_id UUID REFERENCES public.documents(id) ON DELETE SET NULL,
-  embedding vector(768),
+  embedding extensions.vector(768),
   tags TEXT[],
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
@@ -57,7 +57,7 @@ WITH CHECK (user_id IS NULL);
 
 -- Create index for vector similarity search
 CREATE INDEX question_bank_embedding_idx ON public.question_bank 
-USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+USING ivfflat (embedding extensions.vector_cosine_ops) WITH (lists = 100);
 
 -- Create index for text search
 CREATE INDEX question_bank_text_search_idx ON public.question_bank 
@@ -65,7 +65,7 @@ USING gin (to_tsvector('simple', question_text));
 
 -- Create function for similarity search
 CREATE OR REPLACE FUNCTION public.search_questions(
-  query_embedding vector(768),
+  query_embedding extensions.vector(768),
   match_threshold FLOAT DEFAULT 0.7,
   match_count INT DEFAULT 10,
   filter_user_id UUID DEFAULT NULL
