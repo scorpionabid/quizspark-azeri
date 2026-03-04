@@ -29,10 +29,17 @@ git clone <YOUR_GIT_URL>
 # Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Step 3: Fast setup for Local Development (Supabase + Docker + npm)
+./scripts/dev-setup.sh
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Start everything
+./scripts/dev-start.sh
+```
+
+### Alternative Start (Manual)
+If you prefer not to use the automated scripts:
+```sh
+npm i
 npm run dev
 ```
 

@@ -33,7 +33,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
     // Pending teachers cannot access teacher-only routes until approved by admin
     if (role === 'teacher' && profile?.status === 'pending') {
-      return <Navigate to="/" replace />;
+      return <Navigate to="/pending-approval" replace />;
     }
   }
 

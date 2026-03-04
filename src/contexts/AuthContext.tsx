@@ -11,6 +11,7 @@ interface AuthContextType {
   role: AppRole | null;
   profile: Profile | null;
   isLoading: boolean;
+  isDataLoading: boolean;
   isAuthenticated: boolean;
   isProfileComplete: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -30,45 +31,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(false);
 
   const fetchUserData = useCallback(async (userId: string) => {
+    setIsDataLoading(true);
     try {
-      // Fetch user role
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
+      // Parallel fetch — role and profile at the same time for speed
+      const [roleResult, profileResult] = await Promise.all([
+        supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle(),
+        supabase.from('profiles').select('full_name, avatar_url, status, is_profile_complete').eq('user_id', userId).maybeSingle(),
+      ]);
 
-      if (roleData) {
-        setRole(roleData.role as AppRole);
-      } else {
-        console.warn('No role data found for user:', userId);
+      if (roleResult.data) {
+        setRole(roleResult.data.role as AppRole);
+      } else if (roleResult.error) {
+        console.error('[Auth] Failed to fetch role:', roleResult.error.message);
       }
 
-      // Fetch profile including status and is_profile_complete
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('full_name, avatar_url, status, is_profile_complete')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('Error fetching profile data:', profileError);
-      }
-
-      if (profileData) {
+      if (profileResult.data) {
         setProfile({
-          full_name: profileData.full_name,
-          avatar_url: profileData.avatar_url,
-          status: profileData.status as Profile['status'],
-          isProfileComplete: profileData.is_profile_complete ?? true,
+          full_name: profileResult.data.full_name,
+          avatar_url: profileResult.data.avatar_url,
+          status: profileResult.data.status as Profile['status'],
+          isProfileComplete: profileResult.data.is_profile_complete ?? true,
         });
-      } else {
-        console.warn('No profile data found for user:', userId);
+      } else if (profileResult.error) {
+        console.error('[Auth] Failed to fetch profile:', profileResult.error.message);
       }
     } catch (error) {
-      console.error('AuthContext: fetchUserData exception:', error);
+      console.error('[Auth] fetchUserData exception:', error);
+    } finally {
+      setIsDataLoading(false);
     }
   }, []);
 
@@ -106,22 +99,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchUserData]);
 
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
-    console.log('AuthContext: Attempting signIn for:', email);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        console.error('AuthContext: signIn error:', error);
+        console.error('[Auth] Sign-in failed:', error.message);
         return { error };
       }
-
-      console.log('AuthContext: signIn successful for:', email, data.user?.id);
       return { error: null };
     } catch (error) {
-      console.error('AuthContext: signIn exception:', error);
       return { error: error as Error };
     }
   };
@@ -214,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         profile,
         isLoading,
+        isDataLoading,
         isAuthenticated: !!user,
         isProfileComplete,
         signIn,

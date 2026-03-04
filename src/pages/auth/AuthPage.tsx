@@ -23,8 +23,10 @@ export default function AuthPage() {
         navigate('/admin/dashboard');
       } else if (role === 'teacher' && profile?.status === 'active') {
         navigate('/teacher/dashboard');
+      } else if (role === 'teacher' && profile?.status === 'pending') {
+        navigate('/pending-approval');
       } else {
-        // student or pending teacher goes to home
+        // student goes to home
         navigate('/');
       }
     }
@@ -40,10 +42,8 @@ export default function AuthPage() {
         } else {
           toast.error(error.message);
         }
-      } else {
-        toast.success('Uğurla daxil oldunuz!');
-        navigate('/');
       }
+      // On success: no navigate() here — the useEffect above handles role-based redirect
     } finally {
       setIsSubmitting(false);
     }

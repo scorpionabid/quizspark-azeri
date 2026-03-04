@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, InputHTMLAttributes } from 'react';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff } from 'lucide-react';
 import { FormControl, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 interface PasswordFieldProps {
-    field: any;
+    field: InputHTMLAttributes<HTMLInputElement>;
     label: string;
     placeholder?: string;
     autoComplete?: string;

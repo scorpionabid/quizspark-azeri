@@ -1,73 +1,52 @@
--- Final fix for seed.sql to satisfy strict GoTrue struct scanning
+-- Seed users with EXPLICIT column values for created_at, updated_at, and all critical string fields.
+-- This fixes the GoTrue Scan error by ensuring no NULL values are returned for timestamps during user lookup.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Delete any existing test users to avoid conflict
+-- Clear everything first
 DELETE FROM auth.users WHERE email IN ('admin@test.az', 'teacher@test.az', 'student@test.az');
 
--- Admin
+-- Common IDs for consistent seeding
+-- Admin: a0000000-0000-0000-0000-000000000001
+-- Teacher: b0000000-0000-0000-0000-000000000002
+-- Student: c0000000-0000-0000-0000-000000000003
+
+-- Admin User
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, 
-  email_confirmed_at, invited_at, confirmation_token, confirmation_sent_at, 
-  recovery_token, recovery_sent_at, email_change_token_new, email_change_sent_at, 
-  last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, 
-  created_at, updated_at, phone, phone_confirmed_at, phone_change, 
-  phone_change_token, phone_change_sent_at, email_change_token_current, 
-  email_change_confirm_status, banned_until, reauthentication_token, 
-  reauthentication_sent_at, is_sso_user, deleted_at, is_anonymous
+  email_confirmed_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, 
+  created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, 
+  email_change_token_current, phone_change_token, reauthentication_token, is_sso_user
 ) VALUES (
   'a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@test.az', crypt('password123', gen_salt('bf')), 
-  now(), NULL, '', NULL, 
-  '', NULL, '', NULL, 
-  now(), '{}', '{"full_name":"Baş Admin","role":"admin"}', false, 
-  now(), now(), NULL, NULL, NULL, 
-  '', NULL, '', 
-  0, NULL, '', 
-  NULL, false, NULL, false
+  now(), now(), '{}', '{"full_name":"Baş Admin","role":"admin"}', false, 
+  now(), now(), '', '', '', '', '', '', false
 );
 
--- Teacher
+-- Teacher User
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, 
-  email_confirmed_at, invited_at, confirmation_token, confirmation_sent_at, 
-  recovery_token, recovery_sent_at, email_change_token_new, email_change_sent_at, 
-  last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, 
-  created_at, updated_at, phone, phone_confirmed_at, phone_change, 
-  phone_change_token, phone_change_sent_at, email_change_token_current, 
-  email_change_confirm_status, banned_until, reauthentication_token, 
-  reauthentication_sent_at, is_sso_user, deleted_at, is_anonymous
+  email_confirmed_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, 
+  created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, 
+  email_change_token_current, phone_change_token, reauthentication_token, is_sso_user
 ) VALUES (
   'b0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'teacher@test.az', crypt('password123', gen_salt('bf')), 
-  now(), NULL, '', NULL, 
-  '', NULL, '', NULL, 
-  now(), '{}', '{"full_name":"Müəllim Həsənov","role":"teacher"}', false, 
-  now(), now(), NULL, NULL, NULL, 
-  '', NULL, '', 
-  0, NULL, '', 
-  NULL, false, NULL, false
+  now(), now(), '{}', '{"full_name":"Müəllim Həsənov","role":"teacher"}', false, 
+  now(), now(), '', '', '', '', '', '', false
 );
 
--- Student
+-- Student User
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, 
-  email_confirmed_at, invited_at, confirmation_token, confirmation_sent_at, 
-  recovery_token, recovery_sent_at, email_change_token_new, email_change_sent_at, 
-  last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, 
-  created_at, updated_at, phone, phone_confirmed_at, phone_change, 
-  phone_change_token, phone_change_sent_at, email_change_token_current, 
-  email_change_confirm_status, banned_until, reauthentication_token, 
-  reauthentication_sent_at, is_sso_user, deleted_at, is_anonymous
+  email_confirmed_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, 
+  created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, 
+  email_change_token_current, phone_change_token, reauthentication_token, is_sso_user
 ) VALUES (
   'c0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'student@test.az', crypt('password123', gen_salt('bf')), 
-  now(), NULL, '', NULL, 
-  '', NULL, '', NULL, 
-  now(), '{}', '{"full_name":"Tələbə Məmmədov","role":"student"}', false, 
-  now(), now(), NULL, NULL, NULL, 
-  '', NULL, '', 
-  0, NULL, '', 
-  NULL, false, NULL, false
+  now(), now(), '{}', '{"full_name":"Tələbə Məmmədov","role":"student"}', false, 
+  now(), now(), '', '', '', '', '', '', false
 );
 
--- Assign roles manually
+-- Assign roles and update profiles
 DO $$
 BEGIN
   -- Admin
@@ -75,5 +54,31 @@ BEGIN
   UPDATE public.profiles SET status = 'active', is_profile_complete = true WHERE user_id = 'a0000000-0000-0000-0000-000000000001';
   
   -- Student
+  UPDATE public.user_roles SET role = 'student' WHERE user_id = 'c0000000-0000-0000-0000-000000000003';
   UPDATE public.profiles SET status = 'active', is_profile_complete = true WHERE user_id = 'c0000000-0000-0000-0000-000000000003';
+
+  -- Teacher
+  UPDATE public.user_roles SET role = 'teacher' WHERE user_id = 'b0000000-0000-0000-0000-000000000002';
+  UPDATE public.profiles SET status = 'pending', is_profile_complete = true WHERE user_id = 'b0000000-0000-0000-0000-000000000002';
 END $$;
+
+-- Seed Categories
+INSERT INTO public.question_categories (name, description)
+VALUES 
+  ('Riyaziyyat', 'Cəbr, həndəsə və riyazi analiz sualları'),
+  ('Tarix', 'Azərbaycan və dünya tarixi sualları'),
+  ('İnformatika', 'Proqramlaşdırma və IT sualları')
+ON CONFLICT (name) DO NOTHING;
+
+-- Seed Sample Questions
+INSERT INTO public.question_bank (user_id, question_text, question_type, options, correct_answer, explanation, category, difficulty)
+VALUES 
+  ('a0000000-0000-0000-0000-000000000001', 'Supabase hansı verilənlər bazası üzərində qurulub?', 'multiple_choice', '["MySQL", "PostgreSQL", "MongoDB", "SQLite"]', 'PostgreSQL', 'Supabase açıq qaynaqlı PostgreSQL üzərində qurulub.', 'İnformatika', 'asan'),
+  ('a0000000-0000-0000-0000-000000000001', 'Azərbaycanın paytaxtı haradır?', 'multiple_choice', '["Gəncə", "Bakı", "Sumqayıt", "Naxçıvan"]', 'Bakı', 'Azərbaycan Respublikasının paytaxtı Bakı şəhəridir.', 'Tarix', 'asan'),
+  ('a0000000-0000-0000-0000-000000000001', 'E = mc² düsturu kimə aiddir?', 'multiple_choice', '["Newton", "Einstein", "Tesla", "Bohr"]', 'Einstein', 'Kütlə-enerji ekvivalentliyi düsturu Albert Einstein tərəfindən irəli sürülmüşdür.', 'İnformatika', 'orta')
+ON CONFLICT DO NOTHING;
+
+-- Seed Default AI Config
+INSERT INTO public.ai_config (id, default_provider_id, default_model_id, is_enabled, global_daily_limit)
+VALUES (gen_random_uuid(), NULL, NULL, true, 1000)
+ON CONFLICT DO NOTHING;

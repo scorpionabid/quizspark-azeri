@@ -48,37 +48,73 @@ export function useUsers() {
 
     const updateStatus = useMutation({
         mutationFn: async ({ userId, status }: { userId: string, status: string }) => {
-            const { error } = await supabase
+            const { error, data } = await supabase
                 .from('profiles')
                 .update({ status })
-                .eq('user_id', userId);
+                .eq('user_id', userId)
+                .select('user_id');
 
             if (error) throw error;
+
+            // If no rows returned, the update was silently blocked (e.g. by RLS)
+            if (!data || data.length === 0) {
+                throw new Error('İcazə rədd edildi. Status yenilənmədi. Admin hüququ tələb olunur.');
+            }
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ["admin_users"] });
-            toast.success("İstifadəçi statusu yeniləndi");
+            const statusLabel = variables.status === 'active' ? 'aktiv' :
+                variables.status === 'inactive' ? 'deaktiv' : 'gözləmədə';
+            toast.success(`İstifadəçi ${statusLabel} edildi`);
         },
         onError: (err: Error) => {
-            toast.error(err.message || "Xəta baş verdi");
+            toast.error(err.message || "Status yenilənərkən xəta baş verdi");
         }
     });
 
     const updateRole = useMutation({
         mutationFn: async ({ userId, role }: { userId: string, role: AppRole }) => {
-            const { error } = await supabase
+            const { error, data } = await supabase
                 .from('user_roles')
                 .update({ role })
-                .eq('user_id', userId);
+                .eq('user_id', userId)
+                .select('user_id');
 
             if (error) throw error;
+
+            if (!data || data.length === 0) {
+                throw new Error('İcazə rədd edildi. Rol yenilənmədi. Admin hüququ tələb olunur.');
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["admin_users"] });
             toast.success("İstifadəçi rolu yeniləndi");
         },
         onError: (err: Error) => {
-            toast.error(err.message || "Xəta baş verdi");
+            toast.error(err.message || "Rol yenilənərkən xəta baş verdi");
+        }
+    });
+
+    const deleteUser = useMutation({
+        mutationFn: async (userId: string) => {
+            const { error, data } = await supabase
+                .from('profiles')
+                .delete()
+                .eq('user_id', userId)
+                .select('user_id');
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                throw new Error('İstifadəçi tapılmadı və ya artıq silinib.');
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["admin_users"] });
+            toast.success("İstifadəçi uğurla silindi");
+        },
+        onError: (err: Error) => {
+            toast.error(err.message || "Silmə zamanı xəta baş verdi");
         }
     });
 
@@ -87,6 +123,7 @@ export function useUsers() {
         isLoading,
         error,
         updateStatus,
-        updateRole
+        updateRole,
+        deleteUser
     };
 }

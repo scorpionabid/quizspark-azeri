@@ -27,4 +27,12 @@ dist-ssr
 Dockerfile
 docker-compose.yml
 nginx.conf
-.dockerignore
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+supabase/.env

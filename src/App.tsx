@@ -18,6 +18,7 @@ import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
+import PendingApprovalPage from "./pages/auth/PendingApprovalPage";
 
 // Teacher Pages
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
@@ -47,6 +48,7 @@ function AppRoutes() {
         {/* Auth Routes - No Layout */}
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/pending-approval" element={<PendingApprovalPage />} />
 
         {/* Profile Route */}
         <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
