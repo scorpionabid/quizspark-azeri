@@ -1,15 +1,30 @@
-project_id = "quiz-app-local"
+project_id = "qa3"
 
 [api]
-port = 54321
-external_url = "http://127.0.0.1:54321"
+port = 54331
+external_url = "http://127.0.0.1:54331"
 
 [auth]
 enabled = true
+site_url = "http://localhost:3005"
+additional_redirect_urls = ["http://localhost:3005/*", "http://127.0.0.1:3005/*"]
 email.enable_confirmations = false
 
+[auth.external.google]
+enabled = true
+client_id = "env(GOOGLE_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"
+# Google requires https for redirect urls normally, but local supabase handles it.
+# redirect_uri = "http://localhost:54321/auth/v1/callback"
+
 [db]
-port = 54322
+port = 54332
+
+[studio]
+port = 54333
+
+[inbucket]
+port = 54334
 
 [storage]
 enabled = true

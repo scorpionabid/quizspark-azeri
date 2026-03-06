@@ -57,7 +57,7 @@ $$;
 
 -- RPC function allowing OAuth users to select their role after first login.
 -- SECURITY DEFINER runs with elevated privileges to update user_roles.
-CREATE OR REPLACE FUNCTION public.select_oauth_role(p_role text)
+CREATE OR REPLACE FUNCTION public.select_oauth_role(p_role text, p_phone text DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -69,15 +69,16 @@ BEGIN
         RAISE EXCEPTION 'Invalid role: %', p_role;
     END IF;
 
-    -- Update user role
+    -- Update user role (Both get student role initially, for security and pending approval)
     UPDATE public.user_roles
-    SET role = p_role::app_role
+    SET role = 'student'::app_role
     WHERE user_id = auth.uid();
 
-    -- Update profile: set status and mark profile complete
+    -- Update profile: set status, phone and mark profile complete
     UPDATE public.profiles
     SET
         status = CASE WHEN p_role = 'teacher' THEN 'pending' ELSE 'active' END,
+        phone = COALESCE(p_phone, phone),
         is_profile_complete = true
     WHERE user_id = auth.uid();
 END;

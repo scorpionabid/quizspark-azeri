@@ -18,7 +18,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string, phone: string, role: AppRole) => Promise<{ error: Error | null }>;
   signInWithOAuth: (provider: Provider) => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
-  selectOAuthRole: (role: AppRole) => Promise<{ error: Error | null }>;
+  selectOAuthRole: (role: AppRole, phone?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -163,9 +163,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const selectOAuthRole = async (selectedRole: AppRole): Promise<{ error: Error | null }> => {
+  const selectOAuthRole = async (selectedRole: AppRole, phone?: string): Promise<{ error: Error | null }> => {
     try {
-      const { error } = await supabase.rpc('select_oauth_role', { p_role: selectedRole });
+      const { error } = await supabase.rpc('select_oauth_role', {
+        p_role: selectedRole,
+        p_phone: phone
+      });
       if (error) return { error };
       // Refresh profile to reflect new role and status
       if (user) await fetchUserData(user.id);

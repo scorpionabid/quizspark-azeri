@@ -12,6 +12,7 @@ export const loginSchema = z.object({
     .min(1, 'Parol tələb olunur')
     .min(6, 'Parol ən azı 6 simvol olmalıdır')
     .max(72, 'Parol çox uzundur'),
+  rememberMe: z.boolean().optional(),
 });
 
 export const signupSchema = z.object({

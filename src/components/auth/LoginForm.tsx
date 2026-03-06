@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, LoginFormData } from '@/lib/validations/auth';
@@ -18,13 +18,22 @@ interface LoginFormProps {
 
 export function LoginForm({ onSubmit, onForgotPassword, isSubmitting }: LoginFormProps) {
     const [isForgotMode, setIsForgotMode] = useState(false);
+
     const form = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
         defaultValues: {
-            email: '',
+            email: localStorage.getItem('remembered_email') || '',
             password: '',
+            rememberMe: !!localStorage.getItem('remembered_email'),
         },
     });
+
+    // If user changes forgot mode, reset password but keep email
+    useEffect(() => {
+        if (isForgotMode) {
+            form.setValue('password', '');
+        }
+    }, [isForgotMode, form]);
 
     const container = {
         hidden: { opacity: 0 },
@@ -89,15 +98,27 @@ export function LoginForm({ onSubmit, onForgotPassword, isSubmitting }: LoginFor
 
                 {!isForgotMode && (
                     <motion.div variants={item} className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                            <Checkbox id="remember" />
-                            <label
-                                htmlFor="remember"
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                                Bəni xatırla
-                            </label>
-                        </div>
+                        <FormField
+                            control={form.control}
+                            name="rememberMe"
+                            render={({ field }) => (
+                                <div className="flex items-center space-x-2">
+                                    <FormControl>
+                                        <Checkbox
+                                            id="remember"
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                    <label
+                                        htmlFor="remember"
+                                        className="text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        Məni xatırla
+                                    </label>
+                                </div>
+                            )}
+                        />
                         <Button variant="link" className="px-0 font-normal h-auto" type="button" onClick={() => setIsForgotMode(true)}>
                             Parolu unutmusunuz?
                         </Button>
@@ -120,7 +141,7 @@ export function LoginForm({ onSubmit, onForgotPassword, isSubmitting }: LoginFor
                 <motion.div variants={item}>
                     <Button
                         type="submit"
-                        className="w-full"
+                        className="w-full h-11 text-base transition-all duration-200"
                         disabled={isSubmitting}
                         onClick={isForgotMode ? (e) => {
                             e.preventDefault();
