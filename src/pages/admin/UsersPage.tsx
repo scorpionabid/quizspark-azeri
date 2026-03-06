@@ -29,6 +29,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -55,17 +61,22 @@ const statusLabels = {
   pending: 'Gözləyir',
 };
 
+const tierLabels = {
+  vip: 'VIP',
+  quest: 'Quest',
+};
+
 export default function UsersPage() {
-  const { users, isLoading, updateStatus, updateRole } = useUsers();
+  const { users, isLoading, updateStatus, updateRole, updateTier } = useUsers();
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [roleTab, setRoleTab] = useState<string>("student");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   const filteredUsers = (users || []).filter((user) => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === "all" || user.role === roleFilter;
+    const matchesRole = user.role === roleTab;
     const matchesStatus = statusFilter === "all" || user.status === statusFilter;
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -136,26 +147,15 @@ export default function UsersPage() {
               placeholder="İstifadəçi axtar..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-11 rounded-xl"
             />
           </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Rol" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Bütün Rollar</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="teacher">Müəllim</SelectItem>
-              <SelectItem value="student">Tələbə</SelectItem>
-            </SelectContent>
-          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[140px] h-11 rounded-xl">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Bütün</SelectItem>
+              <SelectItem value="all">Bütün Statuslar</SelectItem>
               <SelectItem value="active">Aktiv</SelectItem>
               <SelectItem value="inactive">Deaktiv</SelectItem>
               <SelectItem value="pending">Gözləyir</SelectItem>
@@ -163,117 +163,151 @@ export default function UsersPage() {
           </Select>
         </div>
 
-        {/* Users Table */}
-        <div className="rounded-2xl bg-gradient-card border border-border/50 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border/50 bg-muted/30">
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    İstifadəçi
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Rol
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Yaradılma
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Əməliyyatlar
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="transition-colors hover:bg-muted/20">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold",
-                          user.role === 'admin' ? "bg-destructive/20 text-destructive" :
-                            user.role === 'teacher' ? "bg-secondary/20 text-secondary" :
-                              "bg-primary/20 text-primary"
-                        )}>
-                          {user.name.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="font-medium text-foreground">{user.name}</div>
-                          <div className="text-sm text-muted-foreground">{user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant={
-                        user.role === 'admin' ? 'destructive' :
-                          user.role === 'teacher' ? 'secondary' : 'default'
-                      }>
-                        {roleLabels[user.role as keyof typeof roleLabels]}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant={
-                        user.status === 'active' ? 'success' :
-                          user.status === 'pending' ? 'warning' : 'muted'
-                      }>
-                        {statusLabels[user.status as keyof typeof statusLabels]}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">
-                      {new Date(user.createdAt).toLocaleDateString('az-AZ')}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {user.status === 'pending' && (
-                            <DropdownMenuItem onClick={() => handleApproveTeacher(user.id)}>
-                              <UserCheck className="mr-2 h-4 w-4 text-success" />
-                              Təsdiqlə
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Redaktə Et
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            const newRole = user.role === 'student' ? 'teacher' : 'student';
-                            updateRole.mutate({ userId: user.id, role: newRole as AppRole });
-                          }}>
-                            <Shield className="mr-2 h-4 w-4" />
-                            Rolu Dəyiş
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {user.status === 'active' ? (
-                            <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'active')}>
-                              <UserX className="mr-2 h-4 w-4" />
-                              Deaktiv Et
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'inactive')}>
-                              <UserCheck className="mr-2 h-4 w-4" />
-                              Aktiv Et
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Sil
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <Tabs value={roleTab} onValueChange={setRoleTab} className="w-full">
+          <TabsList className="mb-6 h-12 w-full max-w-md bg-muted/50 p-1 rounded-xl">
+            <TabsTrigger value="student" className="flex-1 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Tələbələr
+            </TabsTrigger>
+            <TabsTrigger value="teacher" className="flex-1 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Müəllimlər
+            </TabsTrigger>
+            <TabsTrigger value="admin" className="flex-1 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Adminlər
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value={roleTab} className="mt-0">
+
+            {/* Users Table */}
+            <div className="rounded-2xl bg-gradient-card border border-border/50 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/30">
+                      <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        İstifadəçi
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Tier
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Rol
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Yaradılma
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        Əməliyyatlar
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/30">
+                    {filteredUsers.map((user) => (
+                      <tr key={user.id} className="transition-colors hover:bg-muted/20">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold",
+                              user.role === 'admin' ? "bg-destructive/20 text-destructive" :
+                                user.role === 'teacher' ? "bg-secondary/20 text-secondary" :
+                                  "bg-primary/20 text-primary"
+                            )}>
+                              {user.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="font-medium text-foreground">{user.name}</div>
+                              <div className="text-sm text-muted-foreground">{user.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant={
+                            user.subscriptionTier === 'vip' ? 'warning' : 'muted'
+                          }>
+                            {tierLabels[user.subscriptionTier as keyof typeof tierLabels] ?? user.subscriptionTier}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant={
+                            user.role === 'admin' ? 'destructive' :
+                              user.role === 'teacher' ? 'secondary' : 'default'
+                          }>
+                            {roleLabels[user.role as keyof typeof roleLabels]}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant={
+                            user.status === 'active' ? 'success' :
+                              user.status === 'pending' ? 'warning' : 'muted'
+                          }>
+                            {statusLabels[user.status as keyof typeof statusLabels]}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {new Date(user.createdAt).toLocaleDateString('az-AZ')}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {user.status === 'pending' && (
+                                <DropdownMenuItem onClick={() => handleApproveTeacher(user.id)}>
+                                  <UserCheck className="mr-2 h-4 w-4 text-success" />
+                                  Təsdiqlə
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Redaktə Et
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                const newRole = user.role === 'student' ? 'teacher' : 'student';
+                                updateRole.mutate({ userId: user.id, role: newRole as AppRole });
+                              }}>
+                                <Shield className="mr-2 h-4 w-4" />
+                                Rolu Dəyiş
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                const newTier = user.subscriptionTier === 'vip' ? 'quest' : 'vip';
+                                updateTier.mutate({ userId: user.id, tier: newTier });
+                              }}>
+                                <Shield className="mr-2 h-4 w-4 text-yellow-500" />
+                                {user.subscriptionTier === 'vip' ? 'Quest Et' : 'VIP Et'}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {user.status === 'active' ? (
+                                <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'active')}>
+                                  <UserX className="mr-2 h-4 w-4" />
+                                  Deaktiv Et
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'inactive')}>
+                                  <UserCheck className="mr-2 h-4 w-4" />
+                                  Aktiv Et
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Sil
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Stats */}
         <div className="mt-6 flex flex-wrap gap-4 text-sm text-muted-foreground">

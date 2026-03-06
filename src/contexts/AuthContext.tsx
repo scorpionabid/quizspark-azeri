@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Parallel fetch — role and profile at the same time for speed
       const [roleResult, profileResult] = await Promise.all([
         supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle(),
-        supabase.from('profiles').select('full_name, avatar_url, status, is_profile_complete').eq('user_id', userId).maybeSingle(),
+        supabase.from('profiles').select('full_name, avatar_url, status, is_profile_complete, subscription_tier').eq('user_id', userId).maybeSingle(),
       ]);
 
       if (roleResult.data) {
@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatar_url: profileResult.data.avatar_url,
           status: profileResult.data.status as Profile['status'],
           isProfileComplete: profileResult.data.is_profile_complete ?? true,
+          subscription_tier: (profileResult.data.subscription_tier as Profile['subscription_tier']) ?? 'quest',
         });
       } else if (profileResult.error) {
         console.error('[Auth] Failed to fetch profile:', profileResult.error.message);
