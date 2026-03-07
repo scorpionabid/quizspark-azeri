@@ -22,6 +22,26 @@ export interface QuestionBankItem {
   option_images: Record<number, string> | null;
   media_type: 'image' | 'audio' | 'video' | null;
   media_url: string | null;
+  // New Enhanced Fields
+  title: string | null;
+  weight: number | null;
+  hint: string | null;
+  time_limit: number | null;
+  per_option_explanations: Record<string, string> | null;
+  video_url: string | null;
+  video_start_time: number | null;
+  video_end_time: number | null;
+  model_3d_url: string | null;
+  model_3d_type: string | null;
+  hotspot_data: Record<string, unknown> | null;
+  matching_pairs: Record<string, string> | null;
+  sequence_items: string[] | null;
+  fill_blank_template: string | null;
+  numerical_answer: number | null;
+  numerical_tolerance: number | null;
+  feedback_enabled: boolean | null;
+  quality_score: number | null;
+  usage_count: number | null;
 }
 
 export interface QuestionFilters {
@@ -29,6 +49,9 @@ export interface QuestionFilters {
   category?: string;
   difficulty?: string;
   question_type?: string;
+  quality_score_min?: number;
+  has_video?: boolean;
+  has_3d_model?: boolean;
 }
 
 export interface PaginationParams {
@@ -89,13 +112,22 @@ export function useQuestionBankList(
       if (filters.search) {
         query = query.ilike('question_text', `%${filters.search}%`);
       }
+      if (filters.quality_score_min) {
+        query = query.gte('quality_score', filters.quality_score_min);
+      }
+      if (filters.has_video) {
+        query = query.not('video_url', 'is', null);
+      }
+      if (filters.has_3d_model) {
+        query = query.not('model_3d_url', 'is', null);
+      }
 
       const { data, error, count } = await query;
 
       if (error) throw error;
 
       return {
-        questions: data as QuestionBankItem[],
+        questions: data as unknown as QuestionBankItem[],
         totalCount: count || 0,
         totalPages: Math.ceil((count || 0) / pageSize),
       };
@@ -214,7 +246,7 @@ export function useCreateQuestionBank() {
         .single();
 
       if (error) throw error;
-      return data as QuestionBankItem;
+      return data as unknown as QuestionBankItem;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });
@@ -242,7 +274,7 @@ export function useUpdateQuestionBank() {
         .single();
 
       if (error) throw error;
-      return data as QuestionBankItem;
+      return data as unknown as QuestionBankItem;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });
@@ -351,7 +383,7 @@ export function useBulkCreateQuestionBank() {
         .select();
 
       if (error) throw error;
-      return data as QuestionBankItem[];
+      return data as unknown as QuestionBankItem[];
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });

@@ -7,7 +7,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
-import { Check, X, Image, Video, Music } from 'lucide-react';
+import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box } from 'lucide-react';
+import { QUESTION_TYPES } from '@/types/question';
+import { QuestionVideoPlayer } from './QuestionVideoPlayer';
+import { Question3DViewer } from './Question3DViewer';
 
 interface QuestionViewDialogProps {
   open: boolean;
@@ -28,19 +31,12 @@ function getDifficultyColor(difficulty: string | null) {
   }
 }
 
-function getTypeLabel(type: string) {
-  switch (type) {
-    case 'multiple_choice':
-      return 'Çoxseçimli';
-    case 'true_false':
-      return 'Doğru/Yanlış';
-    case 'short_answer':
-      return 'Qısa cavab';
-    case 'essay':
-      return 'Esse';
-    default:
-      return type;
+function getTypeInfo(type: string) {
+  const typeObj = QUESTION_TYPES.find(t => t.value === type);
+  if (typeObj) {
+    return { label: typeObj.label };
   }
+  return { label: type };
 }
 
 function parseOptions(options: string[] | Record<string, string> | null): string[] {
@@ -69,7 +65,7 @@ export function QuestionViewDialog({
         <div className="space-y-4 py-4">
           {/* Badges */}
           <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{getTypeLabel(question.question_type)}</Badge>
+            <Badge variant="secondary">{getTypeInfo(question.question_type).label}</Badge>
             <Badge className={getDifficultyColor(question.difficulty)}>
               {question.difficulty || 'Çətinlik təyin edilməyib'}
             </Badge>
@@ -79,17 +75,39 @@ export function QuestionViewDialog({
             {question.bloom_level && (
               <Badge variant="outline">Bloom: {question.bloom_level}</Badge>
             )}
+            <Badge variant="outline" className="font-mono">
+              Xal: {question.weight ?? 1.0}
+            </Badge>
+            {question.time_limit && (
+              <Badge variant="outline" className="gap-1">
+                <Clock className="w-3 h-3" /> {question.time_limit} san
+              </Badge>
+            )}
+            {question.quality_score && (
+              <Badge variant="outline" className="gap-1 bg-yellow-50 text-yellow-700 border-yellow-200">
+                ★ {Number(question.quality_score).toFixed(1)}
+              </Badge>
+            )}
           </div>
 
           <Separator />
 
           {/* Question Text */}
           <div>
+            {question.title && <h3 className="font-semibold text-primary mb-1">{question.title}</h3>}
             <h4 className="font-medium mb-2">Sual</h4>
             <p className="text-muted-foreground whitespace-pre-wrap">
               {question.question_text}
             </p>
           </div>
+
+          {/* Hint */}
+          {question.hint && (
+            <div className="p-3 bg-muted/40 border rounded-md flex items-start gap-2 text-sm text-muted-foreground">
+              <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <p><strong>İpucu:</strong> {question.hint}</p>
+            </div>
+          )}
 
           {/* Question Image */}
           {question.question_image_url && (
@@ -106,8 +124,34 @@ export function QuestionViewDialog({
             </div>
           )}
 
-          {/* Media */}
-          {question.media_url && (
+          {/* Video */}
+          {question.question_type === 'video' && question.video_url && (
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <MonitorPlay className="h-4 w-4" />
+                Video Sujet
+              </h4>
+              <QuestionVideoPlayer
+                videoUrl={question.video_url}
+                startTime={question.video_start_time || undefined}
+                endTime={question.video_end_time || undefined}
+              />
+            </div>
+          )}
+
+          {/* 3D Model */}
+          {question.question_type === 'model_3d' && question.model_3d_url && (
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <Box className="h-4 w-4" />
+                3D Model
+              </h4>
+              <Question3DViewer modelUrl={question.model_3d_url} />
+            </div>
+          )}
+
+          {/* Other Media */}
+          {question.media_url && !['video', 'model_3d'].includes(question.question_type) && (
             <div>
               <h4 className="font-medium mb-2 flex items-center gap-2">
                 {question.media_type === 'video' ? (
@@ -117,7 +161,7 @@ export function QuestionViewDialog({
                 ) : (
                   <Image className="h-4 w-4" />
                 )}
-                Media
+                Əlavə Media
               </h4>
               {question.media_type === 'video' && (
                 <video
@@ -147,15 +191,14 @@ export function QuestionViewDialog({
                 {options.map((option, index) => {
                   const optionLetter = String.fromCharCode(65 + index);
                   const isCorrect = question.correct_answer.toUpperCase() === optionLetter;
-                  
+
                   return (
                     <div
                       key={index}
-                      className={`flex items-center gap-2 p-2 rounded-md border ${
-                        isCorrect
+                      className={`flex items-center gap-2 p-2 rounded-md border ${isCorrect
                           ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
                           : 'bg-muted/30'
-                      }`}
+                        }`}
                     >
                       <span className="font-medium w-6">{optionLetter}.</span>
                       <span className="flex-1">{option}</span>

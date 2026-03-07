@@ -21,6 +21,8 @@ import { Plus, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, useCreateQuestionCategory } from '@/hooks/useQuestionCategories';
 import { useQuestionImageUpload } from '@/hooks/useQuestionImageUpload';
+import { useQuestion3DUpload } from '@/hooks/useQuestion3DUpload';
+import { QUESTION_TYPES, QuestionType } from '@/types/question';
 
 interface QuestionEditDialogProps {
   open: boolean;
@@ -36,13 +38,6 @@ const difficulties = [
   { value: 'asan', label: 'Asan' },
   { value: 'orta', label: 'Orta' },
   { value: 'çətin', label: 'Çətin' },
-];
-
-const questionTypes = [
-  { value: 'multiple_choice', label: 'Çoxseçimli' },
-  { value: 'true_false', label: 'Doğru/Yanlış' },
-  { value: 'short_answer', label: 'Qısa cavab' },
-  { value: 'essay', label: 'Esse' },
 ];
 
 const bloomLevels = [
@@ -79,8 +74,9 @@ export function QuestionEditDialog({
     : propCategories;
 
   const [formData, setFormData] = useState({
+    title: '',
     question_text: '',
-    question_type: 'multiple_choice',
+    question_type: 'multiple_choice' as QuestionType | string,
     options: ['', '', '', ''],
     correct_answer: '',
     explanation: '',
@@ -91,14 +87,28 @@ export function QuestionEditDialog({
     question_image_url: '',
     media_type: null as 'image' | 'audio' | 'video' | null,
     media_url: '',
+    weight: 1.0,
+    hint: '',
+    time_limit: '' as number | string,
+    video_url: '',
+    video_start_time: '' as number | string,
+    video_end_time: '' as number | string,
+    model_3d_url: '',
+    model_3d_type: 'glb',
+    fill_blank_template: '',
+    numerical_answer: '' as number | string,
+    numerical_tolerance: 0,
   });
   const [newTag, setNewTag] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const { uploadImage, isUploading } = useQuestionImageUpload();
+  const { upload3DModel } = useQuestion3DUpload();
+  const [is3DUploading, setIs3DUploading] = useState(false);
 
   useEffect(() => {
     if (question && mode === 'edit') {
       setFormData({
+        title: question.title || '',
         question_text: question.question_text,
         question_type: question.question_type,
         options: parseOptions(question.options),
@@ -111,9 +121,21 @@ export function QuestionEditDialog({
         question_image_url: question.question_image_url || '',
         media_type: question.media_type || null,
         media_url: question.media_url || '',
+        weight: question.weight || 1.0,
+        hint: question.hint || '',
+        time_limit: question.time_limit || '',
+        video_url: question.video_url || '',
+        video_start_time: question.video_start_time || '',
+        video_end_time: question.video_end_time || '',
+        model_3d_url: question.model_3d_url || '',
+        model_3d_type: question.model_3d_type || 'glb',
+        fill_blank_template: question.fill_blank_template || '',
+        numerical_answer: question.numerical_answer ?? '',
+        numerical_tolerance: question.numerical_tolerance ?? 0,
       });
     } else {
       setFormData({
+        title: '',
         question_text: '',
         question_type: 'multiple_choice',
         options: ['', '', '', ''],
@@ -126,12 +148,24 @@ export function QuestionEditDialog({
         question_image_url: '',
         media_type: null,
         media_url: '',
+        weight: 1.0,
+        hint: '',
+        time_limit: '',
+        video_url: '',
+        video_start_time: '',
+        video_end_time: '',
+        model_3d_url: '',
+        model_3d_type: 'glb',
+        fill_blank_template: '',
+        numerical_answer: '',
+        numerical_tolerance: 0,
       });
     }
   }, [question, mode, open]);
 
   const handleSubmit = () => {
     const data: Partial<QuestionBankItem> = {
+      title: formData.title || null,
       question_text: formData.question_text,
       question_type: formData.question_type,
       correct_answer: formData.correct_answer,
@@ -143,6 +177,17 @@ export function QuestionEditDialog({
       question_image_url: formData.question_image_url || null,
       media_type: formData.media_type || null,
       media_url: formData.media_url || null,
+      weight: Number(formData.weight) || 1.0,
+      hint: formData.hint || null,
+      time_limit: formData.time_limit ? Number(formData.time_limit) : null,
+      video_url: formData.video_url || null,
+      video_start_time: formData.video_start_time ? Number(formData.video_start_time) : null,
+      video_end_time: formData.video_end_time ? Number(formData.video_end_time) : null,
+      model_3d_url: formData.model_3d_url || null,
+      model_3d_type: formData.model_3d_type || 'glb',
+      fill_blank_template: formData.fill_blank_template || null,
+      numerical_answer: formData.numerical_answer !== '' ? Number(formData.numerical_answer) : null,
+      numerical_tolerance: Number(formData.numerical_tolerance) || 0,
     };
 
     // Only include options for multiple choice and true/false
@@ -198,6 +243,22 @@ export function QuestionEditDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Başlıq</Label>
+              <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Sual başlığı" />
+            </div>
+            <div className="flex gap-4">
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="weight">Ağırlıq (Xal)</Label>
+                <Input id="weight" type="number" step="0.1" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 1 })} />
+              </div>
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="time_limit">Zaman Limit (San)</Label>
+                <Input id="time_limit" type="number" value={formData.time_limit} onChange={(e) => setFormData({ ...formData, time_limit: parseInt(e.target.value) || '' })} placeholder="Məs. 60" />
+              </div>
+            </div>
+          </div>
           {/* Question Text */}
           <div className="space-y-2">
             <Label htmlFor="question_text">Sual *</Label>
@@ -222,7 +283,7 @@ export function QuestionEditDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {questionTypes.map((type) => (
+                  {QUESTION_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
                     </SelectItem>
@@ -299,7 +360,57 @@ export function QuestionEditDialog({
             />
           </div>
 
-          {/* Explanation */}
+          {/* Hint */}
+          <div className="space-y-2">
+            <Label htmlFor="hint">İpucu (Hint)</Label>
+            <Input
+              id="hint"
+              value={formData.hint}
+              onChange={(e) => setFormData({ ...formData, hint: e.target.value })}
+              placeholder="Tələbə üçün ipucu..."
+            />
+          </div>
+
+          {/* Conditional Media Based on Type */}
+          {formData.question_type === 'video' && (
+            <div className="space-y-4 border rounded p-4 bg-muted/20">
+              <Label className="font-semibold">Video Ayarları</Label>
+              <Input value={formData.video_url} onChange={(e) => setFormData({ ...formData, video_url: e.target.value })} placeholder="YouTube Video URL" />
+              <div className="grid grid-cols-2 gap-4">
+                <Input type="number" value={formData.video_start_time} onChange={(e) => setFormData({ ...formData, video_start_time: e.target.value })} placeholder="Start Time (San)" />
+                <Input type="number" value={formData.video_end_time} onChange={(e) => setFormData({ ...formData, video_end_time: e.target.value })} placeholder="End Time (San)" />
+              </div>
+            </div>
+          )}
+
+          {formData.question_type === 'model_3d' && (
+            <div className="space-y-4 border rounded p-4 bg-muted/20">
+              <Label className="font-semibold">3D Model Ayarları (.glb / .gltf)</Label>
+              <Input value={formData.model_3d_url} onChange={(e) => setFormData({ ...formData, model_3d_url: e.target.value })} placeholder="3D Model URL yüklə və ya yapışdır" />
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  accept=".glb,.gltf"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setIs3DUploading(true);
+                      try {
+                        const url = await upload3DModel(file);
+                        setFormData(prev => ({ ...prev, model_3d_url: url }));
+                      } catch (err) {
+                        console.error('Upload Error:', err);
+                      } finally {
+                        setIs3DUploading(false);
+                      }
+                    }
+                  }}
+                  disabled={is3DUploading}
+                />
+                {is3DUploading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="explanation">İzahat</Label>
             <Textarea

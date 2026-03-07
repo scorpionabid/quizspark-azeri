@@ -15,14 +15,13 @@ import { toast } from "sonner";
 import { QuizRating } from "@/components/quiz/QuizRating";
 import { QuizComments } from "@/components/quiz/QuizComments";
 import { FavoriteButton } from "@/components/quiz/FavoriteButton";
+import { QuestionRenderer } from "@/components/quiz/QuestionRenderer";
+import { QuestionAnswer, QuestionType } from "@/types/question";
+import { Lightbulb, Info } from "lucide-react";
 
 type QuizState = 'intro' | 'playing' | 'result';
 
-interface Answer {
-  questionIndex: number;
-  selectedOption: number;
-  isCorrect: boolean;
-}
+type Answer = QuestionAnswer;
 
 export default function QuizPage() {
   const { id } = useParams();
@@ -44,38 +43,55 @@ export default function QuizPage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const [showHint, setShowHint] = useState(false);
 
   const isLoading = quizLoading || questionsLoading;
 
-  const handleAnswer = useCallback(async (optionIndex: number) => {
+  const handleAnswer = useCallback(async (answer: Answer | null) => {
     if (showFeedback || questions.length === 0) return;
 
-    const question = questions[currentQuestion];
-    const options = (question.options as string[]) || [];
+    if (answer) {
+      setSelectedOption(answer.selectedOptionIndex ?? -1);
+      setAnswers(prev => [...prev, answer]);
+    } else {
+      // Time up scenario
+      setSelectedOption(-1);
+      const question = questions[currentQuestion];
+      setAnswers(prev => [...prev, {
+        questionId: question.id,
+        questionType: question.question_type as QuestionType,
+        textAnswer: '',
+        isCorrect: false,
+        pointsEarned: 0
+      }]);
+    }
 
-    setSelectedOption(optionIndex);
     setShowFeedback(true);
 
-    const selectedAnswer = optionIndex >= 0 ? options[optionIndex] : "";
-    const isCorrect = selectedAnswer === question.correct_answer;
-
-    const newAnswer = {
-      questionIndex: currentQuestion,
-      selectedOption: optionIndex,
-      isCorrect,
-    };
-
-    const updatedAnswers = [...answers, newAnswer];
-    setAnswers(updatedAnswers);
-
     setTimeout(async () => {
+      // Check if this was the last question
       if (currentQuestion < questions.length - 1) {
         setCurrentQuestion(prev => prev + 1);
         setSelectedOption(null);
         setShowFeedback(false);
+        setShowHint(false);
       } else {
         // Quiz completed
         if (attemptId && startTime && user && quiz) {
+          // Calculate score based on latest state (+1 for current answer)
+          // Since setAnswers is async, we use the local variable logic
+          // But actually setting the state correctly using functional updates avoids this
+          // The updatedAnswers in local scope is needed for accurate submission:
+          const updatedAnswers = answer
+            ? [...answers, answer]
+            : [...answers, {
+              questionId: questions[currentQuestion].id,
+              questionType: questions[currentQuestion].question_type as QuestionType,
+              textAnswer: '',
+              isCorrect: false,
+              pointsEarned: 0
+            }];
+
           const correctCount = updatedAnswers.filter(a => a.isCorrect).length;
           const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
 
@@ -94,7 +110,7 @@ export default function QuizPage() {
         }
         setQuizState('result');
       }
-    }, 1500);
+    }, 1500 + (answer?.isCorrect && questions[currentQuestion].explanation ? 1500 : 0)); // Extra time to read explanation
   }, [showFeedback, questions, currentQuestion, answers, attemptId, startTime, user, quiz, completeAttempt]);
 
   const startQuiz = async () => {
@@ -117,7 +133,7 @@ export default function QuizPage() {
       setQuizState('playing');
       setCurrentQuestion(0);
       setAnswers([]);
-      setTimeLeft((quiz.duration || 20) * 60);
+      setTimeLeft(questions[0]?.time_limit || (quiz.duration || 20) * 60);
     } catch (error) {
       console.error("Error starting quiz:", error);
       toast.error("Quiz başladılarkən xəta baş verdi");
@@ -126,12 +142,23 @@ export default function QuizPage() {
 
   const handleTimeUp = useCallback(() => {
     if (selectedOption === null && questions.length > 0) {
-      handleAnswer(-1);
+      handleAnswer(null); // passing null implies timeout/no answer
     }
   }, [selectedOption, questions.length, handleAnswer]);
 
+  // Handle per-question timer
   useEffect(() => {
-    if (quizState === 'playing' && timeLeft > 0) {
+    if (quizState === 'playing' && !showFeedback && questions[currentQuestion]) {
+      const qTimeLimit = questions[currentQuestion].time_limit;
+      if (qTimeLimit) {
+        // Reset timer when question changes
+        setTimeLeft(qTimeLimit);
+      }
+    }
+  }, [currentQuestion, quizState, showFeedback, questions]);
+
+  useEffect(() => {
+    if (quizState === 'playing' && timeLeft > 0 && !showFeedback) {
       const timer = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -143,7 +170,7 @@ export default function QuizPage() {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [quizState, timeLeft, handleTimeUp]);
+  }, [quizState, timeLeft, handleTimeUp, showFeedback]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -151,8 +178,11 @@ export default function QuizPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Weighted Scoring Calculation
+  const totalEarnedPoints = answers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
+  const maxPossibleScore = questions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
+  const score = maxPossibleScore > 0 ? Math.round((totalEarnedPoints / maxPossibleScore) * 100) : 0;
   const correctAnswers = answers.filter(a => a.isCorrect).length;
-  const score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
 
   if (isLoading) {
     return (
@@ -322,67 +352,36 @@ export default function QuizPage() {
 
           {/* Question Card */}
           <div className="animate-slide-up rounded-3xl bg-gradient-card border border-border/50 p-6 shadow-elevated sm:p-8">
-            <h2 className="mb-8 text-center font-display text-xl font-bold text-foreground sm:text-2xl">
-              {question.question_text}
-            </h2>
-
-            <div className="grid gap-3 sm:gap-4">
-              {options.map((option, index) => {
-                const isSelected = selectedOption === index;
-                const isCorrect = index === correctOptionIndex;
-                const showResult = showFeedback;
-
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleAnswer(index)}
-                    disabled={showFeedback}
-                    className={cn(
-                      "relative flex items-center gap-4 rounded-2xl border-2 p-4 text-left transition-all duration-200 sm:p-5",
-                      !showResult && !isSelected && "border-border/50 bg-muted/30 hover:border-primary/50 hover:bg-muted/50",
-                      !showResult && isSelected && "border-primary bg-primary/10",
-                      showResult && isCorrect && "border-success bg-success/10",
-                      showResult && isSelected && !isCorrect && "border-destructive bg-destructive/10",
-                      showResult && "cursor-not-allowed"
-                    )}
-                  >
-                    <div className={cn(
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
-                      !showResult && "bg-muted text-muted-foreground",
-                      showResult && isCorrect && "bg-success text-success-foreground",
-                      showResult && isSelected && !isCorrect && "bg-destructive text-destructive-foreground"
-                    )}>
-                      {showResult && isCorrect ? (
-                        <CheckCircle className="h-5 w-5" />
-                      ) : showResult && isSelected && !isCorrect ? (
-                        <XCircle className="h-5 w-5" />
-                      ) : (
-                        String.fromCharCode(65 + index)
-                      )}
-                    </div>
-                    <span className={cn(
-                      "font-medium",
-                      showResult && isCorrect && "text-success",
-                      showResult && isSelected && !isCorrect && "text-destructive"
-                    )}>
-                      {option}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">
+                {question.title && <span className="block text-sm text-primary font-semibold mb-1 uppercase tracking-wide">{question.title}</span>}
+                {question.question_text}
+              </h2>
+              <div className="flex flex-col items-end gap-2 ml-4">
+                <Badge variant="outline" className="whitespace-nowrap font-mono">
+                  {question.weight ?? 1.0} Xal
+                </Badge>
+                {question.hint && !showHint && !showFeedback && (
+                  <Button variant="secondary" size="sm" onClick={() => setShowHint(true)} className="gap-1 h-7 text-xs">
+                    <Lightbulb className="w-3 h-3" /> İpucu
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {/* Feedback */}
-            {showFeedback && question.explanation && (
-              <div className={cn(
-                "mt-6 rounded-xl p-4",
-                selectedOption !== null && options[selectedOption] === question.correct_answer ? "bg-success/10" : "bg-muted/50"
-              )}>
-                <p className="text-sm text-muted-foreground">
-                  <strong className="text-foreground">İzahı:</strong> {question.explanation}
-                </p>
+            {showHint && question.hint && (
+              <div className="mb-6 p-4 bg-muted/30 border border-primary/20 rounded-lg text-sm text-muted-foreground flex items-start gap-3">
+                <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <p>{question.hint}</p>
               </div>
             )}
+
+            <QuestionRenderer
+              question={question}
+              onAnswer={handleAnswer}
+              showFeedback={showFeedback}
+              disabled={showFeedback}
+            />
           </div>
         </div>
       </div>

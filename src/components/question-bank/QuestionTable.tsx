@@ -10,7 +10,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowUpDown, ArrowUp, ArrowDown, Edit, Trash2, Copy, MoreHorizontal, Eye, Image } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Edit, Trash2, Copy, MoreHorizontal, Eye, Image, Star } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,7 @@ import { QuestionBankItem, SortParams } from '@/hooks/useQuestionBank';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
 import { Sparkles } from 'lucide-react';
+import { QUESTION_TYPES } from '@/types/question';
 
 interface QuestionTableProps {
   questions: QuestionBankItem[];
@@ -51,19 +52,12 @@ function getDifficultyColor(difficulty: string | null) {
   }
 }
 
-function getTypeLabel(type: string) {
-  switch (type) {
-    case 'multiple_choice':
-      return 'Çoxseçimli';
-    case 'true_false':
-      return 'Doğru/Yanlış';
-    case 'short_answer':
-      return 'Qısa cavab';
-    case 'essay':
-      return 'Esse';
-    default:
-      return type;
+function getTypeInfo(type: string) {
+  const typeObj = QUESTION_TYPES.find(t => t.value === type);
+  if (typeObj) {
+    return { label: typeObj.label, icon: typeObj.icon };
   }
+  return { label: type, icon: 'help-circle' };
 }
 
 function truncateText(text: string, maxLength: number = 100) {
@@ -140,14 +134,18 @@ export function QuestionTable({
                 onCheckedChange={(checked) => onSelectAll(!!checked)}
               />
             </TableHead>
-            <TableHead className="min-w-[300px]">Sual</TableHead>
+            <TableHead className="min-w-[300px]">Başlıq & Sual</TableHead>
+            <TableHead className="w-20 text-center">Xal/Çəki</TableHead>
+            <TableHead className="w-24 text-center">
+              <SortButton column="quality_score" label="Keyfiyyət" />
+            </TableHead>
             <TableHead className="w-32">
               <SortButton column="category" label="Kateqoriya" />
             </TableHead>
             <TableHead className="w-24">
               <SortButton column="difficulty" label="Çətinlik" />
             </TableHead>
-            <TableHead className="w-28">
+            <TableHead className="w-32">
               <SortButton column="question_type" label="Tip" />
             </TableHead>
             <TableHead className="w-32">
@@ -178,16 +176,25 @@ export function QuestionTable({
                         className="h-10 w-10 rounded border object-cover flex-shrink-0 mt-0.5"
                       />
                     )}
-                    <p className="font-medium line-clamp-2">
-                      {truncateText(question.question_text, 120)}
-                    </p>
+                    <div>
+                      {question.title && <p className="font-semibold text-sm mb-1">{question.title}</p>}
+                      <p className="font-medium line-clamp-2 text-muted-foreground text-sm">
+                        {truncateText(question.question_text, 120)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex gap-1 flex-wrap">
+                  <div className="flex gap-1 flex-wrap mt-1">
                     {question.media_type && (
                       <Badge variant="outline" className="text-xs gap-1">
                         <Image className="h-3 w-3" />
                         {question.media_type === 'image' ? 'Şəkil' : question.media_type === 'video' ? 'Video' : 'Audio'}
                       </Badge>
+                    )}
+                    {question.video_url && (
+                      <Badge variant="outline" className="text-xs gap-1 border-red-200 text-red-700 bg-red-50">Video Klip</Badge>
+                    )}
+                    {question.model_3d_url && (
+                      <Badge variant="outline" className="text-xs gap-1 border-blue-200 text-blue-700 bg-blue-50">3D Model</Badge>
                     )}
                     {question.tags && question.tags.length > 0 && question.tags.slice(0, 3).map((tag, i) => (
                       <Badge key={i} variant="outline" className="text-xs">
@@ -202,6 +209,21 @@ export function QuestionTable({
                   </div>
                 </div>
               </TableCell>
+              <TableCell className="text-center">
+                <Badge variant="outline" className="font-mono">
+                  ×{question.weight ?? 1.0}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-center whitespace-nowrap">
+                {question.quality_score ? (
+                  <span className="flex justify-center items-center text-sm font-medium gap-1 text-yellow-600">
+                    <Star className="w-3 h-3 fill-current" /> {Number(question.quality_score).toFixed(1)}
+                    <span className="text-xs text-muted-foreground ml-1">({question.usage_count || 0})</span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">-</span>
+                )}
+              </TableCell>
               <TableCell>
                 <Badge variant="secondary" className="font-normal">
                   {question.category || 'Kateqoriyasız'}
@@ -213,8 +235,8 @@ export function QuestionTable({
                 </Badge>
               </TableCell>
               <TableCell>
-                <span className="text-sm text-muted-foreground">
-                  {getTypeLabel(question.question_type)}
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  {getTypeInfo(question.question_type).label}
                 </span>
               </TableCell>
               <TableCell>

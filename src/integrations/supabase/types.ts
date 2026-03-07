@@ -579,6 +579,54 @@ export type Database = {
           },
         ]
       }
+      question_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          issue_type: string | null
+          question_bank_id: string | null
+          quiz_question_id: string | null
+          rating: number
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          issue_type?: string | null
+          question_bank_id?: string | null
+          quiz_question_id?: string | null
+          rating: number
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          issue_type?: string | null
+          question_bank_id?: string | null
+          quiz_question_id?: string | null
+          rating?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_ratings_question_bank_id_fkey"
+            columns: ["question_bank_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_ratings_quiz_question_id_fkey"
+            columns: ["quiz_question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       quiz_attempts: {
         Row: {
           answers: Json | null
