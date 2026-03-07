@@ -99,12 +99,26 @@ export function useQuiz(quizId: string | undefined) {
 
 export function useCreateQuiz() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async (quiz: Omit<Quiz, 'id' | 'creator_id' | 'created_at' | 'updated_at' | 'play_count' | 'rating' | 'is_popular' | 'is_new'>) => {
       if (!user) throw new Error('İstifadəçi daxil olmayıb');
-      
+
+      // VIP Limitation Check
+      if (profile?.subscription_tier !== 'vip') {
+        const { count, error: countError } = await supabase
+          .from('quizzes')
+          .select('*', { count: 'exact', head: true })
+          .eq('creator_id', user.id);
+
+        if (countError) throw countError;
+
+        if (count !== null && count >= 3) {
+          throw new Error('Quest istifadəçiləri maksimum 3 quiz yarada bilər. Limitə çatmısınız, zəhmət olmasa VIP-yə keçin.');
+        }
+      }
+
       const { data, error } = await supabase
         .from('quizzes')
         .insert({
@@ -113,7 +127,7 @@ export function useCreateQuiz() {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       return data as Quiz;
     },
@@ -138,7 +152,7 @@ export function useUpdateQuiz() {
         .eq('id', id)
         .select()
         .single();
-      
+
       if (error) throw error;
       return data as Quiz;
     },
@@ -162,7 +176,7 @@ export function useDeleteQuiz() {
         .from('quizzes')
         .delete()
         .eq('id', quizId);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {

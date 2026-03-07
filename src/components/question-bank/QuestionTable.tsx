@@ -107,7 +107,7 @@ export function QuestionTable({
             <TableHead className="w-12">
               <Checkbox
                 checked={allSelected}
-                // @ts-ignore - indeterminate is a valid property
+                // @ts-expect-error - indeterminate is a valid property
                 indeterminate={someSelected}
                 onCheckedChange={(checked) => onSelectAll(!!checked)}
               />

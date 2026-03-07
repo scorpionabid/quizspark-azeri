@@ -1,0 +1,45 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - heading "Biliklərinizi Kəşf Edin" [level=1] [ref=e11]:
+        - text: Biliklərinizi
+        - text: Kəşf Edin
+      - paragraph [ref=e12]: Azərbaycanın ən innovativ quiz platformasına xoş gəlmisiniz.
+    - generic [ref=e14]:
+      - button "Geri qayıt" [ref=e15] [cursor=pointer]:
+        - img [ref=e16]
+        - text: Geri qayıt
+      - generic [ref=e18]:
+        - heading "Məlumatları daxil edin" [level=3] [ref=e19]
+        - paragraph [ref=e20]: Hesabınız yoxdursa qeydiyyatdan keçin
+      - generic [ref=e21]:
+        - tablist [ref=e22]:
+          - tab "Daxil ol" [selected] [ref=e23] [cursor=pointer]
+          - tab "Qeydiyyat" [ref=e24] [cursor=pointer]
+        - tabpanel "Daxil ol" [ref=e25]:
+          - generic [ref=e26]:
+            - generic [ref=e28]:
+              - text: Email
+              - textbox "Email" [ref=e29]:
+                - /placeholder: email@example.com
+            - generic [ref=e31]:
+              - text: Parol
+              - generic [ref=e32]:
+                - textbox "••••••••" [ref=e33]
+                - button "Parolu göstər" [ref=e34] [cursor=pointer]:
+                  - img [ref=e35]
+            - generic [ref=e38]:
+              - generic [ref=e39]:
+                - checkbox "Məni xatırla" [ref=e40] [cursor=pointer]
+                - checkbox
+                - generic [ref=e41] [cursor=pointer]: Məni xatırla
+              - button "Parolu unutmusunuz?" [ref=e42] [cursor=pointer]
+            - button "Daxil ol" [ref=e44] [cursor=pointer]
+```

@@ -15,6 +15,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: "./src/tests/setup.ts",
+    include: ["src/**/*.test.{ts,tsx}"],
+    exclude: ["node_modules", "dist", ".idea", ".git", ".cache", "src/**/*.spec.{ts,tsx}"],
+  },
 }));
 
 // Forced restart for route sync

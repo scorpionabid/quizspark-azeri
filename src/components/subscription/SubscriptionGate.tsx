@@ -10,13 +10,29 @@ interface SubscriptionGateProps {
     children: ReactNode;
     /** Optional custom message shown to Quest users */
     description?: string;
+    variant?: 'centered' | 'inline';
 }
 
-export function SubscriptionGate({ feature, children, description }: SubscriptionGateProps) {
+export function SubscriptionGate({ feature, children, description, variant = 'centered' }: SubscriptionGateProps) {
     const { canAccess } = useSubscription();
 
     if (canAccess(feature)) {
         return <>{children}</>;
+    }
+
+    if (variant === 'inline') {
+        return (
+            <div className="relative group cursor-not-allowed">
+                <div className="opacity-50 pointer-events-none">
+                    {children}
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-0.5 rounded shadow-lg whitespace-nowrap">
+                        <Lock className="h-2 w-2 inline mr-1" /> VIP Gərəkdir
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (

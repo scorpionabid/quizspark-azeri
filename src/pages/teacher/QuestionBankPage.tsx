@@ -2,12 +2,12 @@ import { useState, useMemo, useCallback } from 'react';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Plus, 
-  Upload, 
-  Database, 
-  TrendingUp, 
-  Layers, 
+import {
+  Plus,
+  Upload,
+  Database,
+  TrendingUp,
+  Layers,
   BarChart3,
   FolderOpen,
 } from 'lucide-react';
@@ -41,19 +41,20 @@ import { QuestionEditDialog } from '@/components/question-bank/QuestionEditDialo
 import { QuestionViewDialog } from '@/components/question-bank/QuestionViewDialog';
 import { ImportExportDialog } from '@/components/question-bank/ImportExportDialog';
 import { CategoryManagementDialog } from '@/components/question-bank/CategoryManagementDialog';
+import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
 
 const PAGE_SIZE = 50;
 
 export default function QuestionBankPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
-  
+
   // Filter state
   const [filters, setFilters] = useState<Filters>({});
-  
+
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  
+
   // Dialog states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -61,7 +62,7 @@ export default function QuestionBankPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  
+
   // Current question for dialogs
   const [currentQuestion, setCurrentQuestion] = useState<QuestionBankItem | null>(null);
   const [editMode, setEditMode] = useState<'create' | 'edit'>('create');
@@ -74,10 +75,10 @@ export default function QuestionBankPage() {
   );
   const { data: stats } = useQuestionBankStats();
   const { data: questionCategories = [] } = useQuestionCategories();
-  
+
   // Extract category names for filters and other components
-  const categories = useMemo(() => 
-    questionCategories.map((c: QuestionCategory) => c.name), 
+  const categories = useMemo(() =>
+    questionCategories.map((c: QuestionCategory) => c.name),
     [questionCategories]
   );
 
@@ -229,7 +230,7 @@ export default function QuestionBankPage() {
     const items = [];
     const start = Math.max(0, currentPage - 2);
     const end = Math.min(totalPages, currentPage + 3);
-    
+
     for (let i = start; i < end; i++) {
       items.push(i);
     }
@@ -242,19 +243,25 @@ export default function QuestionBankPage() {
         title="Sual Bankı"
         description="Bütün suallarınızı bir yerdə idarə edin"
       >
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
-            <FolderOpen className="h-4 w-4 mr-2" />
-            Kateqoriyalar
-          </Button>
-          <Button variant="outline" onClick={() => setImportExportOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import/Export
-          </Button>
-          <Button onClick={handleCreateClick}>
-            <Plus className="h-4 w-4 mr-2" />
-            Yeni Sual
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          <SubscriptionGate variant="inline" feature="question_bank_write">
+            <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Kateqoriyalar
+            </Button>
+          </SubscriptionGate>
+          <SubscriptionGate variant="inline" feature="question_bank_write">
+            <Button variant="outline" onClick={() => setImportExportOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Import/Export
+            </Button>
+          </SubscriptionGate>
+          <SubscriptionGate variant="inline" feature="question_bank_write">
+            <Button onClick={handleCreateClick}>
+              <Plus className="h-4 w-4 mr-2" />
+              Yeni Sual
+            </Button>
+          </SubscriptionGate>
         </div>
       </PageHeader>
 
