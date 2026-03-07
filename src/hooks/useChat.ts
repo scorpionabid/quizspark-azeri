@@ -176,45 +176,59 @@ export function useConversations() {
     return useQuery({
         queryKey: ['admin-conversations'],
         queryFn: async () => {
-            if (role !== 'admin') return [];
+            if (role !== 'admin' || !user) return [];
 
             const { data, error } = await (supabase.rpc as any)('get_admin_conversations');
 
             if (error) {
+                console.warn("RPC failed, falling back to simple query:", error);
+
                 // FALLBACK: If RPC doesn't exist, we'll try a simpler approach
+                // We use the new foreign key relationship name if possible, or just regular join
                 const { data: messages, error: msgError } = await (supabase
                     .from('support_messages' as any)
-                    .select('*, profiles!support_messages_sender_id_fkey(full_name, avatar_url)') as any)
+                    .select('*, profiles:sender_id(full_name, avatar_url)') as any)
                     .order('created_at', { ascending: false });
 
-                if (msgError) throw msgError;
+                if (msgError) {
+                    // Try another fallback if the first one fails (different fkey names might be cached)
+                    const { data: messages2, error: msgError2 } = await (supabase
+                        .from('support_messages' as any)
+                        .select('*, profiles!support_messages_sender_id_fkey(full_name, avatar_url)') as any)
+                        .order('created_at', { ascending: false });
 
-                const convMap = new Map<string, Conversation>();
-                (messages as any[]).forEach((m: any) => {
-                    // In admin view, we want to group by the "other" user (not the admin)
-                    const otherId = m.sender_id === user?.id ? m.receiver_id : m.sender_id;
+                    if (msgError2) throw msgError2;
+                    return processFallbackMessages(messages2, user.id);
+                }
 
-                    // Skip if it's a message between admins (if applicable) or if otherId is the user themselves
-                    if (otherId === user?.id) return;
-
-                    if (!convMap.has(otherId)) {
-                        convMap.set(otherId, {
-                            user_id: otherId,
-                            full_name: m.profiles?.full_name || "Naməlum",
-                            avatar_url: m.profiles?.avatar_url,
-                            last_message: m.content,
-                            last_message_at: m.created_at,
-                            unread_count: (m.receiver_id === user?.id && !m.is_read) ? 1 : 0
-                        });
-                    } else if (m.receiver_id === user?.id && !m.is_read) {
-                        const existing = convMap.get(otherId)!;
-                        existing.unread_count++;
-                    }
-                });
-                return Array.from(convMap.values());
+                return processFallbackMessages(messages, user.id);
             }
             return data as Conversation[];
         },
         enabled: role === 'admin' && !!user
     });
+}
+
+function processFallbackMessages(messages: any[], currentUserId: string): Conversation[] {
+    const convMap = new Map<string, Conversation>();
+    messages.forEach((m: any) => {
+        const otherId = m.sender_id === currentUserId ? m.receiver_id : m.sender_id;
+
+        if (otherId === currentUserId) return;
+
+        if (!convMap.has(otherId)) {
+            convMap.set(otherId, {
+                user_id: otherId,
+                full_name: m.profiles?.full_name || "Naməlum",
+                avatar_url: m.profiles?.avatar_url,
+                last_message: m.content,
+                last_message_at: m.created_at,
+                unread_count: (m.receiver_id === currentUserId && !m.is_read) ? 1 : 0
+            });
+        } else if (m.receiver_id === currentUserId && !m.is_read) {
+            const existing = convMap.get(otherId)!;
+            existing.unread_count++;
+        }
+    });
+    return Array.from(convMap.values());
 }
