@@ -1,9 +1,8 @@
-import { useAuth } from "@/contexts/AuthContext";
-import { useSupportMessages, useSendMessage, useConversations } from "@/hooks/useChat";
+import { useSupportMessages, useSendMessage, useConversations, useMarkAsRead } from "@/hooks/useChat";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ConversationList } from "@/components/chat/ConversationList";
-import { Loader2, MessageSquare, User, ShieldCheck } from "lucide-react";
+import { Loader2, MessageSquare, User, ShieldCheck, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,9 +11,11 @@ export default function AdminChatPage() {
     const { user } = useAuth();
     const { data: conversations, isLoading: convsLoading } = useConversations();
     const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
+    const [searchQuery, setSearchQuery] = useState("");
 
     const { messages, isLoading: messagesLoading } = useSupportMessages(selectedUserId);
     const { mutateAsync: sendMessage, isPending: isSending } = useSendMessage();
+    const { mutate: markAsRead } = useMarkAsRead();
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Set first conversation as selected if none selected
@@ -24,12 +25,26 @@ export default function AdminChatPage() {
         }
     }, [conversations, selectedUserId]);
 
+    // Mark as read when messages load or selected user changes
+    useEffect(() => {
+        if (selectedUserId && messages && messages.length > 0) {
+            const hasUnread = messages.some(m => m.receiver_id === user?.id && !m.is_read);
+            if (hasUnread) {
+                markAsRead(selectedUserId);
+            }
+        }
+    }, [selectedUserId, messages, user?.id, markAsRead]);
+
     // Auto-scroll to bottom
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
+    const filteredConversations = conversations?.filter(c =>
+        c.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     const handleSend = async (content: string) => {
         if (!selectedUserId) return;
@@ -65,11 +80,21 @@ export default function AdminChatPage() {
             <div className="flex-1 flex gap-6 min-h-0">
                 {/* Conversations Sidebar */}
                 <Card className="w-80 flex flex-col bg-card/50 backdrop-blur-sm border-border/50 rounded-3xl overflow-hidden shadow-xl min-h-0">
-                    <div className="p-4 border-b border-border/50 bg-muted/30">
-                        <h2 className="font-bold text-sm uppercase tracking-wider opacity-60">Söhbətlər</h2>
+                    <div className="p-4 border-b border-border/50 bg-muted/30 space-y-3">
+                        <h2 className="font-bold text-sm uppercase tracking-wider opacity-60 px-1">Söhbətlər</h2>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Axtar..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 bg-background/50 border border-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            />
+                        </div>
                     </div>
                     <ConversationList
-                        conversations={conversations || []}
+                        conversations={filteredConversations || []}
                         selectedUserId={selectedUserId}
                         onSelect={setSelectedUserId}
                     />
@@ -129,6 +154,36 @@ export default function AdminChatPage() {
                         </div>
                     )}
                 </div>
+
+                {/* User Info Sidebar - New */}
+                {selectedConv && (
+                    <Card className="w-64 flex flex-col bg-card/50 backdrop-blur-sm border-border/50 rounded-3xl overflow-hidden shadow-xl p-6 space-y-6">
+                        <div className="text-center space-y-3">
+                            <div className="mx-auto h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-primary border-4 border-background shadow-lg">
+                                <User className="h-10 w-10" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg">{selectedConv.full_name || "Naməlum"}</h3>
+                                <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">İstifadəçi</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 pt-4 border-t border-border/50">
+                            <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold">ID</p>
+                                <p className="text-xs font-mono break-all bg-muted/30 p-2 rounded-lg">{selectedConv.user_id}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold">Son Mesaj</p>
+                                <p className="text-xs">{new Date(selectedConv.last_message_at).toLocaleString('az')}</p>
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-border/50 italic text-[10px] text-muted-foreground text-center">
+                            Dəstək çat sistemi vasitəsilə admin cavabı.
+                        </div>
+                    </Card>
+                )}
             </div>
         </div>
     );

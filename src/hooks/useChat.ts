@@ -120,8 +120,58 @@ export function useSendMessage() {
     });
 }
 
+export function useMarkAsRead() {
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
+
+    return useMutation({
+        mutationFn: async (senderId: string) => {
+            if (!user) return;
+
+            const { error } = await (supabase
+                .from('support_messages' as any)
+                .update({ is_read: true } as any)
+                .eq('sender_id', senderId)
+                .eq('receiver_id', user.id)
+                .eq('is_read', false) as any);
+
+            if (error) throw error;
+        },
+        onSuccess: (_, senderId) => {
+            queryClient.invalidateQueries({ queryKey: ['admin-conversations'] });
+            queryClient.invalidateQueries({ queryKey: ['support-messages', user?.id, senderId] });
+        }
+    });
+}
+
 export function useConversations() {
     const { user, role } = useAuth();
+
+    const queryClient = useQueryClient();
+
+    // Real-time subscription for conversations
+    useEffect(() => {
+        if (role !== 'admin' || !user) return;
+
+        const channel = supabase
+            .channel('admin_conversations_channel')
+            .on(
+                'postgres_changes' as any,
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'support_messages'
+                },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['admin-conversations'] });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user, role, queryClient]);
 
     return useQuery({
         queryKey: ['admin-conversations'],
@@ -141,7 +191,12 @@ export function useConversations() {
 
                 const convMap = new Map<string, Conversation>();
                 (messages as any[]).forEach((m: any) => {
+                    // In admin view, we want to group by the "other" user (not the admin)
                     const otherId = m.sender_id === user?.id ? m.receiver_id : m.sender_id;
+
+                    // Skip if it's a message between admins (if applicable) or if otherId is the user themselves
+                    if (otherId === user?.id) return;
+
                     if (!convMap.has(otherId)) {
                         convMap.set(otherId, {
                             user_id: otherId,
@@ -149,7 +204,7 @@ export function useConversations() {
                             avatar_url: m.profiles?.avatar_url,
                             last_message: m.content,
                             last_message_at: m.created_at,
-                            unread_count: m.receiver_id === user?.id && !m.is_read ? 1 : 0
+                            unread_count: (m.receiver_id === user?.id && !m.is_read) ? 1 : 0
                         });
                     } else if (m.receiver_id === user?.id && !m.is_read) {
                         const existing = convMap.get(otherId)!;
@@ -160,6 +215,6 @@ export function useConversations() {
             }
             return data as Conversation[];
         },
-        enabled: role === 'admin'
+        enabled: role === 'admin' && !!user
     });
 }
