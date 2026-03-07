@@ -12,7 +12,7 @@ export function useUpdateProfile() {
 
         setIsUpdating(true);
         try {
-            const { error } = await (supabase as any)
+            const { error } = await supabase
                 .from('profiles')
                 .update(data)
                 .eq('user_id', user.id);
@@ -22,9 +22,10 @@ export function useUpdateProfile() {
             await refreshProfile();
             toast.success("Profil uğurla yeniləndi");
             return { error: null };
-        } catch (error: any) {
-            toast.error(error.message || "Xəta baş verdi");
-            return { error };
+        } catch (error: unknown) {
+            const err = error as Error;
+            toast.error(err.message || "Xəta baş verdi");
+            return { error: err };
         } finally {
             setIsUpdating(false);
         }
@@ -51,9 +52,10 @@ export function useUpdateProfile() {
             await updateProfile({ avatar_url: publicUrl });
 
             return { publicUrl, error: null };
-        } catch (error: any) {
-            toast.error(error.message || "Şəkil yüklənərkən xəta baş verdi");
-            return { error };
+        } catch (error: unknown) {
+            const err = error as Error;
+            toast.error(err.message || "Şəkil yüklənərkən xəta baş verdi");
+            return { error: err };
         } finally {
             setIsUpdating(false);
         }

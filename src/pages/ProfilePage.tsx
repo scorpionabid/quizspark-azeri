@@ -219,27 +219,36 @@ export default function ProfilePage() {
                             <CardContent className="p-0">
                                 {stats?.recentActivity && stats.recentActivity.length > 0 ? (
                                     <div className="divide-y divide-border/50">
-                                        {stats.recentActivity.map((attempt: any, i: number) => (
-                                            <div key={attempt.id} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                                        {i + 1}
+                                        {(stats?.recentActivity as unknown[]).map((attemptObj, i: number) => {
+                                            const attempt = attemptObj as {
+                                                id: string;
+                                                quizzes: { title: string } | null;
+                                                completed_at: string | null;
+                                                score: number;
+                                                total_questions: number;
+                                            };
+                                            return (
+                                                <div key={attempt.id} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors cursor-pointer">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold">
+                                                            {i + 1}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-semibold text-foreground">{(attempt.quizzes as { title: string } | null)?.title || 'Adsız Quiz'}</p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {attempt.completed_at ? formatDistanceToNow(new Date(attempt.completed_at), { addSuffix: true, locale: az }) : 'Naməlum vaxt'}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="font-semibold text-foreground">{(attempt.quizzes as any)?.title || 'Adsız Quiz'}</p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {attempt.completed_at ? formatDistanceToNow(new Date(attempt.completed_at), { addSuffix: true, locale: az }) : 'Naməlum vaxt'}
+                                                    <div className="text-right">
+                                                        <p className={`font-bold ${((attempt.score / (attempt.total_questions || 1)) * 100) >= 80 ? 'text-success' : 'text-warning'}`}>
+                                                            {Math.round(((attempt.score || 0) / (attempt.total_questions || 1)) * 100)}%
                                                         </p>
+                                                        <p className="text-xs text-muted-foreground">{attempt.score}/{attempt.total_questions} düz</p>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className={`font-bold ${((attempt.score / attempt.total_questions) * 100) >= 80 ? 'text-success' : 'text-warning'}`}>
-                                                        {Math.round((attempt.score / attempt.total_questions) * 100)}%
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">{attempt.score}/{attempt.total_questions} düz</p>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="p-12 text-center text-muted-foreground">

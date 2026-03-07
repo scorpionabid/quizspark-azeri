@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Save, RefreshCw, Bot, Shield } from "lucide-react";
@@ -14,13 +14,13 @@ export default function AIConfigPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  
+
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [config, setConfig] = useState<AIConfig | null>(null);
   const [usageStats, setUsageStats] = useState<AIUsageStats | null>(null);
   const [userUsage, setUserUsage] = useState<AIUserUsage[]>([]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Fetch providers directly from database
@@ -34,11 +34,11 @@ export default function AIConfigPage() {
 
       if (dbProviders) {
         // Check API key status for each provider
-        const providersWithStatus = dbProviders.map((p: any) => ({
+        const providersWithStatus = dbProviders.map((p) => ({
           ...p,
           hasApiKey: p.name === "lovable", // Lovable AI is always available
-        }));
-        setProviders(providersWithStatus as AIProvider[]);
+        })) as unknown as AIProvider[];
+        setProviders(providersWithStatus);
       }
 
       // Fetch config
@@ -106,11 +106,11 @@ export default function AIConfigPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleProviderToggle = async (id: string, enabled: boolean) => {
     try {
@@ -119,7 +119,7 @@ export default function AIConfigPage() {
         .update({ is_enabled: enabled })
         .eq("id", id);
 
-      setProviders(providers.map(p => 
+      setProviders(providers.map(p =>
         p.id === id ? { ...p, is_enabled: enabled } : p
       ));
 
@@ -142,7 +142,7 @@ export default function AIConfigPage() {
       anthropic: "ANTHROPIC_API_KEY",
       google: "GOOGLE_AI_API_KEY",
     };
-    
+
     toast({
       title: "API Açarı Tələb Olunur",
       description: `${providerName.toUpperCase()} üçün ${keyNames[providerName]} əlavə edin`,
@@ -158,7 +158,7 @@ export default function AIConfigPage() {
 
   const handleSave = async () => {
     if (!config) return;
-    
+
     setIsSaving(true);
     try {
       await supabase
@@ -208,7 +208,7 @@ export default function AIConfigPage() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={fetchData} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
@@ -231,7 +231,7 @@ export default function AIConfigPage() {
               <Shield className="h-5 w-5 text-muted-foreground" />
               <h2 className="text-lg font-semibold">AI Provayderləri</h2>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {providers.map((provider) => (
                 <ProviderCard

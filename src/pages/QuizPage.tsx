@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Clock, CheckCircle, XCircle, Trophy, RotateCcw, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export default function QuizPage() {
   const { data: questions = [], isLoading: questionsLoading } = useQuestions(id);
   const startAttempt = useStartAttempt();
   const completeAttempt = useCompleteAttempt();
-  
+
   const [quizState, setQuizState] = useState<QuizState>('intro');
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -47,26 +47,55 @@ export default function QuizPage() {
 
   const isLoading = quizLoading || questionsLoading;
 
-  useEffect(() => {
-    if (quizState === 'playing' && timeLeft > 0) {
-      const timer = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            handleTimeUp();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [quizState, timeLeft]);
+  const handleAnswer = useCallback(async (optionIndex: number) => {
+    if (showFeedback || questions.length === 0) return;
 
-  const handleTimeUp = () => {
-    if (selectedOption === null && questions.length > 0) {
-      handleAnswer(-1);
-    }
-  };
+    const question = questions[currentQuestion];
+    const options = (question.options as string[]) || [];
+
+    setSelectedOption(optionIndex);
+    setShowFeedback(true);
+
+    const selectedAnswer = optionIndex >= 0 ? options[optionIndex] : "";
+    const isCorrect = selectedAnswer === question.correct_answer;
+
+    const newAnswer = {
+      questionIndex: currentQuestion,
+      selectedOption: optionIndex,
+      isCorrect,
+    };
+
+    const updatedAnswers = [...answers, newAnswer];
+    setAnswers(updatedAnswers);
+
+    setTimeout(async () => {
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion(prev => prev + 1);
+        setSelectedOption(null);
+        setShowFeedback(false);
+      } else {
+        // Quiz completed
+        if (attemptId && startTime && user && quiz) {
+          const correctCount = updatedAnswers.filter(a => a.isCorrect).length;
+          const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+
+          try {
+            await completeAttempt.mutateAsync({
+              attemptId,
+              quizId: quiz.id,
+              score: correctCount,
+              totalQuestions: questions.length,
+              timeSpent,
+              answers: updatedAnswers as unknown as Record<string, string>[],
+            });
+          } catch (error) {
+            console.error("Error completing quiz:", error);
+          }
+        }
+        setQuizState('result');
+      }
+    }, 1500);
+  }, [showFeedback, questions, currentQuestion, answers, attemptId, startTime, user, quiz, completeAttempt]);
 
   const startQuiz = async () => {
     if (!quiz || !user) {
@@ -95,55 +124,26 @@ export default function QuizPage() {
     }
   };
 
-  const handleAnswer = async (optionIndex: number) => {
-    if (showFeedback || questions.length === 0) return;
-    
-    const question = questions[currentQuestion];
-    const options = (question.options as string[]) || [];
-    
-    setSelectedOption(optionIndex);
-    setShowFeedback(true);
+  const handleTimeUp = useCallback(() => {
+    if (selectedOption === null && questions.length > 0) {
+      handleAnswer(-1);
+    }
+  }, [selectedOption, questions.length, handleAnswer]);
 
-    const selectedAnswer = optionIndex >= 0 ? options[optionIndex] : "";
-    const isCorrect = selectedAnswer === question.correct_answer;
-    
-    const newAnswer = {
-      questionIndex: currentQuestion,
-      selectedOption: optionIndex,
-      isCorrect,
-    };
-    
-    const updatedAnswers = [...answers, newAnswer];
-    setAnswers(updatedAnswers);
-
-    setTimeout(async () => {
-      if (currentQuestion < questions.length - 1) {
-        setCurrentQuestion(prev => prev + 1);
-        setSelectedOption(null);
-        setShowFeedback(false);
-      } else {
-        // Quiz completed
-        if (attemptId && startTime && user && quiz) {
-          const correctCount = updatedAnswers.filter(a => a.isCorrect).length;
-          const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
-          
-          try {
-            await completeAttempt.mutateAsync({
-              attemptId,
-              quizId: quiz.id,
-              score: correctCount,
-              totalQuestions: questions.length,
-              timeSpent,
-              answers: updatedAnswers as any,
-            });
-          } catch (error) {
-            console.error("Error completing quiz:", error);
+  useEffect(() => {
+    if (quizState === 'playing' && timeLeft > 0) {
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            handleTimeUp();
+            return 0;
           }
-        }
-        setQuizState('result');
-      }
-    }, 1500);
-  };
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [quizState, timeLeft, handleTimeUp]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -251,10 +251,10 @@ export default function QuizPage() {
                 </Button>
               </div>
             ) : (
-              <Button 
-                variant="game" 
-                size="xl" 
-                className="w-full" 
+              <Button
+                variant="game"
+                size="xl"
+                className="w-full"
                 onClick={startQuiz}
                 disabled={startAttempt.isPending}
               >
@@ -414,9 +414,9 @@ export default function QuizPage() {
             {score >= 80 ? 'Əla Nəticə!' : score >= 50 ? 'Yaxşı Cəhd!' : 'Davam Et!'}
           </h1>
           <p className="mb-8 text-muted-foreground">
-            {score >= 80 ? 'Möhtəşəm! Sən bu mövzunu çox yaxşı bilirsən.' : 
-             score >= 50 ? 'Yaxşı iş! Bir az daha təcrübə ilə daha yaxşı olacaq.' : 
-             'Narahat olma, hər uğursuzluq öyrənmək üçün bir şansdır.'}
+            {score >= 80 ? 'Möhtəşəm! Sən bu mövzunu çox yaxşı bilirsən.' :
+              score >= 50 ? 'Yaxşı iş! Bir az daha təcrübə ilə daha yaxşı olacaq.' :
+                'Narahat olma, hər uğursuzluq öyrənmək üçün bir şansdır.'}
           </p>
 
           {/* Score Circle */}

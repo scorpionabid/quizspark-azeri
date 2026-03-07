@@ -1,7 +1,7 @@
 import { Trophy, Medal, Star, TrendingUp, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useGlobalLeaderboard } from "@/hooks/useQuizAttempts";
+import { useGlobalLeaderboard, UserStat } from "@/hooks/useQuizAttempts";
 import { PageLoader } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -13,13 +13,13 @@ interface LeaderboardEntry {
   quizzesCompleted: number;
 }
 
-const avatars = ["👨‍🎓", "👩‍🎓", "🧑‍🎓", "👩‍💼", "👨‍💻", "👩‍🔬", "🧑‍🏫", "👩‍🎨", "👨‍⚕️", "👩‍💻"];
+const avatars = ["👨‍🎓", "👩‍🎓", "🧑‍🎓", "👩‍💼", "👨‍💻", "👩‍🔬", "🧑‍🔬", "👩‍🎨", "👨‍⚕️", "👩‍💻"];
 
 export default function LeaderboardPage() {
   const { data: leaderboardData = [], isLoading, error } = useGlobalLeaderboard();
 
   // Transform data for display
-  const transformedData: LeaderboardEntry[] = leaderboardData.map((entry: any, index: number) => ({
+  const transformedData: LeaderboardEntry[] = (leaderboardData as UserStat[]).map((entry, index: number) => ({
     rank: index + 1,
     name: entry.profile?.full_name || `İstifadəçi ${index + 1}`,
     avatar: avatars[index % avatars.length],

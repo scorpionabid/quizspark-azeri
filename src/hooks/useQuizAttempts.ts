@@ -33,7 +33,7 @@ export function useMyAttempts(quizId?: string) {
     queryKey: ['attempts', user?.id, quizId],
     queryFn: async () => {
       if (!user) return [];
-      
+
       let query = supabase
         .from('quiz_attempts')
         .select('*')
@@ -70,7 +70,7 @@ export function useStartAttempt() {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       return data as QuizAttempt;
     },
@@ -94,7 +94,7 @@ export function useUpdateAttempt() {
         .eq('id', attemptId)
         .select()
         .single();
-      
+
       if (error) throw error;
       return data as QuizAttempt;
     },
@@ -109,17 +109,17 @@ export function useCompleteAttempt() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ 
-      attemptId, 
+    mutationFn: async ({
+      attemptId,
       quizId,
-      score, 
+      score,
       totalQuestions,
       timeSpent,
-      answers 
-    }: { 
-      attemptId: string; 
+      answers
+    }: {
+      attemptId: string;
       quizId: string;
-      score: number; 
+      score: number;
       totalQuestions: number;
       timeSpent: number;
       answers: Record<string, string>[];
@@ -129,14 +129,14 @@ export function useCompleteAttempt() {
       // Update attempt
       const { error: attemptError } = await supabase
         .from('quiz_attempts')
-        .update({ 
+        .update({
           completed_at: new Date().toISOString(),
           score,
           time_spent: timeSpent,
           answers,
         })
         .eq('id', attemptId);
-      
+
       if (attemptError) throw attemptError;
 
       // Create result for leaderboard
@@ -153,7 +153,7 @@ export function useCompleteAttempt() {
         })
         .select()
         .single();
-      
+
       if (resultError) throw resultError;
 
       // Increment play count
@@ -163,7 +163,7 @@ export function useCompleteAttempt() {
           .select('play_count')
           .eq('id', quizId)
           .single();
-        
+
         if (quizData) {
           await supabase
             .from('quizzes')
@@ -193,7 +193,7 @@ export function useQuizLeaderboard(quizId: string | undefined) {
     queryKey: ['leaderboard', quizId],
     queryFn: async () => {
       if (!quizId) return [];
-      
+
       const { data, error } = await supabase
         .from('quiz_results')
         .select(`
@@ -207,12 +207,18 @@ export function useQuizLeaderboard(quizId: string | undefined) {
         .order('percentage', { ascending: false })
         .order('time_spent', { ascending: true })
         .limit(50);
-      
+
       if (error) throw error;
       return data;
     },
     enabled: !!quizId,
   });
+}
+
+export interface UserStat {
+  user_id: string;
+  profile: { full_name: string | null; avatar_url: string | null } | null;
+  total_quizzes: number;
 }
 
 export function useGlobalLeaderboard() {
@@ -229,8 +235,9 @@ export function useGlobalLeaderboard() {
           )
         `)
         .order('completed_at', { ascending: false });
-      
+
       if (error) throw error;
+
 
       // Group by user and count
       const userStats = data.reduce((acc, result) => {
@@ -238,16 +245,16 @@ export function useGlobalLeaderboard() {
         if (!acc[userId]) {
           acc[userId] = {
             user_id: userId,
-            profile: result.profiles,
+            profile: result.profiles as unknown as { full_name: string | null; avatar_url: string | null } | null,
             total_quizzes: 0,
           };
         }
         acc[userId].total_quizzes++;
         return acc;
-      }, {} as Record<string, any>);
+      }, {} as Record<string, UserStat>);
 
       return Object.values(userStats)
-        .sort((a: any, b: any) => b.total_quizzes - a.total_quizzes)
+        .sort((a, b) => b.total_quizzes - a.total_quizzes)
         .slice(0, 50);
     },
   });
