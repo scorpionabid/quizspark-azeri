@@ -3,6 +3,7 @@ import { SubscriptionTier } from '@/types/auth';
 
 export type SubscriptionFeature =
     | 'ai_assistant'
+    | 'ai_question_generation'
     | 'question_bank_write'
     | 'quiz_create_unlimited'
     | 'full_leaderboard'
@@ -12,6 +13,7 @@ const QUEST_QUIZ_LIMIT = 3;
 
 const VIP_FEATURES: SubscriptionFeature[] = [
     'ai_assistant',
+    'ai_question_generation',
     'question_bank_write',
     'quiz_create_unlimited',
     'full_leaderboard',

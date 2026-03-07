@@ -30,6 +30,7 @@ import {
   useBulkUpdateQuestionBank,
   useBulkCreateQuestionBank,
   QuestionBankItem,
+  SortParams,
   QuestionFilters as Filters,
 } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, QuestionCategory } from '@/hooks/useQuestionCategories';
@@ -41,6 +42,8 @@ import { QuestionEditDialog } from '@/components/question-bank/QuestionEditDialo
 import { QuestionViewDialog } from '@/components/question-bank/QuestionViewDialog';
 import { ImportExportDialog } from '@/components/question-bank/ImportExportDialog';
 import { CategoryManagementDialog } from '@/components/question-bank/CategoryManagementDialog';
+import { QuestionEnhanceDialog } from '@/components/question-bank/QuestionEnhanceDialog';
+import { Badge } from '@/components/ui/badge';
 import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
 
 const PAGE_SIZE = 50;
@@ -55,6 +58,9 @@ export default function QuestionBankPage() {
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Sorting state
+  const [sort, setSort] = useState<SortParams | undefined>({ column: 'created_at', direction: 'desc' });
+
   // Dialog states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -62,6 +68,7 @@ export default function QuestionBankPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false);
 
   // Current question for dialogs
   const [currentQuestion, setCurrentQuestion] = useState<QuestionBankItem | null>(null);
@@ -71,7 +78,8 @@ export default function QuestionBankPage() {
   // Queries
   const { data: questionData, isLoading: questionsLoading } = useQuestionBankList(
     { page: currentPage, pageSize: PAGE_SIZE },
-    filters
+    filters,
+    sort
   );
   const { data: stats } = useQuestionBankStats();
   const { data: questionCategories = [] } = useQuestionCategories();
@@ -100,6 +108,15 @@ export default function QuestionBankPage() {
   const handleClearFilters = useCallback(() => {
     setFilters({});
     setCurrentPage(0);
+  }, []);
+
+  const handleSort = useCallback((column: string) => {
+    setSort((prev) => {
+      if (prev?.column === column) {
+        return { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { column, direction: 'desc' };
+    });
   }, []);
 
   const handleSelectChange = useCallback((id: string, selected: boolean) => {
@@ -137,6 +154,17 @@ export default function QuestionBankPage() {
   const handleViewClick = (question: QuestionBankItem) => {
     setCurrentQuestion(question);
     setViewDialogOpen(true);
+  };
+
+  const handleEnhanceClick = (question: QuestionBankItem) => {
+    setCurrentQuestion(question);
+    setEnhanceDialogOpen(true);
+  };
+
+  const handleEnhanceApply = (updates: Partial<QuestionBankItem>) => {
+    if (currentQuestion) {
+      updateQuestion.mutate({ id: currentQuestion.id, ...updates });
+    }
   };
 
   const handleDeleteClick = (id: string) => {
@@ -266,7 +294,7 @@ export default function QuestionBankPage() {
       </PageHeader>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Ümumi Suallar</CardTitle>
@@ -299,20 +327,34 @@ export default function QuestionBankPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Çətinlik Paylanması</CardTitle>
+            <CardTitle className="text-sm font-medium">Çətinlik</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2 text-xs">
-              <span className="text-green-600">
-                Asan: {stats?.difficultyCounts?.['asan'] || 0}
-              </span>
-              <span className="text-yellow-600">
-                Orta: {stats?.difficultyCounts?.['orta'] || 0}
-              </span>
-              <span className="text-red-600">
-                Çətin: {stats?.difficultyCounts?.['çətin'] || 0}
-              </span>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="text-green-600">Asan: {stats?.difficultyCounts?.['asan'] || 0}</span>
+              <span className="text-yellow-600">Orta: {stats?.difficultyCounts?.['orta'] || 0}</span>
+              <span className="text-red-600">Çətin: {stats?.difficultyCounts?.['çətin'] || 0}</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Bloom Paylanması</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-1">
+              {['xatırlama', 'anlama', 'tətbiq', 'analiz', 'qiymətləndirmə', 'yaratma'].map((level) => (
+                stats?.bloomLevelCounts?.[level] ? (
+                  <Badge key={level} variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                    {level}: {stats.bloomLevelCounts[level]}
+                  </Badge>
+                ) : null
+              ))}
+              {(!stats?.bloomLevelCounts || Object.keys(stats.bloomLevelCounts).length === 0) && (
+                <span className="text-xs text-muted-foreground">Məlumat yoxdur</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -348,6 +390,9 @@ export default function QuestionBankPage() {
         onDelete={handleDeleteClick}
         onDuplicate={handleDuplicateClick}
         onView={handleViewClick}
+        onEnhance={handleEnhanceClick}
+        onSort={handleSort}
+        sort={sort}
         isLoading={questionsLoading}
       />
 
@@ -403,6 +448,13 @@ export default function QuestionBankPage() {
         onSave={handleSaveQuestion}
         isLoading={createQuestion.isPending || updateQuestion.isPending}
         mode={editMode}
+      />
+
+      <QuestionEnhanceDialog
+        open={enhanceDialogOpen}
+        onOpenChange={setEnhanceDialogOpen}
+        question={currentQuestion}
+        onApply={handleEnhanceApply}
       />
 
       <QuestionViewDialog

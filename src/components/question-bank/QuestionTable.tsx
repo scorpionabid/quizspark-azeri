@@ -10,7 +10,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, Copy, MoreHorizontal, Eye, Image } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Edit, Trash2, Copy, MoreHorizontal, Eye, Image } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,8 +18,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { QuestionBankItem } from '@/hooks/useQuestionBank';
+import { QuestionBankItem, SortParams } from '@/hooks/useQuestionBank';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
+import { Sparkles } from 'lucide-react';
 
 interface QuestionTableProps {
   questions: QuestionBankItem[];
@@ -30,6 +32,9 @@ interface QuestionTableProps {
   onDelete: (id: string) => void;
   onDuplicate: (question: QuestionBankItem) => void;
   onView: (question: QuestionBankItem) => void;
+  onEnhance: (question: QuestionBankItem) => void;
+  onSort: (column: string) => void;
+  sort?: SortParams;
   isLoading?: boolean;
 }
 
@@ -75,10 +80,33 @@ export function QuestionTable({
   onDelete,
   onDuplicate,
   onView,
+  onEnhance,
+  onSort,
+  sort,
   isLoading,
 }: QuestionTableProps) {
   const allSelected = questions.length > 0 && questions.every((q) => selectedIds.has(q.id));
   const someSelected = questions.some((q) => selectedIds.has(q.id)) && !allSelected;
+
+  const SortButton = ({ column, label }: { column: string; label: string }) => {
+    const isActive = sort?.column === column;
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-3 h-8 data-[active=true]:text-primary"
+        data-active={isActive}
+        onClick={() => onSort(column)}
+      >
+        <span>{label}</span>
+        {isActive ? (
+          sort.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+        ) : (
+          <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />
+        )}
+      </Button>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -113,10 +141,18 @@ export function QuestionTable({
               />
             </TableHead>
             <TableHead className="min-w-[300px]">Sual</TableHead>
-            <TableHead className="w-32">Kateqoriya</TableHead>
-            <TableHead className="w-24">Çətinlik</TableHead>
-            <TableHead className="w-28">Tip</TableHead>
-            <TableHead className="w-32">Tarix</TableHead>
+            <TableHead className="w-32">
+              <SortButton column="category" label="Kateqoriya" />
+            </TableHead>
+            <TableHead className="w-24">
+              <SortButton column="difficulty" label="Çətinlik" />
+            </TableHead>
+            <TableHead className="w-28">
+              <SortButton column="question_type" label="Tip" />
+            </TableHead>
+            <TableHead className="w-32">
+              <SortButton column="created_at" label="Tarix" />
+            </TableHead>
             <TableHead className="w-20 text-right">Əməliyyatlar</TableHead>
           </TableRow>
         </TableHeader>
@@ -206,6 +242,15 @@ export function QuestionTable({
                       <Copy className="h-4 w-4 mr-2" />
                       Dublikat et
                     </DropdownMenuItem>
+                    <SubscriptionGate feature="ai_question_generation" variant="inline">
+                      <DropdownMenuItem
+                        onClick={() => onEnhance(question)}
+                        className="text-primary hover:text-primary focus:text-primary group"
+                      >
+                        <Sparkles className="h-4 w-4 mr-2 animate-pulse group-hover:scale-110 transition-transform" />
+                        AI Asistent
+                      </DropdownMenuItem>
+                    </SubscriptionGate>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => onDelete(question.id)}

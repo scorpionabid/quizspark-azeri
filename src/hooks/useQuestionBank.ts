@@ -42,15 +42,22 @@ export interface QuestionBankStats {
   difficultyCounts: Record<string, number>;
   typeCounts: Record<string, number>;
   thisWeekCount: number;
+  bloomLevelCounts: Record<string, number>;
+}
+
+export interface SortParams {
+  column: string;
+  direction: 'asc' | 'desc';
 }
 
 // Fetch questions with pagination and filters
 export function useQuestionBankList(
   pagination: PaginationParams,
-  filters: QuestionFilters
+  filters: QuestionFilters,
+  sort?: SortParams
 ) {
   return useQuery({
-    queryKey: ['question-bank', pagination, filters],
+    queryKey: ['question-bank', pagination, filters, sort],
     queryFn: async () => {
       const { page, pageSize } = pagination;
       const from = page * pageSize;
@@ -58,9 +65,16 @@ export function useQuestionBankList(
 
       let query = supabase
         .from('question_bank')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        .select('*', { count: 'exact' });
+
+      // Apply sorting
+      if (sort) {
+        query = query.order(sort.column, { ascending: sort.direction === 'asc' });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      query = query.range(from, to);
 
       // Apply filters
       if (filters.category && filters.category !== 'all') {
@@ -132,10 +146,21 @@ export function useQuestionBankStats() {
         typeCounts[type] = (typeCounts[type] || 0) + 1;
       });
 
+      // Get bloom level counts
+      const { data: bloomData } = await supabase
+        .from('question_bank')
+        .select('bloom_level');
+
+      const bloomLevelCounts: Record<string, number> = {};
+      bloomData?.forEach((item) => {
+        const level = item.bloom_level || 'Təyin edilməyib';
+        bloomLevelCounts[level] = (bloomLevelCounts[level] || 0) + 1;
+      });
+
       // Get this week's count
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      
+
       const { count: thisWeekCount } = await supabase
         .from('question_bank')
         .select('*', { count: 'exact', head: true })
@@ -147,6 +172,7 @@ export function useQuestionBankStats() {
         difficultyCounts,
         typeCounts,
         thisWeekCount: thisWeekCount || 0,
+        bloomLevelCounts,
       } as QuestionBankStats;
     },
   });
@@ -177,7 +203,7 @@ export function useCreateQuestionBank() {
   return useMutation({
     mutationFn: async (question: Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'>) => {
       const { data: userData } = await supabase.auth.getUser();
-      
+
       const { data, error } = await supabase
         .from('question_bank')
         .insert({
@@ -313,7 +339,7 @@ export function useBulkCreateQuestionBank() {
   return useMutation({
     mutationFn: async (questions: Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'>[]) => {
       const { data: userData } = await supabase.auth.getUser();
-      
+
       const questionsWithUser = questions.map((q) => ({
         ...q,
         user_id: userData.user?.id || null,

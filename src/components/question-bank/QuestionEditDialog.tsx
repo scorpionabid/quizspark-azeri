@@ -17,9 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, useCreateQuestionCategory } from '@/hooks/useQuestionCategories';
+import { useQuestionImageUpload } from '@/hooks/useQuestionImageUpload';
 
 interface QuestionEditDialogProps {
   open: boolean;
@@ -71,10 +72,10 @@ export function QuestionEditDialog({
   // Fetch categories from database
   const { data: dbCategories = [] } = useQuestionCategories();
   const createCategory = useCreateQuestionCategory();
-  
+
   // Use database categories, fall back to prop categories
-  const categories = dbCategories.length > 0 
-    ? dbCategories.map(c => c.name) 
+  const categories = dbCategories.length > 0
+    ? dbCategories.map(c => c.name)
     : propCategories;
 
   const [formData, setFormData] = useState({
@@ -87,9 +88,13 @@ export function QuestionEditDialog({
     difficulty: 'orta',
     bloom_level: '',
     tags: [] as string[],
+    question_image_url: '',
+    media_type: null as 'image' | 'audio' | 'video' | null,
+    media_url: '',
   });
   const [newTag, setNewTag] = useState('');
   const [newCategory, setNewCategory] = useState('');
+  const { uploadImage, isUploading } = useQuestionImageUpload();
 
   useEffect(() => {
     if (question && mode === 'edit') {
@@ -103,6 +108,9 @@ export function QuestionEditDialog({
         difficulty: question.difficulty || 'orta',
         bloom_level: question.bloom_level || '',
         tags: question.tags || [],
+        question_image_url: question.question_image_url || '',
+        media_type: question.media_type || null,
+        media_url: question.media_url || '',
       });
     } else {
       setFormData({
@@ -115,6 +123,9 @@ export function QuestionEditDialog({
         difficulty: 'orta',
         bloom_level: '',
         tags: [],
+        question_image_url: '',
+        media_type: null,
+        media_url: '',
       });
     }
   }, [question, mode, open]);
@@ -129,6 +140,9 @@ export function QuestionEditDialog({
       difficulty: formData.difficulty || null,
       bloom_level: formData.bloom_level || null,
       tags: formData.tags.length > 0 ? formData.tags : null,
+      question_image_url: formData.question_image_url || null,
+      media_type: formData.media_type || null,
+      media_url: formData.media_url || null,
     };
 
     // Only include options for multiple choice and true/false
@@ -403,6 +417,82 @@ export function QuestionEditDialog({
               </Button>
             </div>
           </div>
+
+          {/* Media Section */}
+          <div className="space-y-4 border-t pt-4">
+            <Label className="text-base font-semibold">Media & Şəkil</Label>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Question Image */}
+              <div className="space-y-2">
+                <Label htmlFor="question_image">Sual Şəkli (Yüklə)</Label>
+                {formData.question_image_url && (
+                  <div className="relative w-full aspect-video rounded-lg overflow-hidden border mb-2 bg-muted/30">
+                    <img src={formData.question_image_url} alt="Sual şəkli" className="w-full h-full object-contain" />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-6 w-6"
+                      onClick={() => setFormData(prev => ({ ...prev, question_image_url: '' }))}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="question_image"
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) {
+                        const url = await uploadImage(file);
+                        if (url) setFormData(prev => ({ ...prev, question_image_url: url }));
+                      }
+                    }}
+                    disabled={isUploading}
+                    className="cursor-pointer"
+                  />
+                  {isUploading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                </div>
+              </div>
+
+              {/* Other Media */}
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Media Tipi</Label>
+                  <Select
+                    value={formData.media_type || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, media_type: value === 'none' ? null : value as QuestionBankItem['media_type'] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Media tipi seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Yoxdur</SelectItem>
+                      <SelectItem value="image">Şəkil (URL)</SelectItem>
+                      <SelectItem value="audio">Audio</SelectItem>
+                      <SelectItem value="video">Video</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.media_type && (
+                  <div className="space-y-2">
+                    <Label htmlFor="media_url">Media URL</Label>
+                    <Input
+                      id="media_url"
+                      value={formData.media_url}
+                      onChange={(e) => setFormData({ ...formData, media_url: e.target.value })}
+                      placeholder="https://..."
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         <DialogFooter>
@@ -416,7 +506,7 @@ export function QuestionEditDialog({
             {isLoading ? 'Yüklənir...' : mode === 'create' ? 'Yarat' : 'Yadda saxla'}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </DialogContent >
+    </Dialog >
   );
 }
