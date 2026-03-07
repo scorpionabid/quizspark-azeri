@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 
+const SUPPORT_ADMIN_ID = "d0000000-0000-0000-0000-000000000004"; // Talıbov Admin
+
 export interface Message {
     id: string;
     sender_id: string;
@@ -28,9 +30,7 @@ export function useSupportMessages(otherUserId?: string) {
     const queryClient = useQueryClient();
 
     const isAdmin = role === 'admin';
-    const ADMIN_ID = "f95994c2-97e1-4cf1-94a5-3487b3baf1d5";
-
-    const targetUserId = isAdmin ? otherUserId : ADMIN_ID;
+    const targetUserId = isAdmin ? otherUserId : SUPPORT_ADMIN_ID;
 
     const queryKey = useMemo(() => ['support-messages', user?.id, targetUserId], [user?.id, targetUserId]);
 
@@ -87,13 +87,12 @@ export function useSupportMessages(otherUserId?: string) {
 export function useSendMessage() {
     const { user, role } = useAuth();
     const queryClient = useQueryClient();
-    const ADMIN_ID = "f95994c2-97e1-4cf1-94a5-3487b3baf1d5";
 
     return useMutation({
         mutationFn: async ({ content, receiverId }: { content: string; receiverId?: string }) => {
             if (!user) throw new Error("Not authenticated");
 
-            const targetId = role === 'admin' ? receiverId : ADMIN_ID;
+            const targetId = role === 'admin' ? receiverId : SUPPORT_ADMIN_ID;
             if (!targetId) throw new Error("Receiver not specified");
 
             const { data, error } = await (supabase
