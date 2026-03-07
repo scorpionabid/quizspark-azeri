@@ -15,7 +15,8 @@ import {
   Sparkles,
   User,
   LogIn,
-  Database
+  Database,
+  MessageCircle
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -57,6 +58,7 @@ const navigationGroups: NavGroup[] = [
       { title: "Quizlər", url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Liderlik Lövhəsi", url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student'] },
       { title: "Profil", url: "/profile", icon: User, roles: ['admin', 'teacher', 'student'] },
+      { title: "Dəstək", url: "/support", icon: MessageCircle, roles: ['admin', 'teacher', 'student'] },
     ],
   },
   {
@@ -74,6 +76,7 @@ const navigationGroups: NavGroup[] = [
     items: [
       { title: "Admin Panel", url: "/admin/dashboard", icon: Shield, roles: ['admin'] },
       { title: "İstifadəçilər", url: "/admin/users", icon: Users, roles: ['admin'] },
+      { title: "Mesajlar", url: "/admin/chat", icon: MessageCircle, roles: ['admin'] },
       { title: "İcazələr", url: "/admin/permissions", icon: Key, roles: ['admin'] },
       { title: "AI Konfiqurasiya", url: "/admin/ai-config", icon: Cpu, roles: ['admin'] },
       { title: "Sistem Ayarları", url: "/admin/settings", icon: Settings, roles: ['admin'] },

@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import PendingApprovalPage from "./pages/auth/PendingApprovalPage";
+import SupportChatPage from "./pages/chat/SupportChatPage";
 
 // Teacher Pages
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
@@ -33,6 +34,7 @@ import UsersPage from "./pages/admin/UsersPage";
 import PermissionsPage from "./pages/admin/PermissionsPage";
 import AIConfigPage from "./pages/admin/AIConfigPage";
 import SettingsPage from "./pages/admin/SettingsPage";
+import AdminChatPage from "./pages/admin/AdminChatPage";
 
 const queryClient = new QueryClient();
 
@@ -55,9 +57,9 @@ function AppRoutes() {
 
         {/* Routes with Layout */}
         <Route path="/" element={<MainLayout><Index /></MainLayout>} />
-        <Route path="/quiz/:id" element={<MainLayout><QuizPage /></MainLayout>} />
-        <Route path="/quizzes" element={<MainLayout><QuizzesPage /></MainLayout>} />
         <Route path="/leaderboard" element={<MainLayout><LeaderboardPage /></MainLayout>} />
+        <Route path="/support" element={<MainLayout><SupportChatPage /></MainLayout>} />
+        <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
 
         {/* Teacher Routes - Protected */}
         <Route path="/teacher/dashboard" element={
@@ -115,6 +117,11 @@ function AppRoutes() {
         <Route path="/admin/settings" element={
           <ProtectedRoute allowedRoles={['admin']}>
             <MainLayout><SettingsPage /></MainLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/chat" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <MainLayout><AdminChatPage /></MainLayout>
           </ProtectedRoute>
         } />
 
