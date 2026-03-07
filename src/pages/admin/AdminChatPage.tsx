@@ -1,3 +1,4 @@
+import { useAuth } from "@/contexts/AuthContext";
 import { useSupportMessages, useSendMessage, useConversations, useMarkAsRead } from "@/hooks/useChat";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { ChatInput } from "@/components/chat/ChatInput";
