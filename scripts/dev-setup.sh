@@ -51,8 +51,8 @@ fi
 if [ ! -f ".env" ]; then
     echo -e "${BLUE}📄 .env faylı yaradılır...${NC}"
     cat <<EOF > .env
-VITE_SUPABASE_PROJECT_ID="quiz-app-local"
-VITE_SUPABASE_URL="http://localhost:54321"
+VITE_SUPABASE_PROJECT_ID="qa3"
+VITE_SUPABASE_URL="http://127.0.0.1:54331"
 VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
 EOF
 fi

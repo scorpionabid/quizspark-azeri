@@ -9,6 +9,8 @@ enabled = true
 site_url = "http://localhost:3005"
 additional_redirect_urls = ["http://localhost:3005/*", "http://127.0.0.1:3005/*"]
 email.enable_confirmations = false
+# Lokal dev üçün uzun müddətli token — restart zamanı refresh loop spam-ını azaldır
+jwt_expiry = 86400
 
 [auth.external.google]
 enabled = true

@@ -8,6 +8,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OAuthRoleDialog } from "@/components/auth/OAuthRoleDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSupabaseHealth } from "@/hooks/useSupabaseHealth";
 
 // Pages
 import Index from "./pages/Index";
@@ -41,6 +42,7 @@ const queryClient = new QueryClient();
 // Inner component so it can use useAuth (must be inside AuthProvider)
 function AppRoutes() {
   const { user, isProfileComplete, isLoading } = useAuth();
+  useSupabaseHealth();
   const showOAuthDialog = !isLoading && !!user && !isProfileComplete;
 
   return (
