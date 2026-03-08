@@ -3,103 +3,30 @@ import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  Save,
-  Upload,
-  Sparkles,
-  CheckCircle,
-  GripVertical,
-  Pencil,
-  Lightbulb,
-  ChevronDown,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { toast } from 'sonner';
+
+// Hooks
 import { useCreateQuiz, useQuiz, useUpdateQuiz } from '@/hooks/useQuizzes';
-import { useBulkCreateQuestions, useQuestions, useDeleteQuestion } from '@/hooks/useQuestions';
+import { useBulkCreateQuestions, useQuestions } from '@/hooks/useQuestions';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Components
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { QuestionEditDialog } from '@/components/question-bank/QuestionEditDialog';
 import { QuestionPickerDialog } from '@/components/quiz/QuestionPickerDialog';
+import { QuizActionHeader } from '@/components/teacher/quiz-creation/QuizActionHeader';
+import { QuizMetadataForm } from '@/components/teacher/quiz-creation/QuizMetadataForm';
+import { QuizQuickActions } from '@/components/teacher/quiz-creation/QuizQuickActions';
+import { QuizQuestionList } from '@/components/teacher/quiz-creation/QuizQuestionList';
+
+// Types & Utils
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
-import { QUESTION_TYPES, QuestionType } from '@/types/question';
+import { QuestionType } from '@/types/question';
 import { quizMetadataSchema, QuizMetadataFormData } from '@/lib/validations/quiz';
 import { GeneratedQuestion } from '@/components/quiz/EditableQuestionCard';
-
-// ─── DraftQuestion Type ────────────────────────────────────────────────────────
-interface DraftQuestion {
-  localId: string;
-  question_text: string;
-  question_type: QuestionType;
-  options: string[] | null;
-  correct_answer: string;
-  explanation: string | null;
-  order_index: number;
-  title?: string | null;
-  weight?: number | null;
-  hint?: string | null;
-  time_limit?: number | null;
-  per_option_explanations?: Record<string, string> | null;
-  video_url?: string | null;
-  video_start_time?: number | null;
-  video_end_time?: number | null;
-  model_3d_url?: string | null;
-  model_3d_type?: string | null;
-  hotspot_data?: unknown;
-  matching_pairs?: unknown;
-  sequence_items?: string[] | null;
-  fill_blank_template?: string | null;
-  numerical_answer?: number | null;
-  numerical_tolerance?: number | null;
-  question_image_url?: string | null;
-  media_type?: string | null;
-  media_url?: string | null;
-}
+import { DraftQuestion } from '@/components/teacher/quiz-creation/SortableQuestionCard';
 
 // ─── Adapter Functions ─────────────────────────────────────────────────────────
 function draftToDialogQuestion(d: DraftQuestion): QuestionBankItem {
@@ -130,7 +57,6 @@ function draftToDialogQuestion(d: DraftQuestion): QuestionBankItem {
     option_images: null,
     media_type: d.media_type as 'image' | 'audio' | 'video' | null ?? null,
     media_url: d.media_url ?? null,
-    // Question-bank-only fields — not relevant for quiz questions
     bloom_level: null,
     category: null,
     difficulty: null,
@@ -213,131 +139,6 @@ function draftToDbInsert(q: DraftQuestion, quizId: string, index: number) {
   };
 }
 
-function getAnswerSummary(q: DraftQuestion): string {
-  switch (q.question_type) {
-    case 'true_false':
-      return q.correct_answer || 'Cavab seçilməyib';
-    case 'numerical':
-      return q.numerical_answer != null
-        ? `${q.numerical_answer}${q.numerical_tolerance ? ` ± ${q.numerical_tolerance}` : ''}`
-        : 'Rəqəm daxil edilməyib';
-    case 'matching':
-      return q.matching_pairs ? `Cüt sayı: ?` : 'Cütlər yoxdur';
-    case 'ordering':
-      return q.sequence_items ? `${q.sequence_items.length} element` : 'Elementlər yoxdur';
-    case 'fill_blank':
-      return q.fill_blank_template ?? 'Şablon yoxdur';
-    case 'essay':
-    case 'short_answer':
-      return q.correct_answer ? q.correct_answer.substring(0, 60) : 'Açıq cavab';
-    default:
-      return q.correct_answer ? q.correct_answer.substring(0, 60) : 'Cavab seçilməyib';
-  }
-}
-
-// ─── SortableQuestionCard ──────────────────────────────────────────────────────
-interface CardProps {
-  question: DraftQuestion;
-  index: number;
-  onEdit: (q: DraftQuestion) => void;
-  onRemove: (localId: string) => void;
-}
-
-function SortableQuestionCard({ question, index, onEdit, onRemove }: CardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: question.localId });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 10 : undefined,
-  };
-
-  const typeInfo = QUESTION_TYPES.find((t) => t.value === question.question_type);
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="rounded-2xl bg-gradient-card border border-border/50 p-5 animate-scale-in"
-    >
-      <div className="flex items-start gap-3">
-        {/* Drag Handle */}
-        <button
-          {...attributes}
-          {...listeners}
-          className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded"
-          aria-label="Sürükle"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-
-        <div className="flex-1 min-w-0">
-          {/* Top row */}
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-xs font-bold text-primary">
-              {index + 1}
-            </div>
-            <Badge variant="secondary" className="text-xs gap-1">
-              {typeInfo?.icon} {typeInfo?.label ?? question.question_type}
-            </Badge>
-            {question.weight != null && question.weight !== 1 && (
-              <Badge variant="outline" className="text-xs font-mono">
-                {question.weight} xal
-              </Badge>
-            )}
-            {question.time_limit && (
-              <Badge variant="outline" className="text-xs">
-                ⏱ {question.time_limit}s
-              </Badge>
-            )}
-          </div>
-
-          {/* Question text */}
-          <p className="text-sm font-medium text-foreground line-clamp-2 mb-1">
-            {question.question_text || <span className="text-muted-foreground italic">Sual mətni yoxdur</span>}
-          </p>
-
-          {/* Answer summary */}
-          <p className="text-xs text-muted-foreground truncate">
-            ✓ {getAnswerSummary(question)}
-          </p>
-
-          {/* Hint */}
-          {question.hint && (
-            <p className="text-xs text-primary mt-1 flex items-center gap-1">
-              <Lightbulb className="h-3 w-3" />
-              {question.hint.substring(0, 70)}
-              {question.hint.length > 70 ? '...' : ''}
-            </p>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onEdit(question)}
-            className="h-8 w-8 text-muted-foreground hover:text-primary"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onRemove(question.localId)}
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function CreateQuizPage() {
   const { id } = useParams();
@@ -385,7 +186,7 @@ export default function CreateQuizPage() {
   useEffect(() => {
     if (id && existingQuestions) {
       const drafts: DraftQuestion[] = existingQuestions.map((q) => ({
-        localId: q.id, // Use DB ID as localId to track for updates if needed
+        localId: q.id,
         question_text: q.question_text,
         question_type: q.question_type as QuestionType,
         options: q.options,
@@ -429,12 +230,6 @@ export default function CreateQuizPage() {
       explanation: q.explanation ?? null,
       order_index: i,
       question_image_url: q.questionImageUrl ?? null,
-      title: null, weight: null, hint: null, time_limit: null,
-      per_option_explanations: null, video_url: null, video_start_time: null,
-      video_end_time: null, model_3d_url: null, model_3d_type: null,
-      sequence_items: null, fill_blank_template: null,
-      numerical_answer: null, numerical_tolerance: null,
-      media_type: null, media_url: null,
     }));
     setQuestions(drafts);
     toast.success(`${drafts.length} sual əlavə edildi`);
@@ -450,14 +245,6 @@ export default function CreateQuizPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // @dnd-kit sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
   // ── Auto-save ────────────────────────────────────────────────────────────────
   const formValues = form.watch();
 
@@ -471,7 +258,7 @@ export default function CreateQuizPage() {
     return () => clearTimeout(timeout);
   }, [questions, formValues]);
 
-  // Draft recovery toast on mount
+  // Draft recovery
   useEffect(() => {
     const raw = localStorage.getItem('quiz_draft');
     if (!raw) return;
@@ -491,10 +278,9 @@ export default function CreateQuizPage() {
         });
       }
     } catch {
-      // ignore malformed draft
+      // ignore
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const addQuestion = useCallback((type: QuestionType) => {
@@ -621,7 +407,6 @@ export default function CreateQuizPage() {
       let quizId = id;
 
       if (id) {
-        // Update existing quiz
         await updateQuiz.mutateAsync({
           id,
           title: metadata.title.trim(),
@@ -634,9 +419,6 @@ export default function CreateQuizPage() {
           is_published: publish,
         });
 
-        // For questions in edit mode: Simple approach for now is to delete and re-recreate
-        // Warning: This may break if other tables reference these question IDs.
-        // A better approach would be to diff, but that's much more complex.
         const { error: deleteError } = await supabase
           .from('questions')
           .delete()
@@ -644,7 +426,6 @@ export default function CreateQuizPage() {
 
         if (deleteError) throw deleteError;
       } else {
-        // Create new quiz
         const quiz = await createQuiz.mutateAsync({
           title: metadata.title.trim(),
           description: metadata.description?.trim() || null,
@@ -675,13 +456,6 @@ export default function CreateQuizPage() {
     }
   };
 
-  // ── Quick-add type groups ────────────────────────────────────────────────────
-  const quickTypes: QuestionType[] = ['multiple_choice', 'true_false', 'short_answer'];
-  const moreTypes = QUESTION_TYPES.filter((t) => !quickTypes.includes(t.value as QuestionType));
-
-  // QuestionEditDialog needs an empty categories array (not re-fetching categories for quiz creation context)
-  const emptyCategories: string[] = [];
-
   if (id && (quizLoading || questionsLoading)) {
     return (
       <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8 flex items-center justify-center">
@@ -693,295 +467,30 @@ export default function CreateQuizPage() {
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-4xl">
+        <QuizActionHeader
+          onBack={() => navigate('/teacher/dashboard')}
+          onSave={handleSave}
+          isSubmitting={isSubmitting}
+          questionCount={questions.length}
+        />
 
-        {/* ── Header ── */}
-        <div className="mb-8 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/teacher/dashboard')}
-              className="text-muted-foreground hover:text-foreground shrink-0"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Geri
-            </Button>
-            {questions.length > 0 && (
-              <span className="text-sm font-medium text-muted-foreground">
-                {questions.length} sual
-              </span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => handleSave(false)}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <LoadingSpinner size="sm" className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
-              Qaralama
-            </Button>
-            <Button
-              variant="game"
-              onClick={() => handleSave(true)}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <LoadingSpinner size="sm" className="mr-2" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-              Dərc Et
-            </Button>
-          </div>
-        </div>
+        <QuizMetadataForm form={form} isEditMode={!!id} />
 
-        {/* ── Metadata Form ── */}
-        <Form {...form}>
-          <div className="mb-8 rounded-2xl bg-gradient-card border border-border/50 p-6">
-            <h2 className="mb-6 font-display text-xl font-bold text-foreground">
-              {id ? 'Quiz Redaktəsi' : 'Quiz Məlumatları'}
-            </h2>
-            <div className="grid gap-6">
+        <QuizQuickActions
+          onAddQuestion={addQuestion}
+          onOpenPicker={() => setPickerOpen(true)}
+          onAiAssistant={() => navigate('/teacher/ai-assistant')}
+        />
 
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quiz Başlığı *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Məs: Cəbr Əsasları" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Təsvir</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Quiz haqqında qısa məlumat..."
-                        rows={3}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <FormField
-                  control={form.control}
-                  name="subject"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Fənn *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seçin" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {['Riyaziyyat', 'Fizika', 'Kimya', 'Biologiya', 'Tarix', 'Coğrafiya', 'Ədəbiyyat', 'İngilis dili', 'İnformatika'].map((s) => (
-                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="grade"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sinif</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seçin" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {[5, 6, 7, 8, 9, 10, 11].map((g) => (
-                            <SelectItem key={g} value={`${g}-ci sinif`}>{g}-ci sinif</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="difficulty"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Çətinlik</FormLabel>
-                      <Select
-                        onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
-                        value={field.value ?? 'none'}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seçin" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="none">Seçilməyib</SelectItem>
-                          <SelectItem value="easy">Asan</SelectItem>
-                          <SelectItem value="medium">Orta</SelectItem>
-                          <SelectItem value="hard">Çətin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="duration"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Müddət (dəq)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={300}
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="is_public"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-4">
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <div>
-                      <FormLabel className="cursor-pointer">İctimai Quiz</FormLabel>
-                      <p className="text-xs text-muted-foreground">Bütün tələbələr bu quizə daxil ola bilər</p>
-                    </div>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-        </Form>
-
-        {/* ── Quick Actions ── */}
-        <div className="mb-6 flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => addQuestion('multiple_choice')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Çoxseçimli
-          </Button>
-          <Button variant="outline" onClick={() => addQuestion('true_false')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Doğru/Yanlış
-          </Button>
-          <Button variant="outline" onClick={() => addQuestion('short_answer')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Qısa Cavab
-          </Button>
-
-          {/* More types dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                Daha çox
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
-              {moreTypes.map((t) => (
-                <DropdownMenuItem
-                  key={t.value}
-                  onClick={() => addQuestion(t.value as QuestionType)}
-                  className="gap-2"
-                >
-                  <span>{t.icon}</span>
-                  {t.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            variant="outline"
-            onClick={() => setPickerOpen(true)}
-            className="border-primary/50 text-primary hover:bg-primary/5 hover:text-primary transition-all shadow-sm"
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Sual Bankından İdxal
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/teacher/ai-assistant')}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            AI ilə Yarat
-          </Button>
-        </div>
-
-        {/* ── Questions List (DnD) ── */}
-        {questions.length > 0 ? (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={questions.map((q) => q.localId)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-3">
-                {questions.map((question, index) => (
-                  <SortableQuestionCard
-                    key={question.localId}
-                    question={question}
-                    index={index}
-                    onEdit={handleEditQuestion}
-                    onRemove={handleRemoveQuestion}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        ) : (
-          <div className="rounded-2xl border-2 border-dashed border-border/50 p-12 text-center">
-            <p className="text-muted-foreground mb-4">Hələ sual yoxdur</p>
-            <Button variant="outline" onClick={() => addQuestion('multiple_choice')}>
-              <Plus className="mr-2 h-4 w-4" />
-              İlk Sualı Əlavə Et
-            </Button>
-          </div>
-        )}
-
-        {/* ── Add Question Button ── */}
-        {questions.length > 0 && (
-          <div className="mt-6 flex justify-center">
-            <Button variant="outline" size="lg" onClick={() => addQuestion('multiple_choice')}>
-              <Plus className="mr-2 h-5 w-5" />
-              Sual Əlavə Et
-            </Button>
-          </div>
-        )}
+        <QuizQuestionList
+          questions={questions}
+          onDragEnd={handleDragEnd}
+          onEdit={handleEditQuestion}
+          onRemove={handleRemoveQuestion}
+          onAddQuestion={addQuestion}
+        />
       </div>
 
-      {/* ── Dialogs ── */}
       <QuestionEditDialog
         open={editDialogOpen}
         onOpenChange={(open) => {
@@ -992,7 +501,7 @@ export default function CreateQuizPage() {
           }
         }}
         question={editingQuestion ? draftToDialogQuestion(editingQuestion) : null}
-        categories={emptyCategories}
+        categories={[]}
         onSave={handleQuestionSave}
         mode={isCreatingNew ? 'create' : 'edit'}
       />

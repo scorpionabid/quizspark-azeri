@@ -1,48 +1,27 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Sparkles,
-  Lightbulb,
   Wand2,
-  ArrowRight,
-  AlertCircle,
-  FileText,
-  Settings2,
   Upload,
-  Layers,
-  Plus,
-  X,
-  Database,
-  Loader2,
+  FileText,
   MessageSquare,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { EditableQuestionCard, GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
-import { agents, AgentSelector } from "@/components/ai/AgentSelector";
+import { GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
+import { agents } from "@/components/ai/AgentSelector";
 import { TemplateLibrary, PromptTemplate } from "@/components/ai/TemplateLibrary";
-import { DocumentUploader, UploadedDocument } from "@/components/ai/DocumentUploader";
-import { DocumentQuizGenerator } from "@/components/ai/DocumentQuizGenerator";
-import { useCreateQuestionBank } from "@/hooks/useQuestionBank";
-import { AIParametersPanel, AIParameters } from "@/components/ai/AIParametersPanel";
-import { getBloomLevels } from "@/components/ai/BloomLevelBadge";
-import { GenerationStats } from "@/components/ai/GenerationStats";
-import { QualityAnalysis } from "@/components/ai/QualityAnalysis";
-import { SUBJECT_OPTIONS, SUBJECT_LABELS, QUESTION_TYPES } from "@/lib/constants/subjects";
+import { UploadedDocument } from "@/components/ai/DocumentUploader";
+import { useCreateQuestionBank, QuestionBankItem } from "@/hooks/useQuestionBank";
+import { AIParameters } from "@/components/ai/AIParametersPanel";
+import { SUBJECT_LABELS } from "@/lib/constants/subjects";
 import { SubscriptionGate } from "@/components/subscription/SubscriptionGate";
 import { ChatInterface } from "@/components/ai/ChatInterface";
+import { AIPageHeader } from "@/components/teacher/ai-assistant/AIPageHeader";
+import { AIQuestionGenerator } from "@/components/teacher/ai-assistant/AIQuestionGenerator";
+import { AIGeneratedResults } from "@/components/teacher/ai-assistant/AIGeneratedResults";
+import { AIDocumentSection } from "@/components/teacher/ai-assistant/AIDocumentSection";
 
 const HISTORY_KEY = "ai-assistant-history";
 
@@ -135,35 +114,53 @@ export default function AIAssistantPage() {
     const qType = question.questionType || "multiple_choice";
 
     return new Promise<void>((resolve, reject) => {
-      createQuestion.mutate(
-        {
-          question_text: question.question,
-          question_type: qType,
-          options: qType === "multiple_choice" ? question.options : (qType === "true_false" ? ["Doğru", "Yanlış"] : question.options),
-          correct_answer: question.options[question.correctAnswer] || question.options[0],
-          explanation: question.explanation || null,
-          category: getEffectiveSubject() || null,
-          difficulty: difficultyMap[difficulty] || "orta",
-          bloom_level: question.bloomLevel || null,
-          tags: null,
-          user_id: null,
-          source_document_id: null,
-          question_image_url: question.questionImageUrl || null,
-          option_images: null,
-          media_type: null,
-          media_url: null,
+      const questionData: Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'> = {
+        title: question.question.slice(0, 100),
+        question_text: question.question,
+        question_type: qType,
+        options: qType === "multiple_choice" ? question.options : (qType === "true_false" ? ["Doğru", "Yanlış"] : question.options),
+        correct_answer: question.options[question.correctAnswer] || question.options[0],
+        explanation: question.explanation || null,
+        category: getEffectiveSubject() || null,
+        difficulty: difficultyMap[difficulty] || "orta",
+        bloom_level: question.bloomLevel || null,
+        weight: 1,
+        time_limit: 60,
+        tags: null,
+        user_id: null,
+        source_document_id: null,
+        question_image_url: question.questionImageUrl || null,
+        option_images: null,
+        media_type: null,
+        media_url: null,
+        hint: null,
+        per_option_explanations: null,
+        video_url: null,
+        video_start_time: null,
+        video_end_time: null,
+        model_3d_url: null,
+        model_3d_type: null,
+        hotspot_data: null,
+        matching_pairs: null,
+        sequence_items: null,
+        fill_blank_template: null,
+        numerical_answer: null,
+        numerical_tolerance: null,
+        feedback_enabled: true,
+        quality_score: null,
+        usage_count: 0,
+      };
+
+      createQuestion.mutate(questionData, {
+        onSuccess: () => {
+          toast.success("Sual bankına əlavə edildi");
+          resolve();
         },
-        {
-          onSuccess: () => {
-            toast.success("Sual bankına əlavə edildi");
-            resolve();
-          },
-          onError: (err) => {
-            toast.error("Xəta baş verdi");
-            reject(err);
-          },
-        }
-      );
+        onError: (err) => {
+          toast.error("Xəta baş verdi");
+          reject(err);
+        },
+      });
     });
   };
 
@@ -386,19 +383,7 @@ export default function AIAssistantPage() {
     >
       <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-6xl">
-          {/* Header */}
-          <div className="mb-8 text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-accent/20 px-4 py-2 text-sm text-accent">
-              <Sparkles className="h-4 w-4" />
-              <span>AI Köməkçi</span>
-            </div>
-            <h1 className="mb-2 font-display text-3xl font-bold text-foreground">
-              Süni Zəka ilə Test Sualı Yaradın
-            </h1>
-            <p className="text-muted-foreground">
-              Şablon istifadə edin, sənəddən və ya mövzu üzrə suallar yaradın
-            </p>
-          </div>
+          <AIPageHeader />
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -426,404 +411,70 @@ export default function AIAssistantPage() {
               </TabsTrigger>
             </TabsList>
 
-            {/* ============ Generate Tab ============ */}
-            <TabsContent value="generate" className="space-y-6">
-              <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
-                <div className="grid gap-6">
-                  {/* Agent Selector */}
-                  <div>
-                    <Label className="mb-2 block text-sm font-medium">AI Agent</Label>
-                    <AgentSelector selectedAgentId={selectedAgentId} onSelectAgent={setSelectedAgentId} />
-                  </div>
-
-                  {/* Template indicator */}
-                  {selectedTemplate && (
-                    <div className="flex items-center justify-between rounded-lg bg-primary/10 border border-primary/30 px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Settings2 className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium text-primary">
-                          Şablon: {selectedTemplate.name}
-                        </span>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedTemplate(null)} className="text-xs">
-                        Ləğv et
-                      </Button>
-                    </div>
-                  )}
-
-                  <AIParametersPanel parameters={aiParameters} onChange={setAIParameters} />
-                  <GenerationStats />
-
-                  {/* Batch Mode Toggle */}
-                  <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium">Toplu Sual Yaratma</span>
-                    </div>
-                    <Button
-                      variant={batchMode ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setBatchMode(!batchMode)}
-                    >
-                      {batchMode ? "Aktiv" : "Aktivləşdir"}
-                    </Button>
-                  </div>
-
-                  {/* Batch Topics List */}
-                  {batchMode && batchTopics.length > 0 && (
-                    <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
-                      <Label className="text-sm font-medium">Siyahıdakı mövzular:</Label>
-                      {batchTopics.map((bt, idx) => (
-                        <div key={bt.id} className="flex items-center justify-between rounded-md bg-background p-2">
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
-                              {idx + 1}
-                            </span>
-                            <span className="text-sm">{bt.topic}</span>
-                            <span className="text-xs text-muted-foreground">
-                              ({SUBJECT_LABELS[bt.subject] || bt.subject}, {bt.questionCount} sual)
-                            </span>
-                          </div>
-                          <Button variant="ghost" size="sm" onClick={() => handleRemoveBatchTopic(bt.id)} className="h-6 w-6 p-0 text-destructive">
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Topic */}
-                  <div>
-                    <Label htmlFor="topic">Mövzu *</Label>
-                    <div className="relative mt-2">
-                      <Wand2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        id="topic"
-                        value={topic}
-                        onChange={(e) => setTopic(e.target.value)}
-                        placeholder="Məs: Cəbr: Xətti tənliklər və onların həlli"
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Suggested Topics */}
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Tövsiyə olunan mövzular:</Label>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {suggestedTopics.map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => setTopic(t)}
-                          className={cn(
-                            "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                            topic === t
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground hover:bg-muted/80"
-                          )}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Controls Grid */}
-                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                    {/* Subject */}
-                    <div>
-                      <Label>Fənn *</Label>
-                      <Select value={subject || "no-selection"} onValueChange={(v) => setSubject(v === "no-selection" ? "" : v)}>
-                        <SelectTrigger className="mt-2">
-                          <SelectValue placeholder="Seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="no-selection" disabled>Seçin</SelectItem>
-                          {SUBJECT_OPTIONS.map((s) => (
-                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                          ))}
-                          <SelectItem value="custom">Xüsusi fənn...</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {subject === "custom" && (
-                        <Input
-                          value={customSubject}
-                          onChange={(e) => setCustomSubject(e.target.value)}
-                          placeholder="Fənn adını yazın"
-                          className="mt-1"
-                        />
-                      )}
-                    </div>
-
-                    {/* Question Type */}
-                    <div>
-                      <Label>Sual Tipi</Label>
-                      <Select value={questionType} onValueChange={setQuestionType}>
-                        <SelectTrigger className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {QUESTION_TYPES.map((qt) => (
-                            <SelectItem key={qt.value} value={qt.value}>{qt.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Difficulty */}
-                    <div>
-                      <Label>Çətinlik</Label>
-                      <Select value={difficulty} onValueChange={setDifficulty}>
-                        <SelectTrigger className="mt-2">
-                          <SelectValue placeholder="Seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="easy">Asan</SelectItem>
-                          <SelectItem value="medium">Orta</SelectItem>
-                          <SelectItem value="hard">Çətin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Question Count */}
-                    <div>
-                      <Label>Sual Sayı</Label>
-                      <Select value={questionCount} onValueChange={setQuestionCount}>
-                        <SelectTrigger className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="3">3 sual</SelectItem>
-                          <SelectItem value="5">5 sual</SelectItem>
-                          <SelectItem value="10">10 sual</SelectItem>
-                          <SelectItem value="15">15 sual</SelectItem>
-                          <SelectItem value="20">20 sual</SelectItem>
-                          <SelectItem value="custom">Xüsusi...</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {questionCount === "custom" && (
-                        <Input
-                          type="number"
-                          min={1}
-                          max={50}
-                          value={customCount}
-                          onChange={(e) => setCustomCount(e.target.value)}
-                          placeholder="1-50"
-                          className="mt-1"
-                        />
-                      )}
-                    </div>
-
-                    {/* Bloom Level */}
-                    <div>
-                      <Label>Bloom Səviyyəsi</Label>
-                      <Select value={bloomFilter || "all"} onValueChange={(val) => setBloomFilter(val === "all" ? "" : val)}>
-                        <SelectTrigger className="mt-2">
-                          <SelectValue placeholder="Hamısı" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Hamısı (qarışıq)</SelectItem>
-                          {getBloomLevels().map((level) => (
-                            <SelectItem key={level.value} value={level.value}>
-                              {level.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {error && (
-                    <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-4 text-destructive">
-                      <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                      <p className="text-sm">{error}</p>
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  {batchMode ? (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={handleAddBatchTopic}
-                        disabled={isGenerating || !topic.trim() || !getEffectiveSubject()}
-                        className="flex-1"
-                      >
-                        <Plus className="mr-2 h-4 w-4" /> Siyahıya Əlavə Et
-                      </Button>
-                      <Button
-                        variant="game"
-                        onClick={handleBatchGenerate}
-                        disabled={isGenerating || batchTopics.length === 0}
-                        className="flex-1"
-                      >
-                        {isGenerating ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {batchProgress ? `${batchProgress.current}/${batchProgress.total}` : "Yaradılır..."}
-                          </>
-                        ) : (
-                          <>
-                            <Layers className="mr-2 h-4 w-4" />
-                            Hamısını Yarat ({batchTopics.reduce((sum, t) => sum + t.questionCount, 0)} sual)
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="game"
-                      size="lg"
-                      onClick={handleGenerate}
-                      disabled={isGenerating}
-                      className="w-full"
-                    >
-                      {isGenerating ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {selectedAgent.name} suallar yaradır...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          {selectedAgent.name} ilə Sual Yarat
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
-
+            <TabsContent value="generate">
+              <AIQuestionGenerator
+                topic={topic} setTopic={setTopic}
+                subject={subject} setSubject={setSubject}
+                customSubject={customSubject} setCustomSubject={setCustomSubject}
+                difficulty={difficulty} setDifficulty={setDifficulty}
+                questionCount={questionCount} setQuestionCount={setQuestionCount}
+                customCount={customCount} setCustomCount={setCustomCount}
+                questionType={questionType} setQuestionType={setQuestionType}
+                bloomFilter={bloomFilter} setBloomFilter={setBloomFilter}
+                selectedAgentId={selectedAgentId} setSelectedAgentId={setSelectedAgentId}
+                aiParameters={aiParameters} setAIParameters={setAIParameters}
+                selectedTemplate={selectedTemplate} setSelectedTemplate={setSelectedTemplate}
+                batchMode={batchMode} setBatchMode={setBatchMode}
+                batchTopics={batchTopics}
+                onAddBatchTopic={handleAddBatchTopic}
+                onRemoveBatchTopic={handleRemoveBatchTopic}
+                onGenerate={handleGenerate}
+                onBatchGenerate={handleBatchGenerate}
+                isGenerating={isGenerating}
+                batchProgress={batchProgress}
+                error={error}
+                selectedAgent={selectedAgent}
+                suggestedTopics={suggestedTopics}
+              />
             </TabsContent>
 
-            {/* ============ Documents Tab ============ */}
-            <TabsContent value="documents" className="space-y-6">
-              <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
-                <div className="mb-6">
-                  <h3 className="font-display text-lg font-bold text-foreground mb-2">
-                    Sənəddən Sual Yaradın
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    PDF, DOCX və ya TXT sənədləri yükləyin. Mövcud sualları çıxarın və ya yeni suallar yaradın.
-                  </p>
-                </div>
-
-                <DocumentUploader
-                  onDocumentProcessed={handleDocumentProcessed}
-                  uploadedDocuments={uploadedDocuments}
-                  onRemoveDocument={handleRemoveDocument}
-                  onToggleDocument={handleToggleDocument}
-                  maxDocuments={3}
-                />
-
-                {uploadedDocuments.length > 0 && (
-                  <div className="mt-6">
-                    <DocumentQuizGenerator
-                      documents={uploadedDocuments}
-                      onQuestionsGenerated={handleDocumentQuestionsGenerated}
-                      model={aiParameters.model}
-                      temperature={aiParameters.temperature}
-                    />
-                  </div>
-                )}
-              </div>
+            <TabsContent value="documents">
+              <AIDocumentSection
+                uploadedDocuments={uploadedDocuments}
+                onDocumentProcessed={handleDocumentProcessed}
+                onRemoveDocument={handleRemoveDocument}
+                onToggleDocument={handleToggleDocument}
+                onQuestionsGenerated={handleDocumentQuestionsGenerated}
+                aiParameters={aiParameters}
+              />
             </TabsContent>
 
-            {/* ============ Templates Tab ============ */}
             <TabsContent value="templates">
               <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
                 <TemplateLibrary onSelectTemplate={handleSelectTemplate} />
               </div>
             </TabsContent>
 
-            {/* ============ Chat Tab ============ */}
             <TabsContent value="chat" className="space-y-4">
-              <div className="rounded-2xl bg-gradient-card border border-border/50 p-4">
-                <Label className="mb-3 block text-sm font-medium">Agent Seçin</Label>
-                <AgentSelector selectedAgentId={selectedAgentId} onSelectAgent={setSelectedAgentId} />
-              </div>
               <ChatInterface agent={selectedAgent} />
             </TabsContent>
           </Tabs>
 
-          {/* ============ Shared Generated Questions Panel ============ */}
           {generatedQuestions.length > 0 && (
-            <div className="mt-6 space-y-6">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/20">
-                    <Lightbulb className="h-5 w-5 text-success" />
-                  </div>
-                  <h2 className="font-display text-xl font-bold text-foreground">
-                    Yaradılmış Suallar ({generatedQuestions.length})
-                  </h2>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Button variant="outline" size="sm" onClick={handleClearHistory}>
-                    <X className="mr-1 h-4 w-4" /> Təmizlə
-                  </Button>
-                  <Button variant="outline" onClick={handleBulkAddToBank} disabled={isBulkAdding}>
-                    {isBulkAdding ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Əlavə edilir...</>
-                    ) : (
-                      <><Database className="mr-2 h-4 w-4" /> Hamısını Banka Əlavə Et</>
-                    )}
-                  </Button>
-                  <Button variant="game" onClick={useAllQuestions}>
-                    Hamısını İstifadə Et
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Filter row - only shown when 6+ questions */}
-              {generatedQuestions.length > 5 && (
-                <div className="flex flex-wrap gap-3 rounded-lg border border-border/50 bg-muted/30 p-3">
-                  <span className="text-xs font-medium text-muted-foreground self-center">Filtr:</span>
-                  <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="h-8 w-40 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Bütün tiplər</SelectItem>
-                      {QUESTION_TYPES.map((qt) => (
-                        <SelectItem key={qt.value} value={qt.value}>{qt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={filterDifficulty} onValueChange={setFilterDifficulty}>
-                    <SelectTrigger className="h-8 w-44 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Bütün səviyyələr</SelectItem>
-                      {getBloomLevels().map((l) => (
-                        <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {(filterType !== "all" || filterDifficulty !== "all") && (
-                    <span className="text-xs text-muted-foreground self-center">
-                      {filteredQuestions.length} / {generatedQuestions.length} sual
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <QualityAnalysis questions={generatedQuestions} />
-
-              {filteredQuestions.map((question, index) => (
-                <EditableQuestionCard
-                  key={question.id}
-                  question={question}
-                  index={index}
-                  onUpdate={handleUpdateQuestion}
-                  onDelete={handleDeleteQuestion}
-                  onAddToBank={handleAddToBank}
-                  onSimilarCreated={handleSimilarCreated}
-                />
-              ))}
-            </div>
+            <AIGeneratedResults
+              questions={generatedQuestions}
+              onUpdateQuestion={handleUpdateQuestion}
+              onDeleteQuestion={handleDeleteQuestion}
+              onSimilarCreated={handleSimilarCreated}
+              onBulkAddToBank={handleBulkAddToBank}
+              onUseAllQuestions={useAllQuestions}
+              onClearHistory={handleClearHistory}
+              isBulkAdding={isBulkAdding}
+              filterType={filterType}
+              setFilterType={setFilterType}
+              filterDifficulty={filterDifficulty}
+              setFilterDifficulty={setFilterDifficulty}
+            />
           )}
         </div>
       </div>
