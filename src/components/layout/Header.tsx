@@ -7,10 +7,11 @@ import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
 import { useRouteInfo } from "@/hooks/useRouteInfo";
 import { useAuth } from "@/contexts/AuthContext";
+import { StudentGamificationHeader } from "../student/gamification/StudentGamificationHeader";
 
 export function Header() {
   const { title } = useRouteInfo();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, role } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border bg-background/80 px-4 backdrop-blur-sm">
@@ -25,7 +26,12 @@ export function Header() {
       </div>
 
       {/* Right Section */}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2 md:gap-4">
+        {isAuthenticated && role === 'student' && (
+          <div className="hidden sm:block">
+            <StudentGamificationHeader />
+          </div>
+        )}
         <GlobalSearch />
         {isAuthenticated && <NotificationsDropdown />}
         <ThemeToggle />

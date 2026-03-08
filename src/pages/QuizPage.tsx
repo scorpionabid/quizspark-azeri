@@ -17,7 +17,9 @@ import { QuizComments } from "@/components/quiz/QuizComments";
 import { FavoriteButton } from "@/components/quiz/FavoriteButton";
 import { QuestionRenderer } from "@/components/quiz/QuestionRenderer";
 import { QuestionAnswer, QuestionType } from "@/types/question";
-import { Lightbulb, Info } from "lucide-react";
+import { Lightbulb, Info, Star } from "lucide-react";
+import { useGamification } from "@/hooks/useGamification";
+import { motion } from "framer-motion";
 
 type QuizState = 'intro' | 'playing' | 'result';
 
@@ -44,6 +46,8 @@ export default function QuizPage() {
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [showHint, setShowHint] = useState(false);
+  const [earnedXP, setEarnedXP] = useState(0);
+  const { updateXPAsync } = useGamification();
 
   const isLoading = quizLoading || questionsLoading;
 
@@ -104,6 +108,13 @@ export default function QuizPage() {
               timeSpent,
               answers: updatedAnswers as unknown as Record<string, string>[],
             });
+
+            // Gamification: Award XP
+            const xpGain = (correctCount * 10) + (correctCount === questions.length ? 50 : 0);
+            setEarnedXP(xpGain);
+            if (xpGain > 0 && !isPreview) {
+              await updateXPAsync(xpGain);
+            }
           } catch (error) {
             console.error("Error completing quiz:", error);
           }
@@ -111,7 +122,7 @@ export default function QuizPage() {
         setQuizState('result');
       }
     }, 1500 + (answer?.isCorrect && questions[currentQuestion].explanation ? 1500 : 0)); // Extra time to read explanation
-  }, [showFeedback, questions, currentQuestion, answers, attemptId, startTime, user, quiz, completeAttempt]);
+  }, [showFeedback, questions, currentQuestion, answers, attemptId, startTime, user, quiz, completeAttempt, isPreview, updateXPAsync]);
 
   const startQuiz = async () => {
     if (!quiz || !user) {
@@ -419,9 +430,22 @@ export default function QuizPage() {
           </p>
 
           {/* Score Circle */}
-          <div className="mx-auto mb-8 flex h-40 w-40 flex-col items-center justify-center rounded-full border-4 border-primary bg-primary/10">
-            <div className="text-5xl font-bold text-primary">{score}%</div>
-            <div className="text-sm text-muted-foreground">Nəticə</div>
+          <div className="flex flex-col items-center justify-center gap-6 mb-8">
+            <div className="mx-auto flex h-40 w-40 flex-col items-center justify-center rounded-full border-4 border-primary bg-primary/10 shadow-glow">
+              <div className="text-5xl font-black text-primary">{score}%</div>
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nəticə</div>
+            </div>
+
+            {earnedXP > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-yellow-400/20 to-orange-500/20 border border-yellow-400/30 text-orange-600 dark:text-orange-400 font-black text-lg shadow-sm"
+              >
+                <Star className="w-5 h-5 fill-current animate-pulse" />
+                <span>+{earnedXP} XP</span>
+              </motion.div>
+            )}
           </div>
 
           {/* Stats */}
