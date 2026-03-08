@@ -7,7 +7,7 @@ test.describe('Mobile Responsiveness Checks', () => {
         await page.goto('/');
 
         // Wait for hero section
-        await expect(page.locator('h1')).toBeVisible();
+        await expect(page.locator('h1').first()).toBeVisible();
 
         // Check if there's any horizontal overflow
         const hasHorizontalScroll = await page.evaluate(() => {
