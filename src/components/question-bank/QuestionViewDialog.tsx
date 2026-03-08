@@ -3,6 +3,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -60,6 +61,9 @@ export function QuestionViewDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Sual Detalları</DialogTitle>
+          <DialogDescription className="sr-only">
+            Seçilmiş sualın bütün detalları və variantları
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -196,8 +200,8 @@ export function QuestionViewDialog({
                     <div
                       key={index}
                       className={`flex items-center gap-2 p-2 rounded-md border ${isCorrect
-                          ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
-                          : 'bg-muted/30'
+                        ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                        : 'bg-muted/30'
                         }`}
                     >
                       <span className="font-medium w-6">{optionLetter}.</span>

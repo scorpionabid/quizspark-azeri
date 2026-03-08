@@ -4,6 +4,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -88,6 +89,9 @@ export function QuestionPickerDialog({
             <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Sual Bankından Seç</DialogTitle>
+                    <DialogDescription className="sr-only">
+                        Sual bankından testinizə əlavə etmək üçün sualları seçin
+                    </DialogDescription>
                 </DialogHeader>
 
                 {/* Filters */}

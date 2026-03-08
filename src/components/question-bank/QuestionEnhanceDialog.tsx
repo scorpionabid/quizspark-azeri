@@ -4,6 +4,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -87,6 +88,9 @@ export function QuestionEnhanceDialog({
                         </div>
                         AI Asistent
                     </DialogTitle>
+                    <DialogDescription className="sr-only">
+                        Sualı təkmilləşdirmək, izahat yaratmaq və ya etiketlər əlavə etmək üçün AI asistentdən istifadə edin
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-6 py-4">
