@@ -10,10 +10,11 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, role, profile } = useAuth();
+  const { isAuthenticated, isLoading, isDataLoading, role, profile } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
+  // Show loader while either auth session OR role/profile data is loading
+  if (isLoading || (isAuthenticated && isDataLoading && allowedRoles && !role)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
