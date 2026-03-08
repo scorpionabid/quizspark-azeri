@@ -110,6 +110,9 @@ export function ProfileHeader({ profile, user, role, updateProfile, uploadAvatar
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle>Profili Redaktə Et</DialogTitle>
+                                <DialogDescription className="sr-only">
+                                    Ad və digər profil məlumatlarını yeniləyin
+                                </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
