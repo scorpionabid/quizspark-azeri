@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { QuestionVideoPlayer } from '../question-bank/QuestionVideoPlayer';
 import { Question3DViewer } from '../question-bank/Question3DViewer';
+import { cn } from '@/lib/utils';
 
 interface Props {
     question: Question;
@@ -135,14 +136,31 @@ export function QuestionRenderer({ question, onAnswer, showFeedback, disabled }:
             {renderContent()}
 
             {showFeedback && (
-                <div className={`p-4 mt-4 rounded-md border ${selectedValue === question.correct_answer ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                    <h4 className="font-semibold mb-1">{selectedValue === question.correct_answer ? '✅ Doğru!' : '❌ Yanlış!'}</h4>
-                    {question.explanation && <p className="text-sm mt-2"><strong>Açıqlama:</strong> {question.explanation}</p>}
+                <div className={cn(
+                    "p-4 mt-4 rounded-xl border transition-all duration-300 animate-scale-in",
+                    selectedValue === question.correct_answer
+                        ? "bg-success/10 border-success/30 text-success"
+                        : "bg-destructive/10 border-destructive/30 text-destructive"
+                )}>
+                    <h4 className="font-black mb-2 flex items-center gap-2">
+                        {selectedValue === question.correct_answer ? (
+                            <><span>✅</span> Doğru!</>
+                        ) : (
+                            <><span>❌</span> Yanlış!</>
+                        )}
+                    </h4>
+
+                    {question.explanation && (
+                        <div className="text-sm mt-2 opacity-90 leading-relaxed bg-background/40 p-3 rounded-lg border border-current/10">
+                            <strong className="block mb-1 uppercase text-[10px] font-black tracking-widest opacity-70">Açıqlama</strong>
+                            {question.explanation}
+                        </div>
+                    )}
 
                     {question.per_option_explanations && selectedValue && question.options && (
-                        <p className="text-sm mt-2 text-gray-700">
+                        <div className="text-sm mt-3 p-3 rounded-lg bg-background/20 font-medium">
                             {question.per_option_explanations[question.options.indexOf(selectedValue)?.toString()]}
-                        </p>
+                        </div>
                     )}
                 </div>
             )}

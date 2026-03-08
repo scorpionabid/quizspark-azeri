@@ -171,34 +171,35 @@ function CommentItem({
 
   return (
     <div className={cn("space-y-3", depth > 0 && "ml-8 border-l-2 border-border/50 pl-4")}>
-      <div className="rounded-lg bg-muted/30 p-4">
+      <div className="rounded-2xl bg-muted/50 p-4 border border-border/50 shadow-sm transition-all duration-300 hover:shadow-md">
         <div className="flex items-start gap-3">
-          <Avatar className="h-8 w-8">
+          <Avatar className="h-8 w-8 ring-2 ring-background">
             <AvatarImage src={comment.profile?.avatar_url || undefined} />
-            <AvatarFallback className="text-xs">
+            <AvatarFallback className="text-xs font-bold font-display bg-primary/20 text-primary">
               {getInitials(comment.profile?.full_name)}
             </AvatarFallback>
           </Avatar>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium text-sm text-foreground">
+              <span className="font-bold text-sm text-foreground">
                 {comment.profile?.full_name || "İstifadəçi"}
               </span>
-              <span className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(comment.created_at), { 
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-background/40 px-2 py-0.5 rounded-full border border-border/10">
+                {formatDistanceToNow(new Date(comment.created_at), {
                   addSuffix: true,
-                  locale: az 
+                  locale: az
                 })}
               </span>
             </div>
 
             {isEditing ? (
-              <div className="mt-2 space-y-2">
+              <div className="mt-3 space-y-2">
                 <Textarea
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
-                  className="min-h-[60px] resize-none"
+                  className="min-h-[80px] resize-none bg-background/50"
+                  autoFocus
                 />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => handleUpdate(comment.id)}>
@@ -210,7 +211,7 @@ function CommentItem({
                 </div>
               </div>
             ) : (
-              <p className="mt-1 text-sm text-foreground/90 whitespace-pre-wrap">
+              <p className="mt-2 text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                 {comment.content}
               </p>
             )}
