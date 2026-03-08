@@ -44,18 +44,20 @@ export default function QuizzesPage() {
     rating: Number(quiz.rating) || 0,
     isPopular: quiz.is_popular || false,
     isNew: quiz.is_new || false,
+    availableFrom: quiz.available_from,
+    availableTo: quiz.available_to,
   }));
 
   const filteredQuizzes = transformedQuizzes
     .filter((quiz) => {
       const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quiz.description.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesCategory = !selectedCategory || 
+
+      const matchesCategory = !selectedCategory ||
         quiz.subject.toLowerCase().includes(selectedCategory.toLowerCase());
-      
+
       const matchesDifficulty = difficulty === "all" || quiz.difficulty === difficulty;
-      
+
       return matchesSearch && matchesCategory && matchesDifficulty;
     })
     .sort((a, b) => {

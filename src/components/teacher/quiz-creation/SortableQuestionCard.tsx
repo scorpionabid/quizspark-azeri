@@ -43,7 +43,9 @@ export function getAnswerSummary(q: DraftQuestion): string {
                 ? `${q.numerical_answer}${q.numerical_tolerance ? ` ± ${q.numerical_tolerance}` : ''}`
                 : 'Rəqəm daxil edilməyib';
         case 'matching':
-            return q.matching_pairs ? `Cüt sayı: ?` : 'Cütlər yoxdur';
+            return Array.isArray(q.matching_pairs)
+                ? `${q.matching_pairs.length} cütlük`
+                : 'Cütlər yoxdur';
         case 'ordering':
             return q.sequence_items ? `${q.sequence_items.length} element` : 'Elementlər yoxdur';
         case 'fill_blank':

@@ -1,6 +1,9 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MultipleChoiceEditor } from './MultipleChoiceEditor';
+import { MatchingEditor } from './MatchingEditor';
+import { OrderingEditor } from './OrderingEditor';
+import { NumericalEditor } from './NumericalEditor';
 
 interface QuestionAnswerEditorProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -10,7 +13,11 @@ interface QuestionAnswerEditorProps {
 }
 
 export function QuestionAnswerEditor({ formData, setFormData }: QuestionAnswerEditorProps) {
-    const showOptions = formData.question_type === 'multiple_choice' || formData.question_type === 'true_false';
+    const { question_type } = formData;
+    const showOptions = question_type === 'multiple_choice' || question_type === 'true_false';
+    const isMatching = question_type === 'matching';
+    const isOrdering = question_type === 'ordering';
+    const isNumerical = question_type === 'numerical';
 
     return (
         <div className="space-y-4">
@@ -22,16 +29,43 @@ export function QuestionAnswerEditor({ formData, setFormData }: QuestionAnswerEd
                 />
             )}
 
-            {/* Correct Answer */}
-            <div className="space-y-2">
-                <Label htmlFor="correct_answer">Düzgün Cavab *</Label>
-                <Input
-                    id="correct_answer"
-                    value={formData.correct_answer}
-                    onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
-                    placeholder={showOptions ? 'Məs: A, B, C, D' : 'Düzgün cavabı daxil edin'}
+            {/* Matching Editor */}
+            {isMatching && (
+                <MatchingEditor
+                    pairs={formData.matching_pairs || []}
+                    onChange={(pairs) => setFormData({ ...formData, matching_pairs: pairs })}
                 />
-            </div>
+            )}
+
+            {/* Ordering Editor */}
+            {isOrdering && (
+                <OrderingEditor
+                    items={formData.sequence_items || []}
+                    onChange={(items) => setFormData({ ...formData, sequence_items: items })}
+                />
+            )}
+
+            {/* Numerical Editor */}
+            {isNumerical && (
+                <NumericalEditor
+                    value={formData.numerical_answer}
+                    tolerance={formData.numerical_tolerance}
+                    onChange={(val, tol) => setFormData({ ...formData, numerical_answer: val, numerical_tolerance: tol })}
+                />
+            )}
+
+            {/* Correct Answer - Hidden or shown depending on type */}
+            {!isMatching && !isOrdering && !isNumerical && (
+                <div className="space-y-2">
+                    <Label htmlFor="correct_answer">Düzgün Cavab *</Label>
+                    <Input
+                        id="correct_answer"
+                        value={formData.correct_answer}
+                        onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
+                        placeholder={showOptions ? 'Məs: A, B, C, D' : 'Düzgün cavabı daxil edin'}
+                    />
+                </div>
+            )}
 
             {/* Hint */}
             <div className="space-y-2">

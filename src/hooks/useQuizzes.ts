@@ -20,6 +20,15 @@ export interface Quiz {
   is_new: boolean;
   created_at: string;
   updated_at: string;
+  shuffle_questions?: boolean;
+  show_feedback?: boolean;
+  pass_percentage?: number;
+  attempts_limit?: number;
+  cover_image_url?: string | null;
+  available_from?: string | null;
+  available_to?: string | null;
+  time_bonus_enabled?: boolean;
+  time_penalty_enabled?: boolean;
 }
 
 export interface QuizFilters {

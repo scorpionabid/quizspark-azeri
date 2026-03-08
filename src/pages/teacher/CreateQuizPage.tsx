@@ -162,6 +162,14 @@ export default function CreateQuizPage() {
       difficulty: null,
       duration: 20,
       is_public: true,
+      shuffle_questions: false,
+      show_feedback: true,
+      pass_percentage: 60,
+      attempts_limit: 1,
+      available_from: '',
+      available_to: '',
+      time_bonus_enabled: false,
+      time_penalty_enabled: false,
     },
   });
 
@@ -179,6 +187,14 @@ export default function CreateQuizPage() {
         difficulty: existingQuiz.difficulty,
         duration: existingQuiz.duration,
         is_public: existingQuiz.is_public,
+        shuffle_questions: existingQuiz.shuffle_questions ?? false,
+        show_feedback: existingQuiz.show_feedback ?? true,
+        pass_percentage: existingQuiz.pass_percentage ?? 60,
+        attempts_limit: existingQuiz.attempts_limit ?? 1,
+        available_from: existingQuiz.available_from || '',
+        available_to: existingQuiz.available_to || '',
+        time_bonus_enabled: existingQuiz.time_bonus_enabled ?? false,
+        time_penalty_enabled: existingQuiz.time_penalty_enabled ?? false,
       });
     }
   }, [id, existingQuiz, form]);
@@ -417,6 +433,14 @@ export default function CreateQuizPage() {
           duration: metadata.duration,
           is_public: metadata.is_public,
           is_published: publish,
+          shuffle_questions: metadata.shuffle_questions,
+          show_feedback: metadata.show_feedback,
+          pass_percentage: metadata.pass_percentage,
+          attempts_limit: metadata.attempts_limit,
+          available_from: metadata.available_from || null,
+          available_to: metadata.available_to || null,
+          time_bonus_enabled: metadata.time_bonus_enabled,
+          time_penalty_enabled: metadata.time_penalty_enabled,
         });
 
         const { error: deleteError } = await supabase
@@ -435,6 +459,14 @@ export default function CreateQuizPage() {
           duration: metadata.duration,
           is_public: metadata.is_public,
           is_published: publish,
+          shuffle_questions: metadata.shuffle_questions,
+          show_feedback: metadata.show_feedback,
+          pass_percentage: metadata.pass_percentage,
+          attempts_limit: metadata.attempts_limit,
+          available_from: metadata.available_from || null,
+          available_to: metadata.available_to || null,
+          time_bonus_enabled: metadata.time_bonus_enabled,
+          time_penalty_enabled: metadata.time_penalty_enabled,
         });
         quizId = quiz.id;
       }

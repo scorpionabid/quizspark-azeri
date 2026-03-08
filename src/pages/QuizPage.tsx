@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Clock, CheckCircle, XCircle, Trophy, RotateCcw, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { QuizRating } from "@/components/quiz/QuizRating";
 import { QuizComments } from "@/components/quiz/QuizComments";
 import { FavoriteButton } from "@/components/quiz/FavoriteButton";
 import { QuestionRenderer } from "@/components/quiz/QuestionRenderer";
+import { VisualTimer } from "@/components/quiz/VisualTimer";
 import { QuestionAnswer, QuestionType } from "@/types/question";
 import { Lightbulb, Info, Star } from "lucide-react";
 import { useGamification } from "@/hooks/useGamification";
@@ -45,6 +46,7 @@ export default function QuizPage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const timeLeftRef = useRef(timeLeft);
   const [showHint, setShowHint] = useState(false);
   const [earnedXP, setEarnedXP] = useState(0);
   const { updateXPAsync } = useGamification();
@@ -71,6 +73,20 @@ export default function QuizPage() {
     }
 
     setShowFeedback(true);
+
+    // Time Bonus / Penalty
+    if (answer && !isPreview && quiz) {
+      if (answer.isCorrect && quiz.time_bonus_enabled) {
+        // Example: if answered in first 25% of time, +5 XP
+        const qTimeLimit = questions[currentQuestion].time_limit || 30;
+        if (timeLeftRef.current > qTimeLimit * 0.75) {
+          setEarnedXP(prev => prev + 5);
+        }
+      } else if (!answer.isCorrect && quiz.time_penalty_enabled) {
+        // Penalty: -10 seconds from total time (if not per-question) or just visual indicator
+        setTimeLeft(prev => Math.max(0, prev - 10));
+      }
+    }
 
     setTimeout(async () => {
       // Check if this was the last question
@@ -109,6 +125,9 @@ export default function QuizPage() {
               answers: updatedAnswers as unknown as Record<string, string>[],
             });
 
+            // Clean up persistence
+            localStorage.removeItem(`quiz_start_${quiz.id}`);
+
             // Gamification: Award XP
             const xpGain = (correctCount * 10) + (correctCount === questions.length ? 50 : 0);
             setEarnedXP(xpGain);
@@ -140,7 +159,14 @@ export default function QuizPage() {
         totalQuestions: questions.length,
       });
       setAttemptId(attempt.id);
-      setStartTime(new Date());
+      const now = new Date();
+      setStartTime(now);
+
+      // Persistence: save start time to localStorage
+      if (!isPreview) {
+        localStorage.setItem(`quiz_start_${quiz.id}`, now.toISOString());
+      }
+
       setQuizState('playing');
       setCurrentQuestion(0);
       setAnswers([]);
@@ -168,6 +194,27 @@ export default function QuizPage() {
     }
   }, [currentQuestion, quizState, showFeedback, questions]);
 
+  // Persistence: Recover timer on refresh
+  useEffect(() => {
+    if (quizState === 'playing' && quiz && !startTime) {
+      const persistedStart = localStorage.getItem(`quiz_start_${quiz.id}`);
+      if (persistedStart) {
+        const start = new Date(persistedStart);
+        setStartTime(start);
+        const elapsed = Math.floor((new Date().getTime() - start.getTime()) / 1000);
+        // Total duration in seconds
+        const totalDuration = (quiz.duration || 20) * 60;
+        const remaining = Math.max(0, totalDuration - elapsed);
+
+        if (remaining === 0) {
+          setQuizState('result');
+        } else {
+          setTimeLeft(remaining);
+        }
+      }
+    }
+  }, [quizState, quiz, startTime]);
+
   useEffect(() => {
     if (quizState === 'playing' && timeLeft > 0 && !showFeedback) {
       const timer = setInterval(() => {
@@ -182,6 +229,10 @@ export default function QuizPage() {
       return () => clearInterval(timer);
     }
   }, [quizState, timeLeft, handleTimeUp, showFeedback]);
+
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -270,38 +321,102 @@ export default function QuizPage() {
               </div>
             </div>
 
-            {isPreview || !user ? (
-              <div className="text-center">
-                <p className="mb-4 text-muted-foreground">Bu quizi başlamaq üçün daxil olmalısınız.</p>
-                <div className="flex gap-2 justify-center">
-                  <Button variant="outline" onClick={() => navigate('/')}>
-                    Ana Səhifəyə Qayıt
-                  </Button>
-                  {!user && (
-                    <Button variant="game" onClick={() => navigate('/auth')}>
-                      Daxil Ol
+            {/* Availability Check */}
+            {(() => {
+              const now = new Date();
+              const fromStr = quiz.available_from?.trim();
+              const toStr = quiz.available_to?.trim();
+
+              if (!fromStr && !toStr) {
+                return (
+                  <div className="mb-6 rounded-xl bg-success/10 p-4 border border-success/30 text-center">
+                    <p className="text-success font-bold flex items-center justify-center gap-2">
+                      <CheckCircle className="h-4 w-4" /> Hər zaman əlçatandır
+                    </p>
+                  </div>
+                );
+              }
+
+              const from = fromStr ? new Date(fromStr) : null;
+              const to = toStr ? new Date(toStr) : null;
+
+              // Prevent invalid dates
+              if ((from && isNaN(from.getTime())) || (to && isNaN(to.getTime()))) return null;
+
+              if (from && now < from) {
+                return (
+                  <div className="mb-6 rounded-xl bg-warning/10 p-4 border border-warning/30 text-center">
+                    <p className="text-warning font-bold">Bu quiz hələ aktiv deyil</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Açılış vaxtı: {from.toLocaleString('az-AZ')}
+                    </p>
+                  </div>
+                );
+              }
+              if (to && now > to) {
+                return (
+                  <div className="mb-6 rounded-xl bg-destructive/10 p-4 border border-destructive/30 text-center">
+                    <p className="text-destructive font-bold">Bu quiz-in müddəti bitib</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Bağlanış vaxtı: {to.toLocaleString('az-AZ')}
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {(() => {
+              const now = new Date();
+              const fromStr = quiz.available_from?.trim();
+              const toStr = quiz.available_to?.trim();
+              const from = fromStr ? new Date(fromStr) : null;
+              const to = toStr ? new Date(toStr) : null;
+
+              const isDisabled = (from && !isNaN(from.getTime()) && now < from) ||
+                (to && !isNaN(to.getTime()) && now > to);
+
+              if (isPreview || !user) {
+                return (
+                  <div className="text-center">
+                    <p className="mb-4 text-muted-foreground">Bu quizi başlamaq üçün daxil olmalısınız.</p>
+                    <div className="flex gap-2 justify-center">
+                      <Button variant="outline" onClick={() => navigate('/')}>
+                        Ana Səhifəyə Qayıt
+                      </Button>
+                      {!user && (
+                        <Button variant="game" onClick={() => navigate('/auth')}>
+                          Daxil Ol
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              if (questions.length === 0) {
+                return (
+                  <div className="text-center">
+                    <p className="mb-4 text-muted-foreground">Bu quizdə hələ sual yoxdur.</p>
+                    <Button variant="outline" onClick={() => navigate('/')}>
+                      Ana Səhifəyə Qayıt
                     </Button>
-                  )}
-                </div>
-              </div>
-            ) : questions.length === 0 ? (
-              <div className="text-center">
-                <p className="mb-4 text-muted-foreground">Bu quizdə hələ sual yoxdur.</p>
-                <Button variant="outline" onClick={() => navigate('/')}>
-                  Ana Səhifəyə Qayıt
+                  </div>
+                );
+              }
+
+              return (
+                <Button
+                  variant="game"
+                  size="xl"
+                  className="w-full"
+                  onClick={startQuiz}
+                  disabled={startAttempt.isPending || isDisabled}
+                >
+                  {startAttempt.isPending ? "Yüklənir..." : (isDisabled ? "Giriş qapalıdır" : "Quizə Başla")}
                 </Button>
-              </div>
-            ) : (
-              <Button
-                variant="game"
-                size="xl"
-                className="w-full"
-                onClick={startQuiz}
-                disabled={startAttempt.isPending}
-              >
-                {startAttempt.isPending ? "Yüklənir..." : "Quizə Başla"}
-              </Button>
-            )}
+              );
+            })()}
           </div>
 
           {/* Rating Section */}
@@ -343,13 +458,11 @@ export default function QuizPage() {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Çıx
             </Button>
-            <div className={cn(
-              "flex items-center gap-2 rounded-full px-4 py-2",
-              timeLeft < 60 ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground"
-            )}>
-              <Clock className="h-4 w-4" />
-              <span className="font-mono font-bold">{formatTime(timeLeft)}</span>
-            </div>
+
+            <VisualTimer
+              timeLeft={timeLeft}
+              totalTime={questions[currentQuestion]?.time_limit || (quiz.duration || 20) * 60}
+            />
           </div>
 
           {/* Progress */}

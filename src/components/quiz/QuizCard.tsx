@@ -18,6 +18,8 @@ export interface Quiz {
   imageUrl?: string;
   isPopular?: boolean;
   isNew?: boolean;
+  availableFrom?: string | null;
+  availableTo?: string | null;
 }
 
 interface QuizCardProps {
@@ -47,6 +49,20 @@ const subjectIcons: Record<string, string> = {
 export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
   const subjectIcon = subjectIcons[quiz.subject] || '📖';
 
+  const getStatus = () => {
+    if (!quiz.availableFrom && !quiz.availableTo) return null;
+    const now = new Date();
+    const from = quiz.availableFrom ? new Date(quiz.availableFrom) : null;
+    const to = quiz.availableTo ? new Date(quiz.availableTo) : null;
+
+    if (from && now < from) return { label: 'Tezliklə', variant: 'warning' as const, date: from };
+    if (to && now > to) return { label: 'Bitib', variant: 'destructive' as const, date: to };
+    if (from || to) return { label: 'Canlı', variant: 'success' as const };
+    return null;
+  };
+
+  const status = getStatus();
+
   return (
     <div className={cn(
       "group relative overflow-hidden rounded-2xl bg-gradient-card border border-border/50",
@@ -54,7 +70,7 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
     )}>
       {/* Decorative gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-      
+
       {/* Favorite button & badges */}
       <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
         <FavoriteButton quizId={quiz.id} />
@@ -68,6 +84,11 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
           <Badge variant="accent" className="flex items-center gap-1">
             <Zap className="h-3 w-3" />
             Yeni
+          </Badge>
+        )}
+        {status && (
+          <Badge variant={status.variant} className="flex items-center gap-1 shadow-sm">
+            {status.label}
           </Badge>
         )}
       </div>
@@ -91,6 +112,22 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
         <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
           {quiz.description}
         </p>
+
+        {status && status.date && (
+          <div className={cn(
+            "mb-4 rounded-lg px-3 py-2 text-[11px] font-medium flex items-center gap-2",
+            status.variant === 'warning' ? "bg-warning/10 text-warning border border-warning/20" : "bg-destructive/10 text-destructive border border-destructive/20"
+          )}>
+            <Clock className="h-3 w-3" />
+            {status.variant === 'warning' ? 'Başlayır: ' : 'Bitib: '}
+            {status.date.toLocaleString('az-AZ', {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </div>
+        )}
 
         {/* Meta info */}
         <div className="mb-4 flex flex-wrap gap-2">
@@ -125,15 +162,15 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
         <div className="flex gap-2">
           {isGuest ? (
             <>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="flex-1"
                 onClick={() => onPreview?.(quiz)}
               >
                 Baxış
               </Button>
-              <Button 
-                variant="game" 
+              <Button
+                variant="game"
                 className="flex-1"
                 onClick={() => onPlay(quiz)}
               >
@@ -141,8 +178,8 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
               </Button>
             </>
           ) : (
-            <Button 
-              variant="game" 
+            <Button
+              variant="game"
               className="w-full"
               onClick={() => onPlay(quiz)}
             >
