@@ -31,15 +31,15 @@ export default function Index() {
       const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quiz.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quiz.subject.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Category filter
-      const matchesCategory = !selectedCategory || 
+      const matchesCategory = !selectedCategory ||
         quiz.subject.toLowerCase().includes(selectedCategory.toLowerCase());
-      
+
       // Difficulty filter
-      const matchesDifficulty = filters.difficulty === "all" || 
+      const matchesDifficulty = filters.difficulty === "all" ||
         quiz.difficulty === filters.difficulty;
-      
+
       // Duration filter
       let matchesDuration = true;
       if (filters.duration !== "all") {
@@ -51,7 +51,7 @@ export default function Index() {
           matchesDuration = quiz.duration > 20;
         }
       }
-      
+
       return matchesSearch && matchesCategory && matchesDifficulty && matchesDuration;
     });
 
@@ -108,12 +108,12 @@ export default function Index() {
             <span>Yeni quizlər əlavə edildi!</span>
           </div>
 
-          <h1 className="mb-6 font-display text-4xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl">
+          <h1 className="mb-4 font-display text-3xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl px-2">
             Öyrənmək <span className="text-gradient-primary">Əyləncəli</span> Ola Bilər
           </h1>
 
-          <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground">
-            Müxtəlif fənlər üzrə interaktiv quizlərlə biliklərini test et, 
+          <p className="mx-auto mb-8 max-w-2xl text-base text-muted-foreground sm:text-lg">
+            Müxtəlif fənlər üzrə interaktiv quizlərlə biliklərini test et,
             yeni şeylər öyrən və liderlik lövhəsində yarış!
           </p>
 
@@ -132,7 +132,7 @@ export default function Index() {
           </div>
 
           {/* Stats */}
-          <div className="mx-auto grid max-w-2xl grid-cols-3 gap-4 sm:gap-8">
+          <div className="mx-auto grid max-w-2xl grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-8">
             <div className="rounded-2xl bg-card/50 p-4 backdrop-blur-sm">
               <div className="mb-1 flex items-center justify-center gap-2 text-primary">
                 <BookOpen className="h-5 w-5" />

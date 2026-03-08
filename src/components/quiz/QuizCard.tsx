@@ -93,7 +93,7 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
         )}
       </div>
 
-      <div className="relative p-5">
+      <div className="relative p-4 sm:p-5">
         {/* Subject icon */}
         <div className="mb-4 flex items-start justify-between">
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted text-2xl shadow-inner">
@@ -106,7 +106,7 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
         </div>
 
         {/* Title & Description */}
-        <h3 className="mb-2 font-display text-lg font-bold text-foreground line-clamp-2">
+        <h3 className="mb-2 font-display text-base sm:text-lg font-bold text-foreground line-clamp-2">
           {quiz.title}
         </h3>
         <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
@@ -143,17 +143,17 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
         </div>
 
         {/* Stats */}
-        <div className="mb-5 flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="mb-5 flex flex-wrap items-center gap-2 sm:gap-4 text-[11px] sm:text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
-            <BookOpen className="h-3.5 w-3.5" />
+            <BookOpen className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             <span>{quiz.questionCount} sual</span>
           </div>
           <div className="flex items-center gap-1">
-            <Clock className="h-3.5 w-3.5" />
+            <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             <span>{quiz.duration} dəq</span>
           </div>
           <div className="flex items-center gap-1">
-            <Users className="h-3.5 w-3.5" />
+            <Users className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             <span>{quiz.playCount.toLocaleString()}</span>
           </div>
         </div>

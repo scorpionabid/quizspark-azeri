@@ -41,6 +41,7 @@ export default function QuizPage() {
   const [quizState, setQuizState] = useState<QuizState>('intro');
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [localAnswer, setLocalAnswer] = useState<string>('');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -53,65 +54,63 @@ export default function QuizPage() {
 
   const isLoading = quizLoading || questionsLoading;
 
-  const handleAnswer = useCallback(async (answer: Answer | null) => {
+  const handleAnswer = useCallback(async (val: string | null) => {
     if (showFeedback || questions.length === 0) return;
 
-    if (answer) {
-      setSelectedOption(answer.selectedOptionIndex ?? -1);
-      setAnswers(prev => [...prev, answer]);
+    const currentQ = questions[currentQuestion];
+    if (!currentQ) return;
+
+    const finalVal = val || '';
+    let isCorrect = false;
+
+    // Advanced evaluation logic
+    if (currentQ.question_type === 'ordering') {
+      isCorrect = finalVal === currentQ.correct_answer;
+    } else if (currentQ.question_type === 'matching') {
+      const studentMatches = finalVal.split('|||').sort();
+      const correctMatches = currentQ.correct_answer.split('|||').sort();
+      isCorrect = JSON.stringify(studentMatches) === JSON.stringify(correctMatches);
     } else {
-      // Time up scenario
-      setSelectedOption(-1);
-      const question = questions[currentQuestion];
-      setAnswers(prev => [...prev, {
-        questionId: question.id,
-        questionType: question.question_type as QuestionType,
-        textAnswer: '',
-        isCorrect: false,
-        pointsEarned: 0
-      }]);
+      isCorrect = finalVal.trim().toLowerCase() === currentQ.correct_answer.trim().toLowerCase();
     }
 
+    const answer: Answer = {
+      questionId: currentQ.id,
+      questionType: currentQ.question_type as QuestionType,
+      textAnswer: finalVal,
+      isCorrect,
+      pointsEarned: isCorrect ? (currentQ.weight || 1) : 0,
+      selectedOptionIndex: currentQ.options ? currentQ.options.indexOf(finalVal) : undefined
+    };
+
+    setSelectedOption(answer.selectedOptionIndex ?? -1);
     setShowFeedback(true);
 
     // Time Bonus / Penalty
-    if (answer && !isPreview && quiz) {
-      if (answer.isCorrect && quiz.time_bonus_enabled) {
-        // Example: if answered in first 25% of time, +5 XP
-        const qTimeLimit = questions[currentQuestion].time_limit || 30;
+    if (!isPreview && quiz) {
+      if (isCorrect && quiz.time_bonus_enabled) {
+        const qTimeLimit = currentQ.time_limit || 30;
         if (timeLeftRef.current > qTimeLimit * 0.75) {
           setEarnedXP(prev => prev + 5);
         }
-      } else if (!answer.isCorrect && quiz.time_penalty_enabled) {
-        // Penalty: -10 seconds from total time (if not per-question) or just visual indicator
+      } else if (!isCorrect && quiz.time_penalty_enabled) {
         setTimeLeft(prev => Math.max(0, prev - 10));
       }
     }
 
+    const updatedAnswers = [...answers, answer];
+    setAnswers(updatedAnswers);
+
     setTimeout(async () => {
-      // Check if this was the last question
       if (currentQuestion < questions.length - 1) {
         setCurrentQuestion(prev => prev + 1);
         setSelectedOption(null);
+        setLocalAnswer('');
         setShowFeedback(false);
         setShowHint(false);
       } else {
         // Quiz completed
         if (attemptId && startTime && user && quiz) {
-          // Calculate score based on latest state (+1 for current answer)
-          // Since setAnswers is async, we use the local variable logic
-          // But actually setting the state correctly using functional updates avoids this
-          // The updatedAnswers in local scope is needed for accurate submission:
-          const updatedAnswers = answer
-            ? [...answers, answer]
-            : [...answers, {
-              questionId: questions[currentQuestion].id,
-              questionType: questions[currentQuestion].question_type as QuestionType,
-              textAnswer: '',
-              isCorrect: false,
-              pointsEarned: 0
-            }];
-
           const correctCount = updatedAnswers.filter(a => a.isCorrect).length;
           const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
 
@@ -119,18 +118,16 @@ export default function QuizPage() {
             await completeAttempt.mutateAsync({
               attemptId,
               quizId: quiz.id,
-              score: correctCount,
+              score: Math.round((correctCount / questions.length) * 100), // Use score percentage
               totalQuestions: questions.length,
               timeSpent,
               answers: updatedAnswers as unknown as Record<string, string>[],
             });
 
-            // Clean up persistence
             localStorage.removeItem(`quiz_start_${quiz.id}`);
 
-            // Gamification: Award XP
             const xpGain = (correctCount * 10) + (correctCount === questions.length ? 50 : 0);
-            setEarnedXP(xpGain);
+            setEarnedXP(prev => prev + xpGain);
             if (xpGain > 0 && !isPreview) {
               await updateXPAsync(xpGain);
             }
@@ -140,7 +137,7 @@ export default function QuizPage() {
         }
         setQuizState('result');
       }
-    }, 1500 + (answer?.isCorrect && questions[currentQuestion].explanation ? 1500 : 0)); // Extra time to read explanation
+    }, 1500 + (isCorrect && currentQ.explanation ? 1500 : 0));
   }, [showFeedback, questions, currentQuestion, answers, attemptId, startTime, user, quiz, completeAttempt, isPreview, updateXPAsync]);
 
   const startQuiz = async () => {
@@ -442,59 +439,64 @@ export default function QuizPage() {
     const correctOptionIndex = options.findIndex(opt => opt === question.correct_answer);
 
     return (
-      <div className="min-h-screen bg-gradient-hero p-4 sm:p-8">
+      <div className="min-h-screen bg-gradient-hero p-3 sm:p-8 pb-24 sm:pb-8">
         <div className="mx-auto max-w-3xl">
           {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-4 sm:mb-6 flex items-center justify-between">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => {
                 if (confirm('Quizi tərk etmək istəyirsiniz? İrəliləyişiniz itiriləcək.')) {
                   navigate('/');
                 }
               }}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground -ml-2"
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Çıx
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              <span className="hidden sm:inline">Çıx</span>
             </Button>
 
             <VisualTimer
               timeLeft={timeLeft}
               totalTime={questions[currentQuestion]?.time_limit || (quiz.duration || 20) * 60}
+              size={40}
+              className="sm:w-auto"
             />
           </div>
 
           {/* Progress */}
-          <div className="mb-8">
-            <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
+          <div className="mb-6 sm:mb-8">
+            <div className="mb-2 flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
               <span>Sual {currentQuestion + 1} / {questions.length}</span>
-              <span>{Math.round(progress)}%</span>
+              <span className="font-bold text-primary">{Math.round(progress)}%</span>
             </div>
-            <Progress value={progress} className="h-2" />
+            <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-muted/50 border border-border/30">
+              <motion.div
+                className="h-full bg-gradient-to-r from-primary via-accent to-secondary"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ type: "spring", stiffness: 50 }}
+              />
+            </div>
           </div>
 
           {/* Question Card */}
-          <div className="animate-slide-up rounded-3xl bg-gradient-card border border-border/50 p-6 shadow-elevated sm:p-8">
+          <div className="animate-slide-up rounded-2xl sm:rounded-3xl bg-gradient-card border border-border/50 p-5 sm:p-8 shadow-elevated">
             <div className="flex justify-between items-start mb-6">
-              <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">
-                {question.title && <span className="block text-sm text-primary font-semibold mb-1 uppercase tracking-wide">{question.title}</span>}
+              <h2 className="font-display text-lg sm:text-2xl font-bold text-foreground">
+                {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest">{question.title}</span>}
                 {question.question_text}
               </h2>
               <div className="flex flex-col items-end gap-2 ml-4">
-                <Badge variant="outline" className="whitespace-nowrap font-mono">
+                <Badge variant="outline" className="whitespace-nowrap font-mono text-[10px] sm:text-xs">
                   {question.weight ?? 1.0} Xal
                 </Badge>
-                {question.hint && !showHint && !showFeedback && (
-                  <Button variant="secondary" size="sm" onClick={() => setShowHint(true)} className="gap-1 h-7 text-xs">
-                    <Lightbulb className="w-3 h-3" /> İpucu
-                  </Button>
-                )}
               </div>
             </div>
 
             {showHint && question.hint && (
-              <div className="mb-6 p-4 bg-muted/30 border border-primary/20 rounded-lg text-sm text-muted-foreground flex items-start gap-3">
+              <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl text-sm text-muted-foreground flex items-start gap-3 animate-slide-in">
                 <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <p>{question.hint}</p>
               </div>
@@ -502,10 +504,61 @@ export default function QuizPage() {
 
             <QuestionRenderer
               question={question}
-              onAnswer={handleAnswer}
+              value={localAnswer}
+              onChange={setLocalAnswer}
               showFeedback={showFeedback}
               disabled={showFeedback}
             />
+          </div>
+
+          {/* Sticky Bottom Navigation for Mobile */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 sm:relative sm:z-auto sm:mt-10 p-4 sm:p-0 bg-background/80 sm:bg-transparent backdrop-blur-lg sm:backdrop-blur-none border-t border-border/50 sm:border-none shadow-[0_-8px_30px_rgb(0,0,0,0.12)] sm:shadow-none animate-in slide-in-from-bottom duration-500">
+            <div className="mx-auto max-w-3xl flex items-center justify-between gap-3">
+              {question.hint && !showFeedback && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setShowHint(!showHint)}
+                  className={cn(
+                    "flex-1 sm:flex-none sm:min-w-[120px] transition-all rounded-xl",
+                    showHint && "border-primary bg-primary/5"
+                  )}
+                >
+                  <Lightbulb className={cn("mr-2 h-4 w-4", showHint && "text-primary fill-primary")} />
+                  İpucu
+                </Button>
+              )}
+
+              {!showFeedback ? (
+                <Button
+                  variant="game"
+                  size="xl"
+                  className="flex-1 sm:flex-none sm:min-w-[200px] h-12 sm:h-auto shadow-game active:translate-y-1 transition-all rounded-xl"
+                  onClick={() => handleAnswer(localAnswer)}
+                  disabled={!localAnswer && question.question_type !== 'essay'}
+                >
+                  Yoxla
+                </Button>
+              ) : (
+                <Button
+                  variant="game"
+                  size="xl"
+                  className="flex-1 sm:flex-none sm:min-w-[200px] h-12 sm:h-auto shadow-game active:translate-y-1 transition-all rounded-xl"
+                  onClick={() => {
+                    if (currentQuestion < questions.length - 1) {
+                      setCurrentQuestion(prev => prev + 1);
+                      setShowFeedback(false);
+                      setShowHint(false);
+                      setSelectedOption(null);
+                    } else {
+                      setQuizState('result');
+                    }
+                  }}
+                >
+                  Növbəti
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
