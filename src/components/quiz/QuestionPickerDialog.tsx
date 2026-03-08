@@ -36,7 +36,7 @@ export function QuestionPickerDialog({
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
     const [difficultyFilter, setDifficultyFilter] = useState('all');
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [selectedItems, setSelectedItems] = useState<Map<string, QuestionBankItem>>(new Map());
 
     const { data, isLoading } = useQuestionBankList(
         { page: 0, pageSize: 50 },
@@ -49,23 +49,22 @@ export function QuestionPickerDialog({
 
     const questions = data?.questions ?? [];
 
-    const toggleSelect = (id: string) => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
+    const toggleSelect = (item: QuestionBankItem) => {
+        setSelectedItems((prev) => {
+            const next = new Map(prev);
+            if (next.has(item.id)) {
+                next.delete(item.id);
             } else {
-                next.add(id);
+                next.set(item.id, item);
             }
             return next;
         });
     };
 
     const handleConfirm = () => {
-        const selectedItems = questions.filter((q) => selectedIds.has(q.id));
-        onConfirm(selectedItems);
+        onConfirm(Array.from(selectedItems.values()));
         onOpenChange(false);
-        setSelectedIds(new Set());
+        setSelectedItems(new Map());
         setSearch('');
         setTypeFilter('all');
         setDifficultyFilter('all');
@@ -73,7 +72,7 @@ export function QuestionPickerDialog({
 
     const handleClose = () => {
         onOpenChange(false);
-        setSelectedIds(new Set());
+        setSelectedItems(new Map());
     };
 
     const getTypeLabel = (type: string) => {
@@ -141,19 +140,19 @@ export function QuestionPickerDialog({
                     ) : (
                         <div className="space-y-2 pb-4">
                             {questions.map((question) => {
-                                const isSelected = selectedIds.has(question.id);
+                                const isSelected = selectedItems.has(question.id);
                                 return (
                                     <div
                                         key={question.id}
-                                        onClick={() => toggleSelect(question.id)}
+                                        onClick={() => toggleSelect(question)}
                                         className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${isSelected
-                                                ? 'border-primary bg-primary/5'
-                                                : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-border hover:border-primary/50 hover:bg-muted/30'
                                             }`}
                                     >
                                         <Checkbox
                                             checked={isSelected}
-                                            onCheckedChange={() => toggleSelect(question.id)}
+                                            onCheckedChange={() => toggleSelect(question)}
                                             onClick={(e) => e.stopPropagation()}
                                             className="mt-0.5 shrink-0"
                                         />
@@ -191,9 +190,9 @@ export function QuestionPickerDialog({
                     </Button>
                     <Button
                         onClick={handleConfirm}
-                        disabled={selectedIds.size === 0}
+                        disabled={selectedItems.size === 0}
                     >
-                        Əlavə Et ({selectedIds.size})
+                        Əlavə Et ({selectedItems.size})
                     </Button>
                 </DialogFooter>
             </DialogContent>

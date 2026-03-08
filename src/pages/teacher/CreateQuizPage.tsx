@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -59,8 +60,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { useCreateQuiz } from '@/hooks/useQuizzes';
-import { useBulkCreateQuestions } from '@/hooks/useQuestions';
+import { useCreateQuiz, useQuiz, useUpdateQuiz } from '@/hooks/useQuizzes';
+import { useBulkCreateQuestions, useQuestions, useDeleteQuestion } from '@/hooks/useQuestions';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { QuestionEditDialog } from '@/components/question-bank/QuestionEditDialog';
@@ -339,11 +340,15 @@ function SortableQuestionCard({ question, index, onEdit, onRemove }: CardProps) 
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function CreateQuizPage() {
+  const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const createQuiz = useCreateQuiz();
+  const updateQuiz = useUpdateQuiz();
   const createQuestions = useBulkCreateQuestions();
+  const { data: existingQuiz, isLoading: quizLoading } = useQuiz(id);
+  const { data: existingQuestions, isLoading: questionsLoading } = useQuestions(id);
 
   // Metadata form
   const form = useForm<QuizMetadataFormData>({
@@ -361,6 +366,55 @@ export default function CreateQuizPage() {
 
   // Questions state
   const [questions, setQuestions] = useState<DraftQuestion[]>([]);
+
+  // Load existing quiz data if in edit mode
+  useEffect(() => {
+    if (id && existingQuiz) {
+      form.reset({
+        title: existingQuiz.title,
+        description: existingQuiz.description || '',
+        subject: existingQuiz.subject || '',
+        grade: existingQuiz.grade || '',
+        difficulty: existingQuiz.difficulty,
+        duration: existingQuiz.duration,
+        is_public: existingQuiz.is_public,
+      });
+    }
+  }, [id, existingQuiz, form]);
+
+  useEffect(() => {
+    if (id && existingQuestions) {
+      const drafts: DraftQuestion[] = existingQuestions.map((q) => ({
+        localId: q.id, // Use DB ID as localId to track for updates if needed
+        question_text: q.question_text,
+        question_type: q.question_type as QuestionType,
+        options: q.options,
+        correct_answer: q.correct_answer,
+        explanation: q.explanation,
+        order_index: q.order_index,
+        title: q.title,
+        weight: q.weight,
+        hint: q.hint,
+        time_limit: q.time_limit,
+        per_option_explanations: q.per_option_explanations,
+        video_url: q.video_url,
+        video_start_time: q.video_start_time,
+        video_end_time: q.video_end_time,
+        model_3d_url: q.model_3d_url,
+        model_3d_type: q.model_3d_type,
+        hotspot_data: q.hotspot_data,
+        matching_pairs: q.matching_pairs,
+        sequence_items: q.sequence_items,
+        fill_blank_template: q.fill_blank_template,
+        numerical_answer: q.numerical_answer,
+        numerical_tolerance: q.numerical_tolerance,
+        question_image_url: q.question_image_url,
+        media_type: q.media_type,
+        media_url: q.media_url,
+      }));
+      setQuestions(drafts);
+    }
+  }, [id, existingQuestions]);
 
   // Import questions passed via navigate state from AI Assistant
   useEffect(() => {
@@ -564,26 +618,58 @@ export default function CreateQuizPage() {
     setIsSubmitting(true);
     try {
       const metadata = form.getValues();
-      const quiz = await createQuiz.mutateAsync({
-        title: metadata.title.trim(),
-        description: metadata.description?.trim() || null,
-        subject: metadata.subject,
-        grade: metadata.grade || null,
-        difficulty: (metadata.difficulty ?? null) as 'easy' | 'medium' | 'hard' | null,
-        duration: metadata.duration,
-        is_public: metadata.is_public,
-        is_published: publish,
-      });
+      let quizId = id;
 
-      const questionsToCreate = questions.map((q, i) => draftToDbInsert(q, quiz.id, i));
+      if (id) {
+        // Update existing quiz
+        await updateQuiz.mutateAsync({
+          id,
+          title: metadata.title.trim(),
+          description: metadata.description?.trim() || null,
+          subject: metadata.subject,
+          grade: metadata.grade || null,
+          difficulty: (metadata.difficulty ?? null) as 'easy' | 'medium' | 'hard' | null,
+          duration: metadata.duration,
+          is_public: metadata.is_public,
+          is_published: publish,
+        });
+
+        // For questions in edit mode: Simple approach for now is to delete and re-recreate
+        // Warning: This may break if other tables reference these question IDs.
+        // A better approach would be to diff, but that's much more complex.
+        const { error: deleteError } = await supabase
+          .from('questions')
+          .delete()
+          .eq('quiz_id', id);
+
+        if (deleteError) throw deleteError;
+      } else {
+        // Create new quiz
+        const quiz = await createQuiz.mutateAsync({
+          title: metadata.title.trim(),
+          description: metadata.description?.trim() || null,
+          subject: metadata.subject,
+          grade: metadata.grade || null,
+          difficulty: (metadata.difficulty ?? null) as 'easy' | 'medium' | 'hard' | null,
+          duration: metadata.duration,
+          is_public: metadata.is_public,
+          is_published: publish,
+        });
+        quizId = quiz.id;
+      }
+
+      const questionsToCreate = questions.map((q, i) => draftToDbInsert(q, quizId!, i));
       await createQuestions.mutateAsync(questionsToCreate);
 
       localStorage.removeItem('quiz_draft');
-      toast.success(publish ? 'Quiz uğurla dərc edildi!' : 'Quiz qaralama olaraq saxlanıldı');
+      toast.success(id
+        ? 'Quiz uğurla yeniləndi'
+        : (publish ? 'Quiz uğurla dərc edildi!' : 'Quiz qaralama olaraq saxlanıldı')
+      );
       navigate('/teacher/my-quizzes');
     } catch (error) {
-      console.error('Error creating quiz:', error);
-      toast.error('Quiz yaradılarkən xəta baş verdi');
+      console.error('Error saving quiz:', error);
+      toast.error('Quiz yadda saxlanılarkən xəta baş verdi');
     } finally {
       setIsSubmitting(false);
     }
@@ -595,6 +681,14 @@ export default function CreateQuizPage() {
 
   // QuestionEditDialog needs an empty categories array (not re-fetching categories for quiz creation context)
   const emptyCategories: string[] = [];
+
+  if (id && (quizLoading || questionsLoading)) {
+    return (
+      <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
@@ -640,7 +734,9 @@ export default function CreateQuizPage() {
         {/* ── Metadata Form ── */}
         <Form {...form}>
           <div className="mb-8 rounded-2xl bg-gradient-card border border-border/50 p-6">
-            <h2 className="mb-6 font-display text-xl font-bold text-foreground">Quiz Məlumatları</h2>
+            <h2 className="mb-6 font-display text-xl font-bold text-foreground">
+              {id ? 'Quiz Redaktəsi' : 'Quiz Məlumatları'}
+            </h2>
             <div className="grid gap-6">
 
               <FormField
@@ -826,9 +922,13 @@ export default function CreateQuizPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" onClick={() => setPickerOpen(true)}>
+          <Button
+            variant="outline"
+            onClick={() => setPickerOpen(true)}
+            className="border-primary/50 text-primary hover:bg-primary/5 hover:text-primary transition-all shadow-sm"
+          >
             <Upload className="mr-2 h-4 w-4" />
-            İdxal Et
+            Sual Bankından İdxal
           </Button>
           <Button variant="outline" onClick={() => navigate('/teacher/ai-assistant')}>
             <Sparkles className="mr-2 h-4 w-4" />
