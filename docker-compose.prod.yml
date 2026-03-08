@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  quiz-app-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+    container_name: quiz_app_production
+    ports:
+      - "8081:80"
+    restart: unless-stopped
+    env_file:
+      - .env

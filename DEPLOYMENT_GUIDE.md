@@ -1,37 +1,59 @@
-# Deploy (İstehsalata Buraxılma) Bələdçisi
+# Deploy (Dedicated Server & Docker) Bələdçisi
 
-Layihəniz artıq həm funksional, həm də vizual olaraq tamamlanıb. Onu geniş istifadəçi kütləsinə təqdim etmək üçün aşağıdakı addımları izləməyi tövsiyə edirəm.
+Sizin dedicated server və mövcud Docker infrastrukturunuz üçün layihəni ən səmərəli şəkildə necə yerləşdirəcəyiniz aşağıda addım-addım izah olunub.
 
-## 🏁 1. Frontend Deploy (Veb tərəfi)
+## 🐳 1. Docker Proyektinin Hazırlanması
 
-Layihə **React + Vite** əsaslı olduğu üçün aşağıdakı platformalar ən yaxşı seçimdir:
+Mən istehsalat mühiti üçün xüsusi `docker-compose.prod.yml` faylı hazırladım. Bu fayl tətbiqi optimallaşdırılmış şəkildə (Nginx istifadə edərək) işə salır.
 
-- **Vercel və ya Netlify (Tövsiyə olunur):**
-  - Git repository-ni (GitHub/GitLab) bağlayın.
-  - Build command: `npm run build`
-  - Output directory: `dist`
-  - **Environment Variables:** `.env` faylındakı dəyişənləri (Supabase URL və Anon Key) platformanın "Environment Variables" bölməsinə əlavə edin.
+### Addımlar:
+1. `.env` faylınızda `VITE_SUPABASE_URL` və `VITE_SUPABASE_PUBLISHABLE_KEY` dəyişənlərinin düzgün olduğundan əmin olun. (Serverdəki Supabase ünvanını göstərməlidir).
+2. Tətbiqi işə salın:
+   ```bash
+   docker-compose -f docker-compose.prod.yml up -d --build
+   ```
+Tətbiq daxili olaraq `8081` portunda işləməyə başlayacaq.
 
-> [!IMPORTANT]
-> PWA funksionallığının işləməsi üçün sayt mütləq **HTTPS** protokoluna malik olmalıdır. Vercel və Netlify bunu avtomatik təmin edir.
+## 🗄 2. Supabase-in Serverdə İşə Salınması
 
-## 🗄 2. Supabase (Database və Auth)
+Serverinizdə Supabase-i birbaşa Docker konteynerlərində saxlamaq üçün [Supabase Docker Guide](https://supabase.com/docs/guides/self-hosting/docker) rəsmi sənədlərini izləməlisiniz.
 
-- **Production Proyekti:** Yerli Supabase yerinə, [supabase.com](https://supabase.com) üzərində yeni proyekt yaradın.
-- **Miqrasiyalar:** `supabase/migrations` qovluğundakı SQL fayllarını yeni layihənin SQL Editor bölməsində işə salın.
-- **API Keys:** Yeni proyektin `URL` və `anon` açarını frontend-in istehsalat mühitinə (Vercel/Netlify) əlavə edin.
-- **Site URL:** Supabase Authentication ayarlarında "Site URL" hissəsinə tətbiqin real domen ünvanını (məs: `https://sinaq-app.vercel.app`) yazın.
+> [!TIP]
+> Əgər serverdə artıq bir çox app varsa, Supabase-in API portlarını (adətən 8000) mövcud portlarla toqquşmaması üçün tənzimləməlisiniz.
 
-## 📂 3. Fayl Strukturunun Təmizlənməsi
+## 🛡 3. Nginx Reverse Proxy və SSL
 
-- Hazırda kök qovluqdakı plan sənədləri `archive/plans/` qovluğuna köçürülərək təmizlənib.
-- `.env` faylı heç vaxt Git-ə (ictimai qovluğa) göndərilməməlidir (`.gitignore` buna nəzarət edir).
+Dedicated serverdə SSL sertifikatınız olduğu üçün, Nginx vasitəsilə traffiki yönləndirməliyik.
 
-## 📱 4. PWA Yoxlanışı
+### Nginx Konfiqurasiya Nümunəsi:
+```nginx
+server {
+    listen 443 ssl;
+    server_name sinaq-app.com; # Domeniniz
 
-- Saytı deploy etdikdən sonra Lighthouse (Chrome DevTools) vasitəsilə PWA auditini yoxlayın.
-- Manifest və loqoların düzgün yükləndiyindən əmin olun.
+    ssl_certificate /path/to/your/fullchain.pem;
+    ssl_certificate_key /path/to/your/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:8081; # Quiz App Docker portu
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+## 📱 4. PWA və Təhlükəsizlik
+
+- **PWA:** SSL (HTTPS) aktiv olduqdan sonra PWA funksiyası avtomatik işləyəcək.
+- **CORS:** Supabase ayarlarında `SUPABASE_ALLOWED_ORIGINS` dəyişəninə öz domeniniz əlavə etməyi unutmayın.
+
+## 📂 5. Arxiv və Təmizlik
+
+- Plan faylları `archive/plans/` qovluğundadır, onları serverə göndərməyə ehtiyac yoxdur.
+- Sizin Docker şəbəkəniz (network) vasitəsilə digər tətbiqlərlə inteqrasiya edə bilərsiniz.
 
 ---
 
-**Məsləhət:** İlk olaraq tətbiqi Vercel kimi pulsuz bir mühitdə yoxlamaqla başlayın. Hər hansı bir problem yaranarsa (məsələn, CORS xətaları), Supabase-də domen icazələrini tənzimləmək lazım gələcək.
+**Məsləhət:** Əgər serverdə port idarəetməsi üçün **Nginx Proxy Manager** və ya **Traefik** istifadə edirsinizsə, sadəcə `8081` portunu həmin interfeysdən yönləndirə bilərsiniz.
