@@ -253,8 +253,8 @@ export default function QuizPage() {
 
   if (!quiz) {
     return (
-      <div className="min-h-screen bg-gradient-hero p-4 sm:p-8">
-        <div className="mx-auto max-w-2xl">
+      <div className="flex-1 bg-background p-4 sm:p-8 pb-32 sm:pb-8 flex flex-col items-center justify-center">
+        <div className="w-full max-w-3xl space-y-6 sm:space-y-8 animate-in fade-in duration-700">
           <EmptyState
             icon="😕"
             title="Quiz tapılmadı"
@@ -439,7 +439,7 @@ export default function QuizPage() {
     const correctOptionIndex = options.findIndex(opt => opt === question.correct_answer);
 
     return (
-      <div className="min-h-screen bg-gradient-hero p-3 sm:p-8 pb-24 sm:pb-8">
+      <div className="flex-1 bg-gradient-hero p-3 sm:p-8 pb-32 sm:pb-8">
         <div className="mx-auto max-w-3xl">
           {/* Header */}
           <div className="mb-4 sm:mb-6 flex items-center justify-between">
@@ -567,7 +567,7 @@ export default function QuizPage() {
 
   // Result Screen
   return (
-    <div className="min-h-screen bg-gradient-hero p-4 sm:p-8">
+    <div className="flex-1 bg-gradient-hero p-4 sm:p-8 pb-32 sm:pb-8">
       <div className="mx-auto max-w-2xl">
         <div className="animate-scale-in rounded-3xl bg-gradient-card border border-border/50 p-8 shadow-elevated text-center">
           {/* Trophy */}

@@ -93,7 +93,7 @@ export default function Index() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-hero">
+    <div className="bg-gradient-hero">
       {/* Hero Section */}
       <section className="relative overflow-hidden px-4 py-16 sm:px-6 lg:px-8">
         {/* Decorative elements */}
