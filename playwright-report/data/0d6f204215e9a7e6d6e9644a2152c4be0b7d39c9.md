@@ -1,0 +1,502 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - main [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - button "Toggle Sidebar" [ref=e8] [cursor=pointer]:
+          - img
+          - generic [ref=e9]: Toggle Sidebar
+        - heading "Ana Səhifə" [level=1] [ref=e10]
+      - link "Daxil Ol" [ref=e12] [cursor=pointer]:
+        - /url: /auth
+    - main [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - img [ref=e18]
+            - generic [ref=e20]: Yeni quizlər əlavə edildi!
+          - heading "Öyrənmək Əyləncəli Ola Bilər" [level=1] [ref=e21]
+          - paragraph [ref=e22]: Müxtəlif fənlər üzrə interaktiv quizlərlə biliklərini test et, yeni şeylər öyrən və liderlik lövhəsində yarış!
+          - generic [ref=e24]:
+            - img [ref=e25]
+            - textbox "Quiz axtar..." [ref=e28]
+          - generic [ref=e29]:
+            - generic [ref=e30]:
+              - img [ref=e32]
+              - generic [ref=e34]: 150+
+              - generic [ref=e35]: Quizlər
+            - generic [ref=e36]:
+              - img [ref=e38]
+              - generic [ref=e42]: 10K+
+              - generic [ref=e43]: İştirakçı
+            - generic [ref=e44]:
+              - img [ref=e46]
+              - generic [ref=e52]: "8"
+              - generic [ref=e53]: Fənn
+        - generic [ref=e56]:
+          - button "📚 Hamısı" [ref=e57] [cursor=pointer]:
+            - generic [ref=e58]: 📚
+            - generic [ref=e59]: Hamısı
+          - button "🔢 Riyaziyyat 24" [ref=e60] [cursor=pointer]:
+            - generic [ref=e61]: 🔢
+            - generic [ref=e62]: Riyaziyyat
+            - generic [ref=e63]: "24"
+          - button "⚡ Fizika 18" [ref=e64] [cursor=pointer]:
+            - generic [ref=e65]: ⚡
+            - generic [ref=e66]: Fizika
+            - generic [ref=e67]: "18"
+          - button "🧪 Kimya 15" [ref=e68] [cursor=pointer]:
+            - generic [ref=e69]: 🧪
+            - generic [ref=e70]: Kimya
+            - generic [ref=e71]: "15"
+          - button "🧬 Biologiya 12" [ref=e72] [cursor=pointer]:
+            - generic [ref=e73]: 🧬
+            - generic [ref=e74]: Biologiya
+            - generic [ref=e75]: "12"
+          - button "📜 Tarix 20" [ref=e76] [cursor=pointer]:
+            - generic [ref=e77]: 📜
+            - generic [ref=e78]: Tarix
+            - generic [ref=e79]: "20"
+          - button "🌍 Coğrafiya 14" [ref=e80] [cursor=pointer]:
+            - generic [ref=e81]: 🌍
+            - generic [ref=e82]: Coğrafiya
+            - generic [ref=e83]: "14"
+          - button "📚 Ədəbiyyat 16" [ref=e84] [cursor=pointer]:
+            - generic [ref=e85]: 📚
+            - generic [ref=e86]: Ədəbiyyat
+            - generic [ref=e87]: "16"
+          - button "🇬🇧 İngilis dili 22" [ref=e88] [cursor=pointer]:
+            - generic [ref=e89]: 🇬🇧
+            - generic [ref=e90]: İngilis dili
+            - generic [ref=e91]: "22"
+        - generic [ref=e93]:
+          - generic [ref=e94]:
+            - img [ref=e96]
+            - heading "Populyar Quizlər" [level=2] [ref=e99]
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - generic [ref=e103]:
+                - button "Favorilərə əlavə et" [ref=e104] [cursor=pointer]:
+                  - img [ref=e105]
+                - generic [ref=e107]:
+                  - img [ref=e108]
+                  - text: Populyar
+              - generic [ref=e114]:
+                - generic [ref=e115]:
+                  - generic [ref=e116]: 🔢
+                  - generic [ref=e117]:
+                    - img [ref=e118]
+                    - generic [ref=e120]: "4.7"
+                - 'heading "Cəbr Əsasları: Tənliklər və Bərabərsizliklər" [level=3] [ref=e121]'
+                - paragraph [ref=e122]: Xətti tənliklər, kvadrat tənliklər və bərabərsizliklərin həlli üzrə biliklərini yoxla.
+                - generic [ref=e123]:
+                  - generic [ref=e124]: Riyaziyyat
+                  - generic [ref=e125]: 9-cu sinif
+                  - generic [ref=e126]: Orta
+                - generic [ref=e127]:
+                  - generic [ref=e128]:
+                    - img [ref=e129]
+                    - generic [ref=e131]: 15 sual
+                  - generic [ref=e132]:
+                    - img [ref=e133]
+                    - generic [ref=e136]: 20 dəq
+                  - generic [ref=e137]:
+                    - img [ref=e138]
+                    - generic [ref=e143]: 3,420
+                - generic [ref=e144]:
+                  - button "Baxış" [ref=e145] [cursor=pointer]
+                  - button "Başla" [ref=e146] [cursor=pointer]
+            - generic [ref=e147]:
+              - generic [ref=e149]:
+                - button "Favorilərə əlavə et" [ref=e150] [cursor=pointer]:
+                  - img [ref=e151]
+                - generic [ref=e153]:
+                  - img [ref=e154]
+                  - text: Populyar
+                - generic [ref=e160]:
+                  - img [ref=e161]
+                  - text: Yeni
+              - generic [ref=e163]:
+                - generic [ref=e164]:
+                  - generic [ref=e165]: 🧪
+                  - generic [ref=e166]:
+                    - img [ref=e167]
+                    - generic [ref=e169]: "4.8"
+                - heading "Dövri Sistem və Elementlər" [level=3] [ref=e170]
+                - paragraph [ref=e171]: Kimyəvi elementlərin xassələri, dövri sistemdə yerləşməsi və qanunauyğunluqları.
+                - generic [ref=e172]:
+                  - generic [ref=e173]: Kimya
+                  - generic [ref=e174]: 8-ci sinif
+                  - generic [ref=e175]: Asan
+                - generic [ref=e176]:
+                  - generic [ref=e177]:
+                    - img [ref=e178]
+                    - generic [ref=e180]: 10 sual
+                  - generic [ref=e181]:
+                    - img [ref=e182]
+                    - generic [ref=e185]: 15 dəq
+                  - generic [ref=e186]:
+                    - img [ref=e187]
+                    - generic [ref=e192]: 4,200
+                - generic [ref=e193]:
+                  - button "Baxış" [ref=e194] [cursor=pointer]
+                  - button "Başla" [ref=e195] [cursor=pointer]
+            - generic [ref=e196]:
+              - generic [ref=e198]:
+                - button "Favorilərə əlavə et" [ref=e199] [cursor=pointer]:
+                  - img [ref=e200]
+                - generic [ref=e202]:
+                  - img [ref=e203]
+                  - text: Populyar
+              - generic [ref=e209]:
+                - generic [ref=e210]:
+                  - generic [ref=e211]: 🇬🇧
+                  - generic [ref=e212]:
+                    - img [ref=e213]
+                    - generic [ref=e215]: "4.9"
+                - 'heading "İngilis Dili: Grammar Basics" [level=3] [ref=e216]'
+                - paragraph [ref=e217]: Present Simple, Present Continuous və Past Simple zamanları.
+                - generic [ref=e218]:
+                  - generic [ref=e219]: İngilis dili
+                  - generic [ref=e220]: 6-cı sinif
+                  - generic [ref=e221]: Asan
+                - generic [ref=e222]:
+                  - generic [ref=e223]:
+                    - img [ref=e224]
+                    - generic [ref=e226]: 20 sual
+                  - generic [ref=e227]:
+                    - img [ref=e228]
+                    - generic [ref=e231]: 25 dəq
+                  - generic [ref=e232]:
+                    - img [ref=e233]
+                    - generic [ref=e238]: 5,600
+                - generic [ref=e239]:
+                  - button "Baxış" [ref=e240] [cursor=pointer]
+                  - button "Başla" [ref=e241] [cursor=pointer]
+        - generic [ref=e243]:
+          - generic [ref=e244]:
+            - img [ref=e246]
+            - heading "Yeni Əlavə Edilən" [level=2] [ref=e248]
+          - generic [ref=e249]:
+            - generic [ref=e250]:
+              - generic [ref=e252]:
+                - button "Favorilərə əlavə et" [ref=e253] [cursor=pointer]:
+                  - img [ref=e254]
+                - generic [ref=e256]:
+                  - img [ref=e257]
+                  - text: Populyar
+                - generic [ref=e263]:
+                  - img [ref=e264]
+                  - text: Yeni
+              - generic [ref=e266]:
+                - generic [ref=e267]:
+                  - generic [ref=e268]: 🧪
+                  - generic [ref=e269]:
+                    - img [ref=e270]
+                    - generic [ref=e272]: "4.8"
+                - heading "Dövri Sistem və Elementlər" [level=3] [ref=e273]
+                - paragraph [ref=e274]: Kimyəvi elementlərin xassələri, dövri sistemdə yerləşməsi və qanunauyğunluqları.
+                - generic [ref=e275]:
+                  - generic [ref=e276]: Kimya
+                  - generic [ref=e277]: 8-ci sinif
+                  - generic [ref=e278]: Asan
+                - generic [ref=e279]:
+                  - generic [ref=e280]:
+                    - img [ref=e281]
+                    - generic [ref=e283]: 10 sual
+                  - generic [ref=e284]:
+                    - img [ref=e285]
+                    - generic [ref=e288]: 15 dəq
+                  - generic [ref=e289]:
+                    - img [ref=e290]
+                    - generic [ref=e295]: 4,200
+                - generic [ref=e296]:
+                  - button "Baxış" [ref=e297] [cursor=pointer]
+                  - button "Başla" [ref=e298] [cursor=pointer]
+            - generic [ref=e299]:
+              - generic [ref=e301]:
+                - button "Favorilərə əlavə et" [ref=e302] [cursor=pointer]:
+                  - img [ref=e303]
+                - generic [ref=e305]:
+                  - img [ref=e306]
+                  - text: Yeni
+              - generic [ref=e308]:
+                - generic [ref=e309]:
+                  - generic [ref=e310]: 📜
+                  - generic [ref=e311]:
+                    - img [ref=e312]
+                    - generic [ref=e314]: "4.4"
+                - 'heading "Azərbaycan Tarixi: XX əsr" [level=3] [ref=e315]'
+                - paragraph [ref=e316]: Azərbaycanın XX əsr tarixindəki mühüm hadisələr və şəxsiyyətlər.
+                - generic [ref=e317]:
+                  - generic [ref=e318]: Tarix
+                  - generic [ref=e319]: 11-ci sinif
+                  - generic [ref=e320]: Orta
+                - generic [ref=e321]:
+                  - generic [ref=e322]:
+                    - img [ref=e323]
+                    - generic [ref=e325]: 25 sual
+                  - generic [ref=e326]:
+                    - img [ref=e327]
+                    - generic [ref=e330]: 35 dəq
+                  - generic [ref=e331]:
+                    - img [ref=e332]
+                    - generic [ref=e337]: 2,780
+                - generic [ref=e338]:
+                  - button "Baxış" [ref=e339] [cursor=pointer]
+                  - button "Başla" [ref=e340] [cursor=pointer]
+        - generic [ref=e342]:
+          - generic [ref=e343]:
+            - img [ref=e345]
+            - heading "Bütün Quizlər" [level=2] [ref=e347]
+            - generic [ref=e348]: 8 quiz
+          - generic [ref=e349]:
+            - generic [ref=e350]:
+              - generic [ref=e352]:
+                - button "Favorilərə əlavə et" [ref=e353] [cursor=pointer]:
+                  - img [ref=e354]
+                - generic [ref=e356]:
+                  - img [ref=e357]
+                  - text: Populyar
+              - generic [ref=e363]:
+                - generic [ref=e364]:
+                  - generic [ref=e365]: 🔢
+                  - generic [ref=e366]:
+                    - img [ref=e367]
+                    - generic [ref=e369]: "4.7"
+                - 'heading "Cəbr Əsasları: Tənliklər və Bərabərsizliklər" [level=3] [ref=e370]'
+                - paragraph [ref=e371]: Xətti tənliklər, kvadrat tənliklər və bərabərsizliklərin həlli üzrə biliklərini yoxla.
+                - generic [ref=e372]:
+                  - generic [ref=e373]: Riyaziyyat
+                  - generic [ref=e374]: 9-cu sinif
+                  - generic [ref=e375]: Orta
+                - generic [ref=e376]:
+                  - generic [ref=e377]:
+                    - img [ref=e378]
+                    - generic [ref=e380]: 15 sual
+                  - generic [ref=e381]:
+                    - img [ref=e382]
+                    - generic [ref=e385]: 20 dəq
+                  - generic [ref=e386]:
+                    - img [ref=e387]
+                    - generic [ref=e392]: 3,420
+                - generic [ref=e393]:
+                  - button "Baxış" [ref=e394] [cursor=pointer]
+                  - button "Başla" [ref=e395] [cursor=pointer]
+            - generic [ref=e396]:
+              - button "Favorilərə əlavə et" [ref=e399] [cursor=pointer]:
+                - img [ref=e400]
+              - generic [ref=e402]:
+                - generic [ref=e403]:
+                  - generic [ref=e404]: ⚡
+                  - generic [ref=e405]:
+                    - img [ref=e406]
+                    - generic [ref=e408]: "4.5"
+                - heading "Nyuton Qanunları və Mexanika" [level=3] [ref=e409]
+                - paragraph [ref=e410]: Klassik mexanikanın əsas prinsipləri və Nyutonun hərəkət qanunları.
+                - generic [ref=e411]:
+                  - generic [ref=e412]: Fizika
+                  - generic [ref=e413]: 10-cu sinif
+                  - generic [ref=e414]: Çətin
+                - generic [ref=e415]:
+                  - generic [ref=e416]:
+                    - img [ref=e417]
+                    - generic [ref=e419]: 20 sual
+                  - generic [ref=e420]:
+                    - img [ref=e421]
+                    - generic [ref=e424]: 30 dəq
+                  - generic [ref=e425]:
+                    - img [ref=e426]
+                    - generic [ref=e431]: 2,150
+                - generic [ref=e432]:
+                  - button "Baxış" [ref=e433] [cursor=pointer]
+                  - button "Başla" [ref=e434] [cursor=pointer]
+            - generic [ref=e435]:
+              - generic [ref=e437]:
+                - button "Favorilərə əlavə et" [ref=e438] [cursor=pointer]:
+                  - img [ref=e439]
+                - generic [ref=e441]:
+                  - img [ref=e442]
+                  - text: Populyar
+                - generic [ref=e448]:
+                  - img [ref=e449]
+                  - text: Yeni
+              - generic [ref=e451]:
+                - generic [ref=e452]:
+                  - generic [ref=e453]: 🧪
+                  - generic [ref=e454]:
+                    - img [ref=e455]
+                    - generic [ref=e457]: "4.8"
+                - heading "Dövri Sistem və Elementlər" [level=3] [ref=e458]
+                - paragraph [ref=e459]: Kimyəvi elementlərin xassələri, dövri sistemdə yerləşməsi və qanunauyğunluqları.
+                - generic [ref=e460]:
+                  - generic [ref=e461]: Kimya
+                  - generic [ref=e462]: 8-ci sinif
+                  - generic [ref=e463]: Asan
+                - generic [ref=e464]:
+                  - generic [ref=e465]:
+                    - img [ref=e466]
+                    - generic [ref=e468]: 10 sual
+                  - generic [ref=e469]:
+                    - img [ref=e470]
+                    - generic [ref=e473]: 15 dəq
+                  - generic [ref=e474]:
+                    - img [ref=e475]
+                    - generic [ref=e480]: 4,200
+                - generic [ref=e481]:
+                  - button "Baxış" [ref=e482] [cursor=pointer]
+                  - button "Başla" [ref=e483] [cursor=pointer]
+            - generic [ref=e484]:
+              - button "Favorilərə əlavə et" [ref=e487] [cursor=pointer]:
+                - img [ref=e488]
+              - generic [ref=e490]:
+                - generic [ref=e491]:
+                  - generic [ref=e492]: 🧬
+                  - generic [ref=e493]:
+                    - img [ref=e494]
+                    - generic [ref=e496]: "4.6"
+                - heading "Hüceyrə Biologiyası" [level=3] [ref=e497]
+                - paragraph [ref=e498]: Hüceyrənin quruluşu, funksiyaları və hüceyrə bölünməsi haqqında əsas biliklər.
+                - generic [ref=e499]:
+                  - generic [ref=e500]: Biologiya
+                  - generic [ref=e501]: 9-cu sinif
+                  - generic [ref=e502]: Orta
+                - generic [ref=e503]:
+                  - generic [ref=e504]:
+                    - img [ref=e505]
+                    - generic [ref=e507]: 12 sual
+                  - generic [ref=e508]:
+                    - img [ref=e509]
+                    - generic [ref=e512]: 18 dəq
+                  - generic [ref=e513]:
+                    - img [ref=e514]
+                    - generic [ref=e519]: 1,890
+                - generic [ref=e520]:
+                  - button "Baxış" [ref=e521] [cursor=pointer]
+                  - button "Başla" [ref=e522] [cursor=pointer]
+            - generic [ref=e523]:
+              - generic [ref=e525]:
+                - button "Favorilərə əlavə et" [ref=e526] [cursor=pointer]:
+                  - img [ref=e527]
+                - generic [ref=e529]:
+                  - img [ref=e530]
+                  - text: Yeni
+              - generic [ref=e532]:
+                - generic [ref=e533]:
+                  - generic [ref=e534]: 📜
+                  - generic [ref=e535]:
+                    - img [ref=e536]
+                    - generic [ref=e538]: "4.4"
+                - 'heading "Azərbaycan Tarixi: XX əsr" [level=3] [ref=e539]'
+                - paragraph [ref=e540]: Azərbaycanın XX əsr tarixindəki mühüm hadisələr və şəxsiyyətlər.
+                - generic [ref=e541]:
+                  - generic [ref=e542]: Tarix
+                  - generic [ref=e543]: 11-ci sinif
+                  - generic [ref=e544]: Orta
+                - generic [ref=e545]:
+                  - generic [ref=e546]:
+                    - img [ref=e547]
+                    - generic [ref=e549]: 25 sual
+                  - generic [ref=e550]:
+                    - img [ref=e551]
+                    - generic [ref=e554]: 35 dəq
+                  - generic [ref=e555]:
+                    - img [ref=e556]
+                    - generic [ref=e561]: 2,780
+                - generic [ref=e562]:
+                  - button "Baxış" [ref=e563] [cursor=pointer]
+                  - button "Başla" [ref=e564] [cursor=pointer]
+            - generic [ref=e565]:
+              - button "Favorilərə əlavə et" [ref=e568] [cursor=pointer]:
+                - img [ref=e569]
+              - generic [ref=e571]:
+                - generic [ref=e572]:
+                  - generic [ref=e573]: 🌍
+                  - generic [ref=e574]:
+                    - img [ref=e575]
+                    - generic [ref=e577]: "4.7"
+                - 'heading "Dünya Coğrafiyası: Materiklər" [level=3] [ref=e578]'
+                - paragraph [ref=e579]: Materiklərin coğrafi xüsusiyyətləri, iqlimi və təbii ehtiyatları.
+                - generic [ref=e580]:
+                  - generic [ref=e581]: Coğrafiya
+                  - generic [ref=e582]: 7-ci sinif
+                  - generic [ref=e583]: Asan
+                - generic [ref=e584]:
+                  - generic [ref=e585]:
+                    - img [ref=e586]
+                    - generic [ref=e588]: 15 sual
+                  - generic [ref=e589]:
+                    - img [ref=e590]
+                    - generic [ref=e593]: 20 dəq
+                  - generic [ref=e594]:
+                    - img [ref=e595]
+                    - generic [ref=e600]: 3,100
+                - generic [ref=e601]:
+                  - button "Baxış" [ref=e602] [cursor=pointer]
+                  - button "Başla" [ref=e603] [cursor=pointer]
+            - generic [ref=e604]:
+              - generic [ref=e606]:
+                - button "Favorilərə əlavə et" [ref=e607] [cursor=pointer]:
+                  - img [ref=e608]
+                - generic [ref=e610]:
+                  - img [ref=e611]
+                  - text: Populyar
+              - generic [ref=e617]:
+                - generic [ref=e618]:
+                  - generic [ref=e619]: 🇬🇧
+                  - generic [ref=e620]:
+                    - img [ref=e621]
+                    - generic [ref=e623]: "4.9"
+                - 'heading "İngilis Dili: Grammar Basics" [level=3] [ref=e624]'
+                - paragraph [ref=e625]: Present Simple, Present Continuous və Past Simple zamanları.
+                - generic [ref=e626]:
+                  - generic [ref=e627]: İngilis dili
+                  - generic [ref=e628]: 6-cı sinif
+                  - generic [ref=e629]: Asan
+                - generic [ref=e630]:
+                  - generic [ref=e631]:
+                    - img [ref=e632]
+                    - generic [ref=e634]: 20 sual
+                  - generic [ref=e635]:
+                    - img [ref=e636]
+                    - generic [ref=e639]: 25 dəq
+                  - generic [ref=e640]:
+                    - img [ref=e641]
+                    - generic [ref=e646]: 5,600
+                - generic [ref=e647]:
+                  - button "Baxış" [ref=e648] [cursor=pointer]
+                  - button "Başla" [ref=e649] [cursor=pointer]
+            - generic [ref=e650]:
+              - button "Favorilərə əlavə et" [ref=e653] [cursor=pointer]:
+                - img [ref=e654]
+              - generic [ref=e656]:
+                - generic [ref=e657]:
+                  - generic [ref=e658]: 📚
+                  - generic [ref=e659]:
+                    - img [ref=e660]
+                    - generic [ref=e662]: "4.3"
+                - heading "Nizami Gəncəvi Yaradıcılığı" [level=3] [ref=e663]
+                - paragraph [ref=e664]: Nizami Gəncəvinin həyatı, əsərləri və ədəbi irsi.
+                - generic [ref=e665]:
+                  - generic [ref=e666]: Ədəbiyyat
+                  - generic [ref=e667]: 10-cu sinif
+                  - generic [ref=e668]: Orta
+                - generic [ref=e669]:
+                  - generic [ref=e670]:
+                    - img [ref=e671]
+                    - generic [ref=e673]: 18 sual
+                  - generic [ref=e674]:
+                    - img [ref=e675]
+                    - generic [ref=e678]: 25 dəq
+                  - generic [ref=e679]:
+                    - img [ref=e680]
+                    - generic [ref=e685]: 1,560
+                - generic [ref=e686]:
+                  - button "Baxış" [ref=e687] [cursor=pointer]
+                  - button "Başla" [ref=e688] [cursor=pointer]
+```

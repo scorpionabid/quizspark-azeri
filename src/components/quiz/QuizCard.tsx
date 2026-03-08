@@ -93,7 +93,7 @@ export function QuizCard({ quiz, onPlay, onPreview, isGuest }: QuizCardProps) {
         )}
       </div>
 
-      <div className="relative p-4 sm:p-5">
+      <div className="relative p-3 sm:p-5">
         {/* Subject icon */}
         <div className="mb-4 flex items-start justify-between">
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted text-2xl shadow-inner">

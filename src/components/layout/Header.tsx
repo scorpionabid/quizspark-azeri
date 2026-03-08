@@ -22,7 +22,7 @@ export function Header() {
         <div className="hidden md:flex md:items-center md:gap-2">
           <DynamicBreadcrumb />
         </div>
-        <h1 className="text-lg font-semibold md:hidden">{title}</h1>
+        <h1 className="text-sm sm:text-lg font-semibold md:hidden truncate max-w-[120px]">{title}</h1>
       </div>
 
       {/* Right Section */}
@@ -32,9 +32,13 @@ export function Header() {
             <StudentGamificationHeader />
           </div>
         )}
-        <GlobalSearch />
+        <div className="hidden xs:flex">
+          <GlobalSearch />
+        </div>
         {isAuthenticated && <NotificationsDropdown />}
-        <ThemeToggle />
+        <div className="hidden sm:flex">
+          <ThemeToggle />
+        </div>
         <UserMenu />
       </div>
     </header>

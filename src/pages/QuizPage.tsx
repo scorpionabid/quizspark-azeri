@@ -482,9 +482,9 @@ export default function QuizPage() {
           </div>
 
           {/* Question Card */}
-          <div className="animate-slide-up rounded-2xl sm:rounded-3xl bg-gradient-card border border-border/50 p-5 sm:p-8 shadow-elevated">
+          <div className="animate-slide-up rounded-2xl sm:rounded-3xl bg-gradient-card border border-border/50 p-4 sm:p-8 shadow-elevated">
             <div className="flex justify-between items-start mb-6">
-              <h2 className="font-display text-lg sm:text-2xl font-bold text-foreground">
+              <h2 className="font-display text-base sm:text-2xl font-bold text-foreground">
                 {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest">{question.title}</span>}
                 {question.question_text}
               </h2>
