@@ -33,13 +33,12 @@ interface AIModel {
   id: string;
   model_id: string;
   display_name: string;
-  description?: string;
 }
 
 const FALLBACK_MODELS: AIModel[] = [
-  { id: "1", model_id: "google/gemini-2.5-flash", display_name: "Gemini 2.5 Flash", description: "Sürətli və effektiv" },
-  { id: "2", model_id: "google/gemini-2.5-pro", display_name: "Gemini 2.5 Pro", description: "Daha dəqiq və güclü" },
-  { id: "3", model_id: "google/gemini-2.0-flash", display_name: "Gemini 2.0 Flash", description: "Stabil versiya" },
+  { id: "1", model_id: "google/gemini-2.5-flash", display_name: "Gemini 2.5 Flash" },
+  { id: "2", model_id: "google/gemini-2.5-pro", display_name: "Gemini 2.5 Pro" },
+  { id: "3", model_id: "google/gemini-2.0-flash", display_name: "Gemini 2.0 Flash" },
 ];
 
 const temperaturePresets = [
@@ -58,7 +57,7 @@ export function AIParametersPanel({ parameters, onChange }: AIParametersPanelPro
       try {
         const { data, error } = await supabase
           .from("ai_models")
-          .select("id, model_id, display_name, description")
+          .select("id, model_id, display_name")
           .order("display_name", { ascending: true });
 
         if (!error && data && data.length > 0) {
@@ -138,14 +137,7 @@ export function AIParametersPanel({ parameters, onChange }: AIParametersPanelPro
                 <SelectContent>
                   {models.map((model) => (
                     <SelectItem key={model.id} value={model.model_id}>
-                      <div className="flex flex-col items-start">
-                        <span>{model.display_name}</span>
-                        {model.description && (
-                          <span className="text-xs text-muted-foreground">
-                            {model.description}
-                          </span>
-                        )}
-                      </div>
+                      {model.display_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
