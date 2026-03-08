@@ -58,7 +58,6 @@ export function useToggleRolePermission() {
       hasPermission: boolean;
     }) => {
       if (hasPermission) {
-        // Remove permission
         const { error } = await supabase
           .from("role_permissions")
           .delete()
@@ -67,7 +66,6 @@ export function useToggleRolePermission() {
 
         if (error) throw error;
       } else {
-        // Add permission
         const { error } = await supabase
           .from("role_permissions")
           .insert({ role, permission_id: permissionId });
@@ -82,6 +80,58 @@ export function useToggleRolePermission() {
     onError: (error) => {
       console.error("Error toggling permission:", error);
       toast.error("İcazəni yeniləmək mümkün olmadı");
+    },
+  });
+}
+
+export function useBulkToggleRolePermissions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      role,
+      permissionIds,
+      grantAll,
+    }: {
+      role: "admin" | "teacher" | "student";
+      permissionIds: string[];
+      grantAll: boolean;
+    }) => {
+      if (grantAll) {
+        // Mövcud icazələri sil, sonra hamısını əlavə et (upsert kimi)
+        const { error: delErr } = await supabase
+          .from("role_permissions")
+          .delete()
+          .eq("role", role)
+          .in("permission_id", permissionIds);
+        if (delErr) throw delErr;
+
+        const rows = permissionIds.map((pid) => ({ role, permission_id: pid }));
+        const { error: insErr } = await supabase
+          .from("role_permissions")
+          .insert(rows);
+        if (insErr) throw insErr;
+      } else {
+        // Hamısını sil
+        const { error } = await supabase
+          .from("role_permissions")
+          .delete()
+          .eq("role", role)
+          .in("permission_id", permissionIds);
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["role-permissions"] });
+      toast.success(
+        variables.grantAll
+          ? "Bütün icazələr verildi!"
+          : "Bütün icazələr alındı!"
+      );
+    },
+    onError: (error) => {
+      console.error("Bulk toggle error:", error);
+      toast.error("Toplu əməliyyat uğursuz oldu");
     },
   });
 }
