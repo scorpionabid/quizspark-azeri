@@ -31,16 +31,15 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await userSupabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser();
+    if (authError || !user) {
       return new Response(
         JSON.stringify({ success: false, error: 'İcazəsiz giriş' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
     console.log(`Authenticated user: ${userId}`);
 
     // --- Process file ---

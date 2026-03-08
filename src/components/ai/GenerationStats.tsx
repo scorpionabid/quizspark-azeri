@@ -25,7 +25,7 @@ export function GenerationStats({ className }: GenerationStatsProps) {
         .select('total_requests, total_tokens')
         .eq('user_id', user.id)
         .eq('usage_date', today)
-        .single();
+        .maybeSingle();
 
       // Get weekly usage
       const { data: weeklyUsage } = await supabase
@@ -52,7 +52,7 @@ export function GenerationStats({ className }: GenerationStatsProps) {
       const { data: config } = await supabase
         .from('ai_config')
         .select('teacher_daily_limit')
-        .single();
+        .maybeSingle();
 
       const dailyLimit = config?.teacher_daily_limit || 500;
       const todayTokens = todayUsage?.total_tokens || 0;

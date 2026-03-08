@@ -18,7 +18,7 @@ interface Question {
 }
 
 const actionPrompts: Record<EnhanceAction, string> = {
-  simplify: `Sualı sadələşdir. Daha asan və aydın formaya çevir. 
+  simplify: `Sualı sadələşdir. Daha asan və aydın formaya çevir.
    - Daha sadə sözlər istifadə et
    - Əsas anlayışa fokuslan
    - Variantları da sadələşdir`,
@@ -53,7 +53,7 @@ const actionPrompts: Record<EnhanceAction, string> = {
     - Ümumi qiymət (1-10)
     JSON formatında cavab ver: {"clarity":X,"difficulty_match":X,"bloom_match":X,"distractor_quality":X,"explanation_quality":X,"overall":X,"suggestions":["təklif1","təklif2"]}`,
 
-  suggest_video_search: `Mənə bu sual üçün uyğun ola biləcək YouTube video axtarış sorğuları formalaşdır. 
+  suggest_video_search: `Mənə bu sual üçün uyğun ola biləcək YouTube video axtarış sorğuları formalaşdır.
     - Sualın əsas mövzusunu analiz et.
     - İngilis və Azərbaycan dilində təsirli axtarış sözləri (keywords) təklif et.`,
 
@@ -78,7 +78,26 @@ const actionPrompts: Record<EnhanceAction, string> = {
     - Modelin hansı hissələrinə diqqət yetirməyi tələbələrə tapşırmalıyıq?`,
 };
 
-serve(async (req) => {
+async function fetchAI(lovableKey: string, geminiKey: string | undefined, body: Record<string, unknown>): Promise<Response> {
+  let response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${lovableKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if ((response.status === 401 || response.status === 403) && geminiKey) {
+    console.log('Lovable gateway auth failed, falling back to Gemini API directly');
+    response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${geminiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, model: String(body.model).replace('google/', '') }),
+    });
+  }
+
+  return response;
+}
+
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -94,6 +113,7 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
     // Handle quality analysis separately
     if (action === 'quality_analysis') {
@@ -109,41 +129,34 @@ Aşağıdakı meyarlara görə 0-100 arası bal ver:
 
 Həmçinin konkret təkmilləşdirmə təklifləri ver.`;
 
-      const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: 'Sən test suallarının keyfiyyətini analiz edən ekspertinsən. Azərbaycan dilində cavab ver.' },
-            { role: 'user', content: analysisPrompt }
-          ],
-          tools: [
-            {
-              type: 'function',
-              function: {
-                name: 'return_quality_analysis',
-                description: 'Return the quality analysis results',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    clarity: { type: 'number', description: 'Clarity score 0-100' },
-                    distractorStrength: { type: 'number', description: 'Distractor strength score 0-100' },
-                    bloomAlignment: { type: 'number', description: 'Bloom alignment score 0-100' },
-                    overall: { type: 'number', description: 'Overall quality score 0-100' },
-                    suggestions: { type: 'array', items: { type: 'string' }, description: 'List of improvement suggestions in Azerbaijani' }
-                  },
-                  required: ['clarity', 'distractorStrength', 'bloomAlignment', 'overall', 'suggestions'],
-                  additionalProperties: false
-                }
+      const analysisResponse = await fetchAI(LOVABLE_API_KEY, GEMINI_API_KEY, {
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'Sən test suallarının keyfiyyətini analiz edən ekspertinsən. Azərbaycan dilində cavab ver.' },
+          { role: 'user', content: analysisPrompt }
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'return_quality_analysis',
+              description: 'Return the quality analysis results',
+              parameters: {
+                type: 'object',
+                properties: {
+                  clarity: { type: 'number', description: 'Clarity score 0-100' },
+                  distractorStrength: { type: 'number', description: 'Distractor strength score 0-100' },
+                  bloomAlignment: { type: 'number', description: 'Bloom alignment score 0-100' },
+                  overall: { type: 'number', description: 'Overall quality score 0-100' },
+                  suggestions: { type: 'array', items: { type: 'string' }, description: 'List of improvement suggestions in Azerbaijani' }
+                },
+                required: ['clarity', 'distractorStrength', 'bloomAlignment', 'overall', 'suggestions'],
+                additionalProperties: false
               }
             }
-          ],
-          tool_choice: { type: 'function', function: { name: 'return_quality_analysis' } }
-        }),
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'return_quality_analysis' } }
       });
 
       if (!analysisResponse.ok) {
@@ -186,37 +199,30 @@ Variantlar: ${JSON.stringify(question.options)}
 Tapşırıq:
 ${actionPrompts[action]}`;
 
-      const suggestionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: 'Sən təhsil mütəxəssisisən və test suallarının keyfiyyətini artırmaq üçün təkliflər verirsən. Azərbaycan dilində cavab ver.' },
-            { role: 'user', content: suggestionPrompt }
-          ],
-          tools: [
-            {
-              type: 'function',
-              function: {
-                name: 'return_suggestion',
-                description: 'Return the generated suggestion or text',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    content: { type: 'string', description: 'The detailed response fulfilling the task' }
-                  },
-                  required: ['content'],
-                  additionalProperties: false
-                }
+      const suggestionResponse = await fetchAI(LOVABLE_API_KEY, GEMINI_API_KEY, {
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'Sən təhsil mütəxəssisisən və test suallarının keyfiyyətini artırmaq üçün təkliflər verirsən. Azərbaycan dilində cavab ver.' },
+          { role: 'user', content: suggestionPrompt }
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'return_suggestion',
+              description: 'Return the generated suggestion or text',
+              parameters: {
+                type: 'object',
+                properties: {
+                  content: { type: 'string', description: 'The detailed response fulfilling the task' }
+                },
+                required: ['content'],
+                additionalProperties: false
               }
             }
-          ],
-          tool_choice: { type: 'function', function: { name: 'return_suggestion' } }
-        }),
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'return_suggestion' } }
       });
 
       if (!suggestionResponse.ok) {
@@ -246,9 +252,9 @@ ${actionPrompts[action]}`;
 
     const systemPrompt = `Sən Azərbaycan dilində test suallarını təkmilləşdirən ekspert müəllimsən.
  Verilən sualı təkmilləşdir və yalnız JSON formatında cavab ver.
- 
+
  ${actionPrompts[action]}
- 
+
  VACIB QAYDALAR:
  1. Cavab Azərbaycan dilində olmalıdır
  2. Hər sualın 4 variantı olmalıdır
@@ -261,48 +267,41 @@ ${actionPrompts[action]}`;
  Variantlar: ${JSON.stringify(question.options)}
  Düzgün cavab indeksi: ${question.correctAnswer}
  İzah: ${question.explanation}
- 
+
  Bu sualı "${action}" əməliyyatı ilə təkmilləşdir.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'return_enhanced_question',
-              description: 'Return the enhanced question',
-              parameters: {
-                type: 'object',
-                properties: {
-                  question: { type: 'string', description: 'The enhanced question text' },
-                  options: { type: 'array', items: { type: 'string' }, description: 'Array of 4 options' },
-                  correctAnswer: { type: 'number', description: 'Index of correct answer (0-3)' },
-                  explanation: { type: 'string', description: 'Explanation for the correct answer' },
-                  bloomLevel: {
-                    type: 'string',
-                    enum: ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'],
-                    description: 'Bloom taxonomy level'
-                  }
-                },
-                required: ['question', 'options', 'correctAnswer', 'explanation', 'bloomLevel'],
-                additionalProperties: false
-              }
+    const response = await fetchAI(LOVABLE_API_KEY, GEMINI_API_KEY, {
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'return_enhanced_question',
+            description: 'Return the enhanced question',
+            parameters: {
+              type: 'object',
+              properties: {
+                question: { type: 'string', description: 'The enhanced question text' },
+                options: { type: 'array', items: { type: 'string' }, description: 'Array of 4 options' },
+                correctAnswer: { type: 'number', description: 'Index of correct answer (0-3)' },
+                explanation: { type: 'string', description: 'Explanation for the correct answer' },
+                bloomLevel: {
+                  type: 'string',
+                  enum: ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'],
+                  description: 'Bloom taxonomy level'
+                }
+              },
+              required: ['question', 'options', 'correctAnswer', 'explanation', 'bloomLevel'],
+              additionalProperties: false
             }
           }
-        ],
-        tool_choice: { type: 'function', function: { name: 'return_enhanced_question' } }
-      }),
+        }
+      ],
+      tool_choice: { type: 'function', function: { name: 'return_enhanced_question' } }
     });
 
     if (!response.ok) {

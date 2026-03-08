@@ -85,21 +85,35 @@ Lazım gələrsə nümunələr və izahlar ver.`;
       ? `${baseSystemPrompt}\n\n${systemPrompt}`
       : baseSystemPrompt;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const requestBody = {
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: fullSystemPrompt },
+        ...messages,
+      ],
+      stream: true,
+    };
+
+    let response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: fullSystemPrompt },
-          ...messages,
-        ],
-        stream: true,
-      }),
+      body: JSON.stringify(requestBody),
     });
+
+    if (response.status === 401 || response.status === 403) {
+      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+      if (GEMINI_API_KEY) {
+        console.log('Lovable gateway auth failed, falling back to Gemini API directly');
+        response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...requestBody, model: 'gemini-2.5-flash' }),
+        });
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();

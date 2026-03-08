@@ -8,6 +8,8 @@ export type EnhanceAction =
     | 'generate_distractors'
     | 'generate_tags'
     | 'suggest_bloom_level'
+    | 'analyze_full'
+    | 'parse_pasted_test'
     | 'check_correctness';
 
 export function useEnhanceQuestion() {

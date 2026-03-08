@@ -17,12 +17,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Loader2, Image as ImageIcon, Sparkles, Wand2, ClipboardPaste, Type, FileText } from 'lucide-react';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, useCreateQuestionCategory } from '@/hooks/useQuestionCategories';
 import { useQuestionImageUpload } from '@/hooks/useQuestionImageUpload';
 import { useQuestion3DUpload } from '@/hooks/useQuestion3DUpload';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import { QUESTION_TYPES, QuestionType } from '@/types/question';
+import { useEnhanceQuestion } from '@/hooks/useEnhanceQuestion';
+import { toast } from 'sonner';
 
 interface QuestionEditDialogProps {
   open: boolean;
@@ -104,6 +112,93 @@ export function QuestionEditDialog({
   const { uploadImage, isUploading } = useQuestionImageUpload();
   const { upload3DModel } = useQuestion3DUpload();
   const [is3DUploading, setIs3DUploading] = useState(false);
+  const { enhanceQuestion, isEnhancing } = useEnhanceQuestion();
+  const [pasteMode, setPasteMode] = useState(false);
+  const [pastedText, setPastedText] = useState('');
+  const [isParsing, setIsParsing] = useState(false);
+
+  const handlePasteParse = async () => {
+    if (!pastedText.trim()) {
+      toast.error("Zəhmət olmasa testi bura yapışdırın.");
+      return;
+    }
+
+    setIsParsing(true);
+    try {
+      const data = await enhanceQuestion(pastedText, 'parse_pasted_test');
+      if (data) {
+        setFormData(prev => ({
+          ...prev,
+          question_text: data.question_text || prev.question_text,
+          question_type: data.question_type || prev.question_type,
+          options: data.options || prev.options,
+          correct_answer: data.correct_answer || prev.correct_answer,
+          explanation: data.explanation || prev.explanation,
+          category: data.category || prev.category,
+          difficulty: data.difficulty || prev.difficulty,
+          bloom_level: data.bloom_level || prev.bloom_level,
+          tags: data.tags || prev.tags,
+        }));
+        setPasteMode(false);
+        setPastedText('');
+        toast.success("Test uğurla parçalandı!");
+      }
+    } catch (err) {
+      console.error("Parse Error:", err);
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const handleAIAnalysis = async () => {
+    if (!formData.question_text) {
+      toast.error("Zəhmət olmasa əvvəlcə sual mətnini daxil edin.");
+      return;
+    }
+
+    try {
+      const data = await enhanceQuestion(formData.question_text, 'analyze_full');
+      if (data) {
+        setFormData(prev => ({
+          ...prev,
+          category: data.category || prev.category,
+          difficulty: data.difficulty || prev.difficulty,
+          bloom_level: data.bloom_level || prev.bloom_level,
+          weight: data.weight || prev.weight,
+          time_limit: data.time_limit || prev.time_limit,
+          tags: data.tags ? [...new Set([...prev.tags, ...data.tags])] : prev.tags,
+        }));
+        toast.success("AI analizi uğurla tamamlandı!");
+      }
+    } catch (err) {
+      console.error("AI Analysis Error:", err);
+    }
+  };
+
+  useEffect(() => {
+    const handlePaste = async (event: ClipboardEvent) => {
+      if (!open) return;
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of Array.from(items)) {
+        if (item.type.indexOf("image") !== -1) {
+          const file = item.getAsFile();
+          if (file) {
+            toast.info("Şəkil müəyyən edildi, yüklənir...");
+            const url = await uploadImage(file);
+            if (url) {
+              setFormData(prev => ({ ...prev, question_image_url: url }));
+              toast.success("Şəkil uğurla yapışdırıldı!");
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [open, uploadImage]);
 
   useEffect(() => {
     if (question && mode === 'edit') {
@@ -162,6 +257,42 @@ export function QuestionEditDialog({
       });
     }
   }, [question, mode, open]);
+
+  const handleMDImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setIsParsing(true);
+        try {
+          const data = await enhanceQuestion(content, 'parse_pasted_test');
+          if (data) {
+            setFormData(prev => ({
+              ...prev,
+              question_text: data.question_text || prev.question_text,
+              question_type: data.question_type || prev.question_type,
+              options: data.options || prev.options,
+              correct_answer: data.correct_answer || prev.correct_answer,
+              explanation: data.explanation || prev.explanation,
+              category: data.category || prev.category,
+              difficulty: data.difficulty || prev.difficulty,
+              bloom_level: data.bloom_level || prev.bloom_level,
+              tags: data.tags || prev.tags,
+            }));
+            toast.success("Markdown faylı uğurla oxundu!");
+          }
+        } catch (err) {
+          console.error("MD Parse Error:", err);
+        } finally {
+          setIsParsing(false);
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handleSubmit = () => {
     const data: Partial<QuestionBankItem> = {
@@ -237,373 +368,457 @@ export function QuestionEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {mode === 'create' ? 'Yeni Sual Yarat' : 'Sualı Redaktə Et'}
+          <DialogTitle className="flex items-center justify-between">
+            <span>{mode === 'create' ? 'Yeni Sual Yarat' : 'Sualı Redaktə Et'}</span>
+            <Tabs value={pasteMode ? 'paste' : 'manual'} onValueChange={(v) => setPasteMode(v === 'paste')} className="w-auto">
+              <TabsList className="grid w-[200px] grid-cols-2 h-8">
+                <TabsTrigger value="manual" className="text-xs gap-1">
+                  <Type className="h-3 w-3" />
+                  Manual
+                </TabsTrigger>
+                <TabsTrigger value="paste" className="text-xs gap-1">
+                  <ClipboardPaste className="h-3 w-3" />
+                  Mətndən
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Başlıq</Label>
-              <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Sual başlığı" />
-            </div>
-            <div className="flex gap-4">
-              <div className="space-y-2 flex-1">
-                <Label htmlFor="weight">Ağırlıq (Xal)</Label>
-                <Input id="weight" type="number" step="0.1" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 1 })} />
-              </div>
-              <div className="space-y-2 flex-1">
-                <Label htmlFor="time_limit">Zaman Limit (San)</Label>
-                <Input id="time_limit" type="number" value={formData.time_limit} onChange={(e) => setFormData({ ...formData, time_limit: parseInt(e.target.value) || '' })} placeholder="Məs. 60" />
-              </div>
-            </div>
-          </div>
-          {/* Question Text */}
-          <div className="space-y-2">
-            <Label htmlFor="question_text">Sual *</Label>
-            <Textarea
-              id="question_text"
-              value={formData.question_text}
-              onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
-              placeholder="Sualı daxil edin..."
-              rows={3}
-            />
-          </div>
-
-          {/* Question Type */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Sual Tipi *</Label>
-              <Select
-                value={formData.question_type}
-                onValueChange={(value) => setFormData({ ...formData, question_type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUESTION_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Çətinlik *</Label>
-              <Select
-                value={formData.difficulty}
-                onValueChange={(value) => setFormData({ ...formData, difficulty: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {difficulties.map((diff) => (
-                    <SelectItem key={diff.value} value={diff.value}>
-                      {diff.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Options (for multiple choice) */}
-          {showOptions && (
-            <div className="space-y-2">
-              <Label>Variantlar</Label>
-              <div className="space-y-2">
-                {formData.options.map((option, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      value={option}
-                      onChange={(e) => updateOption(index, e.target.value)}
-                      placeholder={`Variant ${String.fromCharCode(65 + index)}`}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeOption(index)}
-                      disabled={formData.options.length <= 2}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addOption}
-                  className="mt-2"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Variant əlavə et
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Correct Answer */}
-          <div className="space-y-2">
-            <Label htmlFor="correct_answer">Düzgün Cavab *</Label>
-            <Input
-              id="correct_answer"
-              value={formData.correct_answer}
-              onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
-              placeholder={showOptions ? 'Məs: A, B, C, D' : 'Düzgün cavabı daxil edin'}
-            />
-          </div>
-
-          {/* Hint */}
-          <div className="space-y-2">
-            <Label htmlFor="hint">İpucu (Hint)</Label>
-            <Input
-              id="hint"
-              value={formData.hint}
-              onChange={(e) => setFormData({ ...formData, hint: e.target.value })}
-              placeholder="Tələbə üçün ipucu..."
-            />
-          </div>
-
-          {/* Conditional Media Based on Type */}
-          {formData.question_type === 'video' && (
-            <div className="space-y-4 border rounded p-4 bg-muted/20">
-              <Label className="font-semibold">Video Ayarları</Label>
-              <Input value={formData.video_url} onChange={(e) => setFormData({ ...formData, video_url: e.target.value })} placeholder="YouTube Video URL" />
-              <div className="grid grid-cols-2 gap-4">
-                <Input type="number" value={formData.video_start_time} onChange={(e) => setFormData({ ...formData, video_start_time: e.target.value })} placeholder="Start Time (San)" />
-                <Input type="number" value={formData.video_end_time} onChange={(e) => setFormData({ ...formData, video_end_time: e.target.value })} placeholder="End Time (San)" />
-              </div>
-            </div>
-          )}
-
-          {formData.question_type === 'model_3d' && (
-            <div className="space-y-4 border rounded p-4 bg-muted/20">
-              <Label className="font-semibold">3D Model Ayarları (.glb / .gltf)</Label>
-              <Input value={formData.model_3d_url} onChange={(e) => setFormData({ ...formData, model_3d_url: e.target.value })} placeholder="3D Model URL yüklə və ya yapışdır" />
-              <div className="flex items-center gap-2">
-                <Input
-                  type="file"
-                  accept=".glb,.gltf"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setIs3DUploading(true);
-                      try {
-                        const url = await upload3DModel(file);
-                        setFormData(prev => ({ ...prev, model_3d_url: url }));
-                      } catch (err) {
-                        console.error('Upload Error:', err);
-                      } finally {
-                        setIs3DUploading(false);
-                      }
-                    }
-                  }}
-                  disabled={is3DUploading}
-                />
-                {is3DUploading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-              </div>
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="explanation">İzahat</Label>
-            <Textarea
-              id="explanation"
-              value={formData.explanation}
-              onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
-              placeholder="Cavabın izahatı..."
-              rows={2}
-            />
-          </div>
-
-          {/* Category and Bloom Level */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Kateqoriya</Label>
-              <Select
-                value={formData.category || 'none'}
-                onValueChange={(value) => setFormData({ ...formData, category: value === 'none' ? '' : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Kateqoriya seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Kateqoriyasız</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex gap-2 mt-1">
-                <Input
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  placeholder="Yeni kateqoriya"
-                  className="h-8 text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  disabled={createCategory.isPending}
-                  onClick={() => {
-                    if (newCategory.trim()) {
-                      // Create category in database
-                      createCategory.mutate(
-                        { name: newCategory.trim() },
-                        {
-                          onSuccess: () => {
-                            setFormData({ ...formData, category: newCategory.trim() });
-                            setNewCategory('');
-                          },
-                        }
-                      );
-                    }
-                  }}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Bloom Səviyyəsi</Label>
-              <Select
-                value={formData.bloom_level || 'none'}
-                onValueChange={(value) => setFormData({ ...formData, bloom_level: value === 'none' ? '' : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Səviyyə seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Təyin edilməyib</SelectItem>
-                  {bloomLevels.map((level) => (
-                    <SelectItem key={level.value} value={level.value}>
-                      {level.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div className="space-y-2">
-            <Label>Etiketlər</Label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {formData.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 rounded-md text-sm"
-                >
-                  {tag}
-                  <button
-                    type="button"
-                    onClick={() => removeTag(tag)}
-                    className="hover:text-destructive"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                placeholder="Yeni etiket"
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-              />
-              <Button type="button" variant="outline" onClick={addTag}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Media Section */}
-          <div className="space-y-4 border-t pt-4">
-            <Label className="text-base font-semibold">Media & Şəkil</Label>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Question Image */}
-              <div className="space-y-2">
-                <Label htmlFor="question_image">Sual Şəkli (Yüklə)</Label>
-                {formData.question_image_url && (
-                  <div className="relative w-full aspect-video rounded-lg overflow-hidden border mb-2 bg-muted/30">
-                    <img src={formData.question_image_url} alt="Sual şəkli" className="w-full h-full object-contain" />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-6 w-6"
-                      onClick={() => setFormData(prev => ({ ...prev, question_image_url: '' }))}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
+          {pasteMode ? (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="paste_area">Test Mətnini Yapışdırın</Label>
                 <div className="flex items-center gap-2">
                   <Input
-                    id="question_image"
                     type="file"
-                    accept="image/*"
-                    onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (file) {
-                        const url = await uploadImage(file);
-                        if (url) setFormData(prev => ({ ...prev, question_image_url: url }));
-                      }
-                    }}
-                    disabled={isUploading}
-                    className="cursor-pointer"
+                    accept=".md,.txt"
+                    className="hidden"
+                    id="md-import"
+                    onChange={handleMDImport}
                   />
-                  {isUploading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs cursor-pointer"
+                    asChild
+                  >
+                    <label htmlFor="md-import">
+                      <FileText className="h-3 w-3 mr-1" />
+                      MD/TXT Yüklə
+                    </label>
+                  </Button>
                 </div>
               </div>
-
-              {/* Other Media */}
-              <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="paste_area">Test Mətnini Yapışdırın</Label>
+                <Textarea
+                  id="paste_area"
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  placeholder="Sualı və variantları bura yapışdırın (məs. Word-dən)..."
+                  rows={10}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground italic">
+                  AI sual mətnini, variantları və düzgün cavabı avtomatik müəyyən edəcək.
+                </p>
+              </div>
+              <Button
+                onClick={handlePasteParse}
+                className="w-full premium-gradient"
+                disabled={isParsing || !pastedText.trim()}
+              >
+                {isParsing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Parçala və Doldur
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Media Tipi</Label>
+                  <Label htmlFor="title">Başlıq</Label>
+                  <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Sual başlığı" />
+                </div>
+                <div className="flex gap-4">
+                  <div className="space-y-2 flex-1">
+                    <Label htmlFor="weight">Ağırlıq (Xal)</Label>
+                    <Input id="weight" type="number" step="0.1" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 1 })} />
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <Label htmlFor="time_limit">Zaman Limit (San)</Label>
+                    <Input id="time_limit" type="number" value={formData.time_limit} onChange={(e) => setFormData({ ...formData, time_limit: parseInt(e.target.value) || '' })} placeholder="Məs. 60" />
+                  </div>
+                </div>
+              </div>
+              {/* Question Text */}
+              <div className="space-y-2 relative">
+                <Label htmlFor="question_text">Sual *</Label>
+                <Textarea
+                  id="question_text"
+                  value={formData.question_text}
+                  onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
+                  placeholder="Sualı daxil edin..."
+                  rows={3}
+                  className="pr-12"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-8 text-primary hover:text-primary hover:bg-primary/10"
+                  onClick={handleAIAnalysis}
+                  disabled={isEnhancing || !formData.question_text}
+                  title="AI ilə Analiz Et"
+                >
+                  {isEnhancing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+
+              {/* Question Type */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Sual Tipi *</Label>
                   <Select
-                    value={formData.media_type || 'none'}
-                    onValueChange={(value) => setFormData({ ...formData, media_type: value === 'none' ? null : value as QuestionBankItem['media_type'] })}
+                    value={formData.question_type}
+                    onValueChange={(value) => setFormData({ ...formData, question_type: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Media tipi seçin" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Yoxdur</SelectItem>
-                      <SelectItem value="image">Şəkil (URL)</SelectItem>
-                      <SelectItem value="audio">Audio</SelectItem>
-                      <SelectItem value="video">Video</SelectItem>
+                      {QUESTION_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {formData.media_type && (
-                  <div className="space-y-2">
-                    <Label htmlFor="media_url">Media URL</Label>
-                    <Input
-                      id="media_url"
-                      value={formData.media_url}
-                      onChange={(e) => setFormData({ ...formData, media_url: e.target.value })}
-                      placeholder="https://..."
-                    />
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label>Çətinlik *</Label>
+                  <Select
+                    value={formData.difficulty}
+                    onValueChange={(value) => setFormData({ ...formData, difficulty: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {difficulties.map((diff) => (
+                        <SelectItem key={diff.value} value={diff.value}>
+                          {diff.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-          </div>
+
+              {/* Options (for multiple choice) */}
+              {showOptions && (
+                <div className="space-y-2">
+                  <Label>Variantlar</Label>
+                  <div className="space-y-2">
+                    {formData.options.map((option, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={option}
+                          onChange={(e) => updateOption(index, e.target.value)}
+                          placeholder={`Variant ${String.fromCharCode(65 + index)}`}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeOption(index)}
+                          disabled={formData.options.length <= 2}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addOption}
+                      className="mt-2"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Variant əlavə et
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Correct Answer */}
+              <div className="space-y-2">
+                <Label htmlFor="correct_answer">Düzgün Cavab *</Label>
+                <Input
+                  id="correct_answer"
+                  value={formData.correct_answer}
+                  onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
+                  placeholder={showOptions ? 'Məs: A, B, C, D' : 'Düzgün cavabı daxil edin'}
+                />
+              </div>
+
+              {/* Hint */}
+              <div className="space-y-2">
+                <Label htmlFor="hint">İpucu (Hint)</Label>
+                <Input
+                  id="hint"
+                  value={formData.hint}
+                  onChange={(e) => setFormData({ ...formData, hint: e.target.value })}
+                  placeholder="Tələbə üçün ipucu..."
+                />
+              </div>
+
+              {/* Conditional Media Based on Type */}
+              {formData.question_type === 'video' && (
+                <div className="space-y-4 border rounded p-4 bg-muted/20">
+                  <Label className="font-semibold">Video Ayarları</Label>
+                  <Input value={formData.video_url} onChange={(e) => setFormData({ ...formData, video_url: e.target.value })} placeholder="YouTube Video URL" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input type="number" value={formData.video_start_time} onChange={(e) => setFormData({ ...formData, video_start_time: e.target.value })} placeholder="Start Time (San)" />
+                    <Input type="number" value={formData.video_end_time} onChange={(e) => setFormData({ ...formData, video_end_time: e.target.value })} placeholder="End Time (San)" />
+                  </div>
+                </div>
+              )}
+
+              {formData.question_type === 'model_3d' && (
+                <div className="space-y-4 border rounded p-4 bg-muted/20">
+                  <Label className="font-semibold">3D Model Ayarları (.glb / .gltf)</Label>
+                  <Input value={formData.model_3d_url} onChange={(e) => setFormData({ ...formData, model_3d_url: e.target.value })} placeholder="3D Model URL yüklə və ya yapışdır" />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept=".glb,.gltf"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setIs3DUploading(true);
+                          try {
+                            const url = await upload3DModel(file);
+                            setFormData(prev => ({ ...prev, model_3d_url: url }));
+                          } catch (err) {
+                            console.error('Upload Error:', err);
+                          } finally {
+                            setIs3DUploading(false);
+                          }
+                        }
+                      }}
+                      disabled={is3DUploading}
+                    />
+                    {is3DUploading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="explanation">İzahat</Label>
+                <Textarea
+                  id="explanation"
+                  value={formData.explanation}
+                  onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
+                  placeholder="Cavabın izahatı..."
+                  rows={2}
+                />
+              </div>
+
+              {/* Category and Bloom Level */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Kateqoriya</Label>
+                  <Select
+                    value={formData.category || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, category: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Kateqoriya seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Kateqoriyasız</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      placeholder="Yeni kateqoriya"
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      disabled={createCategory.isPending}
+                      onClick={() => {
+                        if (newCategory.trim()) {
+                          // Create category in database
+                          createCategory.mutate(
+                            { name: newCategory.trim() },
+                            {
+                              onSuccess: () => {
+                                setFormData({ ...formData, category: newCategory.trim() });
+                                setNewCategory('');
+                              },
+                            }
+                          );
+                        }
+                      }}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Bloom Səviyyəsi</Label>
+                  <Select
+                    value={formData.bloom_level || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, bloom_level: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Səviyyə seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Təyin edilməyib</SelectItem>
+                      {bloomLevels.map((level) => (
+                        <SelectItem key={level.value} value={level.value}>
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="space-y-2">
+                <Label>Etiketlər</Label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {formData.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 rounded-md text-sm"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag)}
+                        className="hover:text-destructive"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="Yeni etiket"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                  />
+                  <Button type="button" variant="outline" onClick={addTag}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Media Section */}
+              <div className="space-y-4 border-t pt-4">
+                <Label className="text-base font-semibold">Media & Şəkil</Label>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Question Image */}
+                  <div className="space-y-2">
+                    <Label htmlFor="question_image">Sual Şəkli (Yüklə)</Label>
+                    {formData.question_image_url && (
+                      <div className="relative w-full aspect-video rounded-lg overflow-hidden border mb-2 bg-muted/30">
+                        <img src={formData.question_image_url} alt="Sual şəkli" className="w-full h-full object-contain" />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 h-6 w-6"
+                          onClick={() => setFormData(prev => ({ ...prev, question_image_url: '' }))}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="question_image"
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e: React.ChangeEvent<HTMLInputElement>) => {
+                          const file = (e.target as HTMLInputElement).files?.[0];
+                          if (file) {
+                            const url = await uploadImage(file);
+                            if (url) setFormData(prev => ({ ...prev, question_image_url: url }));
+                          }
+                        }}
+                        disabled={isUploading}
+                        className="cursor-pointer"
+                      />
+                      {isUploading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                    </div>
+                  </div>
+
+                  {/* Other Media */}
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label>Media Tipi</Label>
+                      <Select
+                        value={formData.media_type || 'none'}
+                        onValueChange={(value) => setFormData({ ...formData, media_type: value === 'none' ? null : value as QuestionBankItem['media_type'] })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Media tipi seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Yoxdur</SelectItem>
+                          <SelectItem value="image">Şəkil (URL)</SelectItem>
+                          <SelectItem value="audio">Audio</SelectItem>
+                          <SelectItem value="video">Video</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {formData.media_type && (
+                      <div className="space-y-2">
+                        <Label htmlFor="media_url">Media URL</Label>
+                        <Input
+                          id="media_url"
+                          value={formData.media_url}
+                          onChange={(e) => setFormData({ ...formData, media_url: e.target.value })}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter>

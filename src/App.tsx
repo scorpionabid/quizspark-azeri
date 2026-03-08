@@ -59,6 +59,8 @@ function AppRoutes() {
 
         {/* Routes with Layout */}
         <Route path="/" element={<MainLayout><Index /></MainLayout>} />
+        <Route path="/quizzes" element={<MainLayout><QuizzesPage /></MainLayout>} />
+        <Route path="/quiz/:id" element={<MainLayout><QuizPage /></MainLayout>} />
         <Route path="/leaderboard" element={<MainLayout><LeaderboardPage /></MainLayout>} />
         <Route path="/support" element={<MainLayout><SupportChatPage /></MainLayout>} />
         <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />

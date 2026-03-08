@@ -9,12 +9,12 @@ import {
   FileText,
   Settings2,
   Upload,
-  Save,
   Layers,
   Plus,
   X,
   Database,
-  Loader2
+  Loader2,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { EditableQuestionCard, GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
-import { agents } from "@/components/ai/AgentSelector";
+import { agents, AgentSelector } from "@/components/ai/AgentSelector";
 import { TemplateLibrary, PromptTemplate } from "@/components/ai/TemplateLibrary";
 import { DocumentUploader, UploadedDocument } from "@/components/ai/DocumentUploader";
 import { DocumentQuizGenerator } from "@/components/ai/DocumentQuizGenerator";
@@ -42,6 +42,7 @@ import { GenerationStats } from "@/components/ai/GenerationStats";
 import { QualityAnalysis } from "@/components/ai/QualityAnalysis";
 import { SUBJECT_OPTIONS, SUBJECT_LABELS, QUESTION_TYPES } from "@/lib/constants/subjects";
 import { SubscriptionGate } from "@/components/subscription/SubscriptionGate";
+import { ChatInterface } from "@/components/ai/ChatInterface";
 
 const HISTORY_KEY = "ai-assistant-history";
 
@@ -85,8 +86,12 @@ export default function AIAssistantPage() {
   const [batchTopics, setBatchTopics] = useState<BatchTopic[]>([]);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [isBulkAdding, setIsBulkAdding] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>(agents[0].id);
+  const [activeTab, setActiveTab] = useState("generate");
+  const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
 
-  const selectedAgent = agents[0];
+  const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? agents[0];
   const createQuestion = useCreateQuestionBank();
 
   // Load history from localStorage on mount
@@ -212,6 +217,8 @@ export default function AIAssistantPage() {
     setIsGenerating(true);
     setError(null);
     setGeneratedQuestions([]);
+    setFilterDifficulty("all");
+    setFilterType("all");
 
     try {
       const documentContext = getDocumentContext();
@@ -344,16 +351,20 @@ export default function AIAssistantPage() {
   };
 
   const useAllQuestions = () => {
-    toast.success("Suallar quizə əlavə edildi!");
-    navigate("/teacher/create");
+    if (generatedQuestions.length === 0) return;
+    navigate("/teacher/create", { state: { importedQuestions: generatedQuestions } });
   };
 
   const handleSelectTemplate = (template: PromptTemplate) => {
     setSelectedTemplate(template);
+    setActiveTab("generate");
+    toast.success(`"${template.name}" şablonu seçildi`);
   };
 
   const handleDocumentQuestionsGenerated = (questions: GeneratedQuestion[]) => {
     setGeneratedQuestions(questions);
+    setFilterDifficulty("all");
+    setFilterType("all");
   };
 
   const handleClearHistory = () => {
@@ -361,6 +372,12 @@ export default function AIAssistantPage() {
     localStorage.removeItem(HISTORY_KEY);
     toast.success("Tarixçə təmizləndi");
   };
+
+  const filteredQuestions = generatedQuestions.filter((q) => {
+    const typeMatch = filterType === "all" || (q.questionType ?? "multiple_choice") === filterType;
+    const bloomMatch = filterDifficulty === "all" || q.bloomLevel === filterDifficulty;
+    return typeMatch && bloomMatch;
+  });
 
   return (
     <SubscriptionGate
@@ -384,8 +401,8 @@ export default function AIAssistantPage() {
           </div>
 
           {/* Tabs */}
-          <Tabs defaultValue="generate" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
               <TabsTrigger value="generate" className="gap-2">
                 <Wand2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Sual Yarat</span>
@@ -403,12 +420,22 @@ export default function AIAssistantPage() {
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Şablonlar</span>
               </TabsTrigger>
+              <TabsTrigger value="chat" className="gap-2">
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">AI Söhbət</span>
+              </TabsTrigger>
             </TabsList>
 
             {/* ============ Generate Tab ============ */}
             <TabsContent value="generate" className="space-y-6">
               <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
                 <div className="grid gap-6">
+                  {/* Agent Selector */}
+                  <div>
+                    <Label className="mb-2 block text-sm font-medium">AI Agent</Label>
+                    <AgentSelector selectedAgentId={selectedAgentId} onSelectAgent={setSelectedAgentId} />
+                  </div>
+
                   {/* Template indicator */}
                   {selectedTemplate && (
                     <div className="flex items-center justify-between rounded-lg bg-primary/10 border border-primary/30 px-4 py-3">
@@ -667,65 +694,6 @@ export default function AIAssistantPage() {
                 </div>
               </div>
 
-              {/* Generated Questions */}
-              {generatedQuestions.length > 0 && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/20">
-                        <Lightbulb className="h-5 w-5 text-success" />
-                      </div>
-                      <h2 className="font-display text-xl font-bold text-foreground">
-                        Yaradılmış Suallar ({generatedQuestions.length})
-                      </h2>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleClearHistory}
-                      >
-                        <X className="mr-1 h-4 w-4" /> Təmizlə
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={handleBulkAddToBank}
-                        disabled={isBulkAdding}
-                      >
-                        {isBulkAdding ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Əlavə edilir...
-                          </>
-                        ) : (
-                          <>
-                            <Database className="mr-2 h-4 w-4" />
-                            Hamısını Banka Əlavə Et
-                          </>
-                        )}
-                      </Button>
-                      <Button variant="game" onClick={useAllQuestions}>
-                        Hamısını İstifadə Et
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <QualityAnalysis questions={generatedQuestions} />
-
-                  {generatedQuestions.map((question, index) => (
-                    <EditableQuestionCard
-                      key={question.id}
-                      question={question}
-                      index={index}
-                      onUpdate={handleUpdateQuestion}
-                      onDelete={handleDeleteQuestion}
-                      onAddToBank={handleAddToBank}
-                      onSimilarCreated={handleSimilarCreated}
-                    />
-                  ))}
-                </div>
-              )}
             </TabsContent>
 
             {/* ============ Documents Tab ============ */}
@@ -736,7 +704,7 @@ export default function AIAssistantPage() {
                     Sənəddən Sual Yaradın
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    PDF, DOCX və ya TXT sənədləri yükləyin. Birbaşa bu tabdan sual yarada bilərsiniz.
+                    PDF, DOCX və ya TXT sənədləri yükləyin. Mövcud sualları çıxarın və ya yeni suallar yaradın.
                   </p>
                 </div>
 
@@ -748,7 +716,6 @@ export default function AIAssistantPage() {
                   maxDocuments={3}
                 />
 
-                {/* Document Quiz Generator - inline */}
                 {uploadedDocuments.length > 0 && (
                   <div className="mt-6">
                     <DocumentQuizGenerator
@@ -760,48 +727,6 @@ export default function AIAssistantPage() {
                   </div>
                 )}
               </div>
-
-              {/* Show generated questions from document too */}
-              {generatedQuestions.length > 0 && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/20">
-                        <Lightbulb className="h-5 w-5 text-success" />
-                      </div>
-                      <h2 className="font-display text-xl font-bold text-foreground">
-                        Yaradılmış Suallar ({generatedQuestions.length})
-                      </h2>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <Button variant="outline" size="sm" onClick={handleClearHistory}>
-                        <X className="mr-1 h-4 w-4" /> Təmizlə
-                      </Button>
-                      <Button variant="outline" onClick={handleBulkAddToBank} disabled={isBulkAdding}>
-                        {isBulkAdding ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Əlavə edilir...</>
-                        ) : (
-                          <><Database className="mr-2 h-4 w-4" /> Hamısını Banka Əlavə Et</>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <QualityAnalysis questions={generatedQuestions} />
-
-                  {generatedQuestions.map((question, index) => (
-                    <EditableQuestionCard
-                      key={question.id}
-                      question={question}
-                      index={index}
-                      onUpdate={handleUpdateQuestion}
-                      onDelete={handleDeleteQuestion}
-                      onAddToBank={handleAddToBank}
-                      onSimilarCreated={handleSimilarCreated}
-                    />
-                  ))}
-                </div>
-              )}
             </TabsContent>
 
             {/* ============ Templates Tab ============ */}
@@ -810,7 +735,96 @@ export default function AIAssistantPage() {
                 <TemplateLibrary onSelectTemplate={handleSelectTemplate} />
               </div>
             </TabsContent>
+
+            {/* ============ Chat Tab ============ */}
+            <TabsContent value="chat" className="space-y-4">
+              <div className="rounded-2xl bg-gradient-card border border-border/50 p-4">
+                <Label className="mb-3 block text-sm font-medium">Agent Seçin</Label>
+                <AgentSelector selectedAgentId={selectedAgentId} onSelectAgent={setSelectedAgentId} />
+              </div>
+              <ChatInterface agent={selectedAgent} />
+            </TabsContent>
           </Tabs>
+
+          {/* ============ Shared Generated Questions Panel ============ */}
+          {generatedQuestions.length > 0 && (
+            <div className="mt-6 space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/20">
+                    <Lightbulb className="h-5 w-5 text-success" />
+                  </div>
+                  <h2 className="font-display text-xl font-bold text-foreground">
+                    Yaradılmış Suallar ({generatedQuestions.length})
+                  </h2>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" onClick={handleClearHistory}>
+                    <X className="mr-1 h-4 w-4" /> Təmizlə
+                  </Button>
+                  <Button variant="outline" onClick={handleBulkAddToBank} disabled={isBulkAdding}>
+                    {isBulkAdding ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Əlavə edilir...</>
+                    ) : (
+                      <><Database className="mr-2 h-4 w-4" /> Hamısını Banka Əlavə Et</>
+                    )}
+                  </Button>
+                  <Button variant="game" onClick={useAllQuestions}>
+                    Hamısını İstifadə Et
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Filter row - only shown when 6+ questions */}
+              {generatedQuestions.length > 5 && (
+                <div className="flex flex-wrap gap-3 rounded-lg border border-border/50 bg-muted/30 p-3">
+                  <span className="text-xs font-medium text-muted-foreground self-center">Filtr:</span>
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="h-8 w-40 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Bütün tiplər</SelectItem>
+                      {QUESTION_TYPES.map((qt) => (
+                        <SelectItem key={qt.value} value={qt.value}>{qt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterDifficulty} onValueChange={setFilterDifficulty}>
+                    <SelectTrigger className="h-8 w-44 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Bütün səviyyələr</SelectItem>
+                      {getBloomLevels().map((l) => (
+                        <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(filterType !== "all" || filterDifficulty !== "all") && (
+                    <span className="text-xs text-muted-foreground self-center">
+                      {filteredQuestions.length} / {generatedQuestions.length} sual
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <QualityAnalysis questions={generatedQuestions} />
+
+              {filteredQuestions.map((question, index) => (
+                <EditableQuestionCard
+                  key={question.id}
+                  question={question}
+                  index={index}
+                  onUpdate={handleUpdateQuestion}
+                  onDelete={handleDeleteQuestion}
+                  onAddToBank={handleAddToBank}
+                  onSimilarCreated={handleSimilarCreated}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </SubscriptionGate>

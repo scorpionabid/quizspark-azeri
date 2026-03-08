@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -68,6 +68,7 @@ import { QuestionPickerDialog } from '@/components/quiz/QuestionPickerDialog';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
 import { QUESTION_TYPES, QuestionType } from '@/types/question';
 import { quizMetadataSchema, QuizMetadataFormData } from '@/lib/validations/quiz';
+import { GeneratedQuestion } from '@/components/quiz/EditableQuestionCard';
 
 // ─── DraftQuestion Type ────────────────────────────────────────────────────────
 interface DraftQuestion {
@@ -339,6 +340,7 @@ function SortableQuestionCard({ question, index, onEdit, onRemove }: CardProps) 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function CreateQuizPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const createQuiz = useCreateQuiz();
   const createQuestions = useBulkCreateQuestions();
@@ -359,6 +361,31 @@ export default function CreateQuizPage() {
 
   // Questions state
   const [questions, setQuestions] = useState<DraftQuestion[]>([]);
+
+  // Import questions passed via navigate state from AI Assistant
+  useEffect(() => {
+    const state = location.state as { importedQuestions?: GeneratedQuestion[] } | null;
+    if (!state?.importedQuestions?.length) return;
+    const drafts: DraftQuestion[] = state.importedQuestions.map((q, i) => ({
+      localId: crypto.randomUUID(),
+      question_text: q.question,
+      question_type: (q.questionType ?? 'multiple_choice') as QuestionType,
+      options: q.options ?? null,
+      correct_answer: q.options[q.correctAnswer] ?? q.options[0] ?? '',
+      explanation: q.explanation ?? null,
+      order_index: i,
+      question_image_url: q.questionImageUrl ?? null,
+      title: null, weight: null, hint: null, time_limit: null,
+      per_option_explanations: null, video_url: null, video_start_time: null,
+      video_end_time: null, model_3d_url: null, model_3d_type: null,
+      sequence_items: null, fill_blank_template: null,
+      numerical_answer: null, numerical_tolerance: null,
+      media_type: null, media_url: null,
+    }));
+    setQuestions(drafts);
+    toast.success(`${drafts.length} sual əlavə edildi`);
+    window.history.replaceState({}, '');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);

@@ -261,32 +261,45 @@ Bu mövzu üzrə ${questionCount} ədəd test sualı yarat.`;
 
     const toolSchema = getToolSchemaForType(questionType);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        temperature,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'create_quiz_questions',
-              description: 'Create quiz questions with options and explanations',
-              parameters: toolSchema,
-            },
+    const requestBody = JSON.stringify({
+      model,
+      temperature,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'create_quiz_questions',
+            description: 'Create quiz questions with options and explanations',
+            parameters: toolSchema,
           },
-        ],
-        tool_choice: { type: 'function', function: { name: 'create_quiz_questions' } },
-      }),
+        },
+      ],
+      tool_choice: { type: 'function', function: { name: 'create_quiz_questions' } },
     });
+
+    // Try Lovable AI gateway first, fall back to Gemini API on auth failure
+    let response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+      body: requestBody,
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+      if (GEMINI_API_KEY) {
+        console.log('Lovable gateway auth failed, falling back to Gemini API directly');
+        const geminiModel = model.replace('google/', '');
+        response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...JSON.parse(requestBody), model: geminiModel }),
+        });
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
