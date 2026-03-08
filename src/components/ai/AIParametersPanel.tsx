@@ -59,7 +59,7 @@ export function AIParametersPanel({ parameters, onChange }: AIParametersPanelPro
         const { data, error } = await supabase
           .from("ai_models")
           .select("id, model_id, display_name, description")
-          .order("created_at");
+          .order("display_name", { ascending: true });
 
         if (!error && data && data.length > 0) {
           setModels(data as AIModel[]);
