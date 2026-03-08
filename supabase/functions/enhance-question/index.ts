@@ -1,4 +1,10 @@
+// @ts-expect-error Deno import
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// @ts-expect-error Supabase Deno import
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// IDE tipləmə xətalarının qarşısını almaq üçün Deno obyektini elan edirik
+declare const Deno: { env: { get(key: string): string | undefined } };
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,18 +12,26 @@ const corsHeaders = {
 };
 
 type EnhanceAction = "simplify" | "harder" | "improve_options" | "expand_explanation" | "similar" | "quality_analysis"
-  | "suggest_video_search" | "generate_rubric" | "generate_per_option_explanations" | "generate_hint" | "suggest_3d_model";
+  | "suggest_video_search" | "generate_rubric" | "generate_per_option_explanations" | "generate_hint" | "suggest_3d_model"
+  | "improve_text" | "generate_explanation" | "generate_distractors" | "generate_tags" | "suggest_bloom_level"
+  | "analyze_full" | "parse_pasted_test" | "check_correctness";
 
 interface Question {
-  id: string;
-  question: string;
+  id?: string;
+  question?: string;
+  questionText?: string;
+  question_text?: string;
   options: string[];
-  correctAnswer: number;
+  correctAnswer?: number;
+  correct_answer?: string | number;
   explanation: string;
   bloomLevel?: string;
+  category?: string;
+  difficulty?: string;
+  tags?: string[];
 }
 
-const actionPrompts: Record<EnhanceAction, string> = {
+const actionPrompts: Record<string, string> = {
   simplify: `Sualı sadələşdir. Daha asan və aydın formaya çevir.
    - Daha sadə sözlər istifadə et
    - Əsas anlayışa fokuslan
@@ -40,57 +54,56 @@ const actionPrompts: Record<EnhanceAction, string> = {
    - Əlaqəli konseptləri qeyd et`,
 
   similar: `Eyni mövzu və çətinlik səviyyəsində YENİ bir sual yarat.
-    - Oxşar format saxla
-    - Fərqli məzmun istifadə et
-    - Eyni pedaqoji yanaşmanı saxla`,
+   - Oxşar format saxla
+   - Fərqli məzmun istifadə et
+   - Eyni pedaqoji yanaşmanı saxla`,
 
-  quality_analysis: `Bu sualın keyfiyyətini analiz et və aşağıdakı meyarlara görə qiymətləndir:
-    - Aydınlıq (1-10): Sual nə dərəcədə aydın yazılıb?
-    - Çətinlik uyğunluğu (1-10): Çətinlik səviyyəsinə uyğundurmu?
-    - Bloom taksonomiyası (1-10): Bloom səviyyəsinə uyğundurmu?
-    - Distraktor keyfiyyəti (1-10): Yanlış variantlar inandırıcıdırmı?
-    - İzah keyfiyyəti (1-10): İzah kifayət qədər ətraflıdırmı?
-    - Ümumi qiymət (1-10)
-    JSON formatında cavab ver: {"clarity":X,"difficulty_match":X,"bloom_match":X,"distractor_quality":X,"explanation_quality":X,"overall":X,"suggestions":["təklif1","təklif2"]}`,
+  quality_analysis: `Bu sualın keyfiyyətini analiz et və qiymətləndir.`,
 
   suggest_video_search: `Mənə bu sual üçün uyğun ola biləcək YouTube video axtarış sorğuları formalaşdır.
     - Sualın əsas mövzusunu analiz et.
     - İngilis və Azərbaycan dilində təsirli axtarış sözləri (keywords) təklif et.`,
 
-  generate_rubric: `Bu sual üçün (özəlliklə açıq tipli və esse sualları üçün) ətraflı xal paylanması (rubric) hazırla.
-    - Tam bal almaq üçün tələblər
-    - Yarım bal üçün meyarlar
-    - Sıfır balın şərtləri`,
+  generate_rubric: `Bu sual üçün ətraflı xal paylanması (rubric) hazırla.`,
 
-  generate_per_option_explanations: `Hər bir yanlış variant üçün spesifik izahlar yaz.
-    - Tələbə bu variantı niyə seçə bilərdi (hansı konsepti səhv başa düşüb)?
-    - Doğru niyə deyil?
-    - Düzgün anlayış necə olmalıdır?`,
+  generate_per_option_explanations: `Hər bir yanlış variant üçün spesifik izahlar yaz.`,
 
-  generate_hint: `Sual üçün kiçik ipucu (hint) yarat.
-    - Cavabı birbaşa vermə
-    - Tələbəni doğru düşüncə tərzinə yönləndir
-    - Çox qısa və aydın olsun`,
+  generate_hint: `Sual üçün kiçik ipucu (hint) yarat.`,
 
-  suggest_3d_model: `Bu mövzunu 3D modellə necə izah edə bilərəm?
-    - Hansı növ 3D model daha faydalı olar?
-    - Sketchfab kimi platformalarda nələri axtarmaq lazımdır?
-    - Modelin hansı hissələrinə diqqət yetirməyi tələbələrə tapşırmalıyıq?`,
+  suggest_3d_model: `Bu mövzunu 3D modellə necə izah edə bilərəm?`,
+
+  improve_text: `Sualın mətnini qrammatik və üslub baxımından təkmilləşdir, daha professional et.`,
+
+  generate_explanation: `Sual üçün dərindən pedaqoji izah hazırlat. Niyə doğru cavab doğrudur, digərləri niyə yanlışdır.`,
+
+  generate_distractors: `Mövcud sual üçün daha çətin və inandırıcı yanlış variantlar (distraktorlar) yarat.`,
+
+  generate_tags: `Sualın məzmununa uyğun 3-5 ədəd açar söz (tag) təklif et.`,
+
+  suggest_bloom_level: `Sualın məzmununu analiz edərək Bloom taksonomiyası üzrə səviyyəsini müəyyən et.`,
+
+  analyze_full: `Sualı tam analiz et: Kateqoriya, Çətinlik (asan, orta, çətin), Bloom səviyyəsi, Çəki (weight 1-5), Zaman limiti (saniyə) və Açar sözlər.`,
+
+  parse_pasted_test: `Aşağıdakı mətni analiz et və ondan test sualı detallarını (sual mətni, variantlar, düzgün cavab, izah və s.) çıxar.`,
+
+  check_correctness: `Sualın elmi cəhətdən doğruluğunu və məntiqi dürüstlüyünü yoxla.`,
 };
 
-async function fetchAI(lovableKey: string, geminiKey: string | undefined, body: Record<string, unknown>): Promise<Response> {
+async function fetchAI(lovableKey: string, geminiKey: string | undefined, body: Record<string, unknown>, targetModelId: string): Promise<Response> {
+  const model = body.model || targetModelId;
+
   let response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${lovableKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, model }),
   });
 
-  if ((response.status === 401 || response.status === 403) && geminiKey) {
-    console.log('Lovable gateway auth failed, falling back to Gemini API directly');
+  if ((response.status === 401 || response.status === 403 || response.status === 404) && geminiKey) {
+    console.log('Lovable gateway failed or unauthorized, falling back to Gemini API directly');
     response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${geminiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...body, model: String(body.model).replace('google/', '') }),
+      body: JSON.stringify({ ...body, model: String(model).replace('google/', '') }),
     });
   }
 
@@ -103,10 +116,21 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { question, action } = await req.json() as { question: Question; action: EnhanceAction };
+    const body = await req.json();
+    const action = body.action as EnhanceAction;
 
-    if (!question || !action) {
-      throw new Error('Sual və action tələb olunur');
+    const questionText = body.questionText || body.question?.question || body.question?.question_text || "";
+    const questionOptions = body.options || body.question?.options || [];
+
+    const question: Question = body.question || {
+      question: questionText,
+      options: questionOptions,
+      correctAnswer: body.question?.correctAnswer || 0,
+      explanation: body.question?.explanation || "",
+    };
+
+    if (!action) {
+      throw new Error('Action tələb olunur');
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -115,22 +139,152 @@ serve(async (req: Request) => {
     }
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
-    // Handle quality analysis separately
+    // Create Supabase client to fetch AI config
+    let targetModelId = 'google/gemini-2.5-flash'; // Default fallback
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    if (supabaseUrl && supabaseServiceKey) {
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      try {
+        const { data: configData, error: configError } = await supabase
+          .from('ai_config')
+          .select('default_model_id')
+          .single();
+
+        if (!configError && configData?.default_model_id) {
+          const { data: modelData, error: modelError } = await supabase
+            .from('ai_models')
+            .select('model_id')
+            .eq('id', configData.default_model_id)
+            .single();
+
+          if (!modelError && modelData?.model_id) {
+            targetModelId = modelData.model_id;
+            console.log(`Dynamic model loaded: ${targetModelId}`);
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching model config:", e);
+      }
+    }
+
+    console.log(`Processing action: ${action} with model: ${targetModelId} for text: ${questionText?.substring(0, 50)}...`);
+
+    // Handle parse_pasted_test separately with its own tool
+    if (action === 'parse_pasted_test') {
+      const parsePrompt = `Aşağıdakı qarışıq mətndən bir test sualı detallarını çıxar:
+      
+      Mətn:
+      ${questionText}
+      
+      Sualın mətnini, variantlarını (əgər varsa), düzgün cavabı, izahı (əgər varsa) və mövzusunu təyin et.`;
+
+      const parseResponse = await fetchAI(LOVABLE_API_KEY, GEMINI_API_KEY, {
+        messages: [
+          { role: 'system', content: 'Sən test suallarını mətndən çıxaran və strukturlaşdıran bir botsan. Azərbaycan dilində cavab ver.' },
+          { role: 'user', content: parsePrompt }
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'return_parsed_question',
+              description: 'Return the parsed question structure',
+              parameters: {
+                type: 'object',
+                properties: {
+                  question_text: { type: 'string' },
+                  question_type: { type: 'string', enum: ['multiple_choice', 'true_false', 'open', 'fill_in_the_blank'] },
+                  options: { type: 'array', items: { type: 'string' } },
+                  correct_answer: { type: 'string' },
+                  explanation: { type: 'string' },
+                  category: { type: 'string' },
+                  difficulty: { type: 'string', enum: ['asan', 'orta', 'çətin'] },
+                  bloom_level: { type: 'string' },
+                  tags: { type: 'array', items: { type: 'string' } }
+                },
+                required: ['question_text', 'question_type', 'options', 'correct_answer']
+              }
+            }
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'return_parsed_question' } }
+      }, targetModelId);
+
+      if (!parseResponse.ok) {
+        const err = await parseResponse.text();
+        throw new Error(`AI error (${parseResponse.status}): ${err.substring(0, 100)}`);
+      }
+      const data = await parseResponse.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall) {
+        return new Response(JSON.stringify(JSON.parse(toolCall.function.arguments)), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      throw new Error('Parse format error');
+    }
+
+    // Handle analyze_full
+    if (action === 'analyze_full') {
+      const analyzePrompt = `Bu sualı analiz et və uyğun metadata təklif et:
+      
+      Sual: ${questionText}
+      Variantlar: ${JSON.stringify(questionOptions)}
+      
+      Düzgün kateqoriya, çətinlik, Bloom səviyyəsi, çəki (1-5), zaman limiti və teqləri müəyyən et.`;
+
+      const analyzeResponse = await fetchAI(LOVABLE_API_KEY, GEMINI_API_KEY, {
+        messages: [
+          { role: 'system', content: 'Sən təhsil mütəxəssisisən. Sualı analiz et və JSON formatında metadata qaytar.' },
+          { role: 'user', content: analyzePrompt }
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'return_analysis',
+              parameters: {
+                type: 'object',
+                properties: {
+                  category: { type: 'string' },
+                  difficulty: { type: 'string', enum: ['asan', 'orta', 'çətin'] },
+                  bloom_level: { type: 'string' },
+                  weight: { type: 'number' },
+                  time_limit: { type: 'number' },
+                  tags: { type: 'array', items: { type: 'string' } }
+                }
+              }
+            }
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'return_analysis' } }
+      }, targetModelId);
+
+      if (!analyzeResponse.ok) {
+        const err = await analyzeResponse.text();
+        throw new Error(`AI error (${analyzeResponse.status}): ${err.substring(0, 100)}`);
+      }
+      const data = await analyzeResponse.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall) {
+        return new Response(JSON.stringify(JSON.parse(toolCall.function.arguments)), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      throw new Error('Analysis format error');
+    }
+
+    // Handle quality analysis
     if (action === 'quality_analysis') {
       const analysisPrompt = `Aşağıdakı test suallarını keyfiyyət baxımından analiz et.
-
-Suallar:
-${question.question}
+Suallar: ${questionText}
 
 Aşağıdakı meyarlara görə 0-100 arası bal ver:
-1. clarity (aydınlıq) - sualın aydın və başa düşülən olması
-2. distractorStrength (distraktor gücü) - yanlış variantların inandırıcılığı
-3. bloomAlignment (Bloom uyğunluğu) - müxtəlif düşüncə səviyyələrini əhatə etməsi
+1. clarity (aydınlıq)
+2. distractorStrength (distraktor gücü)
+3. bloomAlignment (Bloom uyğunluğu)
 
 Həmçinin konkret təkmilləşdirmə təklifləri ver.`;
 
       const analysisResponse = await fetchAI(LOVABLE_API_KEY, GEMINI_API_KEY, {
-        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: 'Sən test suallarının keyfiyyətini analiz edən ekspertinsən. Azərbaycan dilində cavab ver.' },
           { role: 'user', content: analysisPrompt }
@@ -140,69 +294,48 @@ Həmçinin konkret təkmilləşdirmə təklifləri ver.`;
             type: 'function',
             function: {
               name: 'return_quality_analysis',
-              description: 'Return the quality analysis results',
               parameters: {
                 type: 'object',
                 properties: {
-                  clarity: { type: 'number', description: 'Clarity score 0-100' },
-                  distractorStrength: { type: 'number', description: 'Distractor strength score 0-100' },
-                  bloomAlignment: { type: 'number', description: 'Bloom alignment score 0-100' },
-                  overall: { type: 'number', description: 'Overall quality score 0-100' },
-                  suggestions: { type: 'array', items: { type: 'string' }, description: 'List of improvement suggestions in Azerbaijani' }
+                  clarity: { type: 'number' },
+                  distractorStrength: { type: 'number' },
+                  bloomAlignment: { type: 'number' },
+                  overall: { type: 'number' },
+                  suggestions: { type: 'array', items: { type: 'string' } }
                 },
-                required: ['clarity', 'distractorStrength', 'bloomAlignment', 'overall', 'suggestions'],
-                additionalProperties: false
+                required: ['clarity', 'distractorStrength', 'bloomAlignment', 'overall', 'suggestions']
               }
             }
           }
         ],
         tool_choice: { type: 'function', function: { name: 'return_quality_analysis' } }
-      });
+      }, targetModelId);
 
       if (!analysisResponse.ok) {
-        if (analysisResponse.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'Sorğu limiti aşıldı.' }),
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        if (analysisResponse.status === 402) {
-          return new Response(
-            JSON.stringify({ error: 'Kredit balansı bitib.' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        throw new Error('AI gateway error for quality analysis');
+        const err = await analysisResponse.text();
+        throw new Error(`AI error (${analysisResponse.status}): ${err.substring(0, 100)}`);
       }
-
       const analysisData = await analysisResponse.json();
       const toolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
-
-      if (toolCall && toolCall.function.name === 'return_quality_analysis') {
+      if (toolCall) {
         const analysis = JSON.parse(toolCall.function.arguments);
-        return new Response(
-          JSON.stringify({ analysis }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ analysis }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-
       throw new Error('Quality analysis response format error');
     }
 
-    // Handle string/suggestion oriented actions
-    const suggestionActions = ['suggest_video_search', 'generate_rubric', 'generate_per_option_explanations', 'generate_hint', 'suggest_3d_model'];
+    // Suggestion-oriented actions
+    const suggestionActions = ['suggest_video_search', 'generate_rubric', 'generate_per_option_explanations', 'generate_hint', 'suggest_3d_model', 'generate_tags', 'suggest_bloom_level', 'check_correctness'];
     if (suggestionActions.includes(action)) {
-      const suggestionPrompt = `Sualın mətni: ${question.question}
-Variantlar: ${JSON.stringify(question.options)}
+      const suggestionPrompt = `Sualın mətni: ${questionText}
+Variantlar: ${JSON.stringify(questionOptions)}
 İzah: ${question.explanation}
 
-Tapşırıq:
-${actionPrompts[action]}`;
+Tapşırıq: ${actionPrompts[action]}`;
 
       const suggestionResponse = await fetchAI(LOVABLE_API_KEY, GEMINI_API_KEY, {
-        model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: 'Sən təhsil mütəxəssisisən və test suallarının keyfiyyətini artırmaq üçün təkliflər verirsən. Azərbaycan dilində cavab ver.' },
+          { role: 'system', content: 'Sən təhsil mütəxəssisisən. Azərbaycan dilində cavab ver.' },
           { role: 'user', content: suggestionPrompt }
         ],
         tools: [
@@ -210,50 +343,37 @@ ${actionPrompts[action]}`;
             type: 'function',
             function: {
               name: 'return_suggestion',
-              description: 'Return the generated suggestion or text',
               parameters: {
                 type: 'object',
                 properties: {
-                  content: { type: 'string', description: 'The detailed response fulfilling the task' }
+                  content: { type: 'string' }
                 },
-                required: ['content'],
-                additionalProperties: false
+                required: ['content']
               }
             }
           }
         ],
         tool_choice: { type: 'function', function: { name: 'return_suggestion' } }
-      });
+      }, targetModelId);
 
       if (!suggestionResponse.ok) {
-        if (suggestionResponse.status === 429) {
-          return new Response(JSON.stringify({ error: 'Sorğu limiti aşıldı.' }), { status: 429, headers: corsHeaders });
-        }
-        if (suggestionResponse.status === 402) {
-          return new Response(JSON.stringify({ error: 'Kredit balansı bitib.' }), { status: 402, headers: corsHeaders });
-        }
-        throw new Error('AI gateway error for suggestion');
+        const err = await suggestionResponse.text();
+        throw new Error(`AI error (${suggestionResponse.status}): ${err.substring(0, 100)}`);
       }
-
       const suggestionData = await suggestionResponse.json();
       const toolCall = suggestionData.choices?.[0]?.message?.tool_calls?.[0];
-
-      if (toolCall && toolCall.function.name === 'return_suggestion') {
+      if (toolCall) {
         const suggestionArgs = JSON.parse(toolCall.function.arguments);
-        return new Response(
-          JSON.stringify({ suggestion: suggestionArgs.content }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ suggestion: suggestionArgs.content }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       throw new Error('Suggestion response format error');
     }
 
-    console.log(`Enhancing question with action: ${action}`);
-
+    // Default: Enhance/Improve question
     const systemPrompt = `Sən Azərbaycan dilində test suallarını təkmilləşdirən ekspert müəllimsən.
  Verilən sualı təkmilləşdir və yalnız JSON formatında cavab ver.
 
- ${actionPrompts[action]}
+ ${actionPrompts[action] || "Sualı və variantları təkmilləşdir."}
 
  VACIB QAYDALAR:
  1. Cavab Azərbaycan dilində olmalıdır
@@ -263,15 +383,14 @@ ${actionPrompts[action]}`;
  5. Bloom səviyyəsini təyin et: remembering, understanding, applying, analyzing, evaluating, creating`;
 
     const userPrompt = `Mövcud sual:
- Sual: ${question.question}
- Variantlar: ${JSON.stringify(question.options)}
- Düzgün cavab indeksi: ${question.correctAnswer}
+ Sual: ${questionText}
+ Variantlar: ${JSON.stringify(questionOptions)}
+ Düzgün cavab: ${question.correctAnswer || question.correct_answer}
  İzah: ${question.explanation}
 
  Bu sualı "${action}" əməliyyatı ilə təkmilləşdir.`;
 
     const response = await fetchAI(LOVABLE_API_KEY, GEMINI_API_KEY, {
-      model: 'google/gemini-2.5-flash',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -281,71 +400,59 @@ ${actionPrompts[action]}`;
           type: 'function',
           function: {
             name: 'return_enhanced_question',
-            description: 'Return the enhanced question',
             parameters: {
               type: 'object',
               properties: {
-                question: { type: 'string', description: 'The enhanced question text' },
-                options: { type: 'array', items: { type: 'string' }, description: 'Array of 4 options' },
-                correctAnswer: { type: 'number', description: 'Index of correct answer (0-3)' },
-                explanation: { type: 'string', description: 'Explanation for the correct answer' },
+                question: { type: 'string' },
+                options: { type: 'array', items: { type: 'string' } },
+                correctAnswer: { type: 'number' },
+                explanation: { type: 'string' },
                 bloomLevel: {
                   type: 'string',
-                  enum: ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'],
-                  description: 'Bloom taxonomy level'
+                  enum: ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating']
                 }
               },
-              required: ['question', 'options', 'correctAnswer', 'explanation', 'bloomLevel'],
-              additionalProperties: false
+              required: ['question', 'options', 'correctAnswer', 'explanation', 'bloomLevel']
             }
           }
         }
       ],
       tool_choice: { type: 'function', function: { name: 'return_enhanced_question' } }
-    });
+    }, targetModelId);
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI gateway error:', response.status, errorText);
-
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Sorğu limiti aşıldı. Zəhmət olmasa bir az gözləyin.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Kredit balansı bitib.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`AI error (${response.status}): ${errorText.substring(0, 100)}`);
     }
 
     const data = await response.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-
-    if (!toolCall || toolCall.function.name !== 'return_enhanced_question') {
-      console.error('Unexpected response format:', data);
-      throw new Error('AI yanıtı gözlənilən formatda deyil');
+    if (toolCall) {
+      const enhancedQuestion = JSON.parse(toolCall.function.arguments);
+      return new Response(JSON.stringify({ enhancedQuestion }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-
-    const enhancedQuestion = JSON.parse(toolCall.function.arguments);
-
-    console.log('Enhanced question:', enhancedQuestion);
-
-    return new Response(
-      JSON.stringify({ enhancedQuestion }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    throw new Error('AI yanıtı gözlənilən formatda deyil');
 
   } catch (error) {
     console.error('Error in enhance-question function:', error);
+
+    // Check if it's a rate limit error to provide a more user-friendly message
+    const errorMsg = error instanceof Error ? error.message : 'Naməlum xəta baş verdi';
+    let status = 500;
+    let friendlyMsg = errorMsg;
+
+    if (errorMsg.includes('429')) {
+      status = 429;
+      friendlyMsg = 'Sorğu limiti aşıldı. Zəhmət olmasa bir az gözləyin (AI Rate Limit).';
+    } else if (errorMsg.includes('402')) {
+      status = 402;
+      friendlyMsg = 'Kredit balansı bitib.';
+    }
+
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Naməlum xəta baş verdi' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: friendlyMsg }),
+      { status: status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

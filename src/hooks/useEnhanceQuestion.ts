@@ -10,7 +10,18 @@ export type EnhanceAction =
     | 'suggest_bloom_level'
     | 'analyze_full'
     | 'parse_pasted_test'
-    | 'check_correctness';
+    | 'check_correctness'
+    | 'simplify'
+    | 'harder'
+    | 'improve_options'
+    | 'expand_explanation'
+    | 'similar'
+    | 'quality_analysis'
+    | 'suggest_video_search'
+    | 'generate_rubric'
+    | 'generate_per_option_explanations'
+    | 'generate_hint'
+    | 'suggest_3d_model';
 
 export function useEnhanceQuestion() {
     const [isEnhancing, setIsEnhancing] = useState(false);
