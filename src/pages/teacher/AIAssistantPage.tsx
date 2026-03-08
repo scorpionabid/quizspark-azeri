@@ -5,8 +5,12 @@ import {
   Upload,
   FileText,
   MessageSquare,
+  History,
+  Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
@@ -24,6 +28,19 @@ import { AIGeneratedResults } from "@/components/teacher/ai-assistant/AIGenerate
 import { AIDocumentSection } from "@/components/teacher/ai-assistant/AIDocumentSection";
 
 const HISTORY_KEY = "ai-assistant-history";
+const HISTORY_SESSIONS_KEY = "ai-assistant-sessions";
+const RECENT_TOPICS_KEY = "ai-assistant-recent-topics";
+const MAX_RECENT_TOPICS = 6;
+const MAX_SESSIONS = 20;
+
+interface GenerationSession {
+  id: string;
+  topic: string;
+  subject: string;
+  questionCount: number;
+  createdAt: string;
+  questions: GeneratedQuestion[];
+}
 
 const suggestedTopics = [
   "Cəbr: Xətti tənliklər",
@@ -69,6 +86,8 @@ export default function AIAssistantPage() {
   const [activeTab, setActiveTab] = useState("generate");
   const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
+  const [recentTopics, setRecentTopics] = useState<string[]>([]);
+  const [historySessions, setHistorySessions] = useState<GenerationSession[]>([]);
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? agents[0];
   const createQuestion = useCreateQuestionBank();
@@ -83,6 +102,10 @@ export default function AIAssistantPage() {
           setGeneratedQuestions(parsed);
         }
       }
+      const savedTopics = localStorage.getItem(RECENT_TOPICS_KEY);
+      if (savedTopics) setRecentTopics(JSON.parse(savedTopics));
+      const savedSessions = localStorage.getItem(HISTORY_SESSIONS_KEY);
+      if (savedSessions) setHistorySessions(JSON.parse(savedSessions));
     } catch { /* ignore */ }
   }, []);
 
@@ -243,6 +266,28 @@ export default function AIAssistantPage() {
       if (data.questions && data.questions.length > 0) {
         setGeneratedQuestions(data.questions);
         toast.success(`${data.questions.length} sual uğurla yaradıldı!`);
+
+        // Save recent topic
+        setRecentTopics(prev => {
+          const updated = [topic, ...prev.filter(t => t !== topic)].slice(0, MAX_RECENT_TOPICS);
+          localStorage.setItem(RECENT_TOPICS_KEY, JSON.stringify(updated));
+          return updated;
+        });
+
+        // Save session to history
+        const newSession: GenerationSession = {
+          id: `session-${Date.now()}`,
+          topic,
+          subject: effectiveSubject,
+          questionCount: data.questions.length,
+          createdAt: new Date().toISOString(),
+          questions: data.questions,
+        };
+        setHistorySessions(prev => {
+          const updated = [newSession, ...prev].slice(0, MAX_SESSIONS);
+          localStorage.setItem(HISTORY_SESSIONS_KEY, JSON.stringify(updated));
+          return updated;
+        });
       } else {
         throw new Error("Sual yaradıla bilmədi");
       }
@@ -387,7 +432,7 @@ export default function AIAssistantPage() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+            <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
               <TabsTrigger value="generate" className="gap-2">
                 <Wand2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Sual Yarat</span>
@@ -408,6 +453,15 @@ export default function AIAssistantPage() {
               <TabsTrigger value="chat" className="gap-2">
                 <MessageSquare className="h-4 w-4" />
                 <span className="hidden sm:inline">AI Söhbət</span>
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-2">
+                <History className="h-4 w-4" />
+                <span className="hidden sm:inline">Tarixçə</span>
+                {historySessions.length > 0 && (
+                  <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs">
+                    {historySessions.length}
+                  </span>
+                )}
               </TabsTrigger>
             </TabsList>
 
@@ -434,7 +488,7 @@ export default function AIAssistantPage() {
                 batchProgress={batchProgress}
                 error={error}
                 selectedAgent={selectedAgent}
-                suggestedTopics={suggestedTopics}
+                suggestedTopics={[...recentTopics, ...suggestedTopics.filter(t => !recentTopics.includes(t))]}
               />
             </TabsContent>
 
@@ -457,6 +511,70 @@ export default function AIAssistantPage() {
 
             <TabsContent value="chat" className="space-y-4">
               <ChatInterface agent={selectedAgent} />
+            </TabsContent>
+
+            <TabsContent value="history">
+              <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">
+                      <History className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-lg font-bold text-foreground">Tarixçə</h3>
+                      <p className="text-xs text-muted-foreground">Son {MAX_SESSIONS} generasiya sessiyası</p>
+                    </div>
+                  </div>
+                  {historySessions.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setHistorySessions([]);
+                        localStorage.removeItem(HISTORY_SESSIONS_KEY);
+                        toast.success("Tarixçə silindi");
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> Hamısını Sil
+                    </Button>
+                  )}
+                </div>
+
+                {historySessions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Sparkles className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                    <p className="text-muted-foreground">Hələ heç bir generasiya yoxdur.</p>
+                    <p className="text-sm text-muted-foreground/70">Sual yaratdıqdan sonra burada görünəcək.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {historySessions.map(session => (
+                      <div key={session.id} className="flex items-center justify-between rounded-xl border border-border/50 bg-background/50 p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                            <span className="text-sm font-bold text-primary">{session.questionCount}</span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-foreground">{session.topic}</p>
+                            <p className="text-xs text-muted-foreground">{session.subject} · {new Date(session.createdAt).toLocaleDateString('az-AZ', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setGeneratedQuestions(session.questions);
+                            setActiveTab("generate");
+                            toast.success(`"${session.topic}" sessiyası yükləndi`);
+                          }}
+                        >
+                          Yüklə
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Sparkles } from "lucide-react";
+import { Send, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,22 +14,33 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ agent }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const storageKey = `chat_messages_${agent.id}`;
+
+  const getInitialMessages = (): Message[] => {
+    try {
+      const saved = sessionStorage.getItem(storageKey);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return [{
+      id: "welcome",
+      role: "assistant",
+      content: `Salam! Mən ${agent.name}. Sizə necə kömək edə bilərəm?`,
+      timestamp: new Date()
+    }];
+  };
+
+  const [messages, setMessages] = useState<Message[]>(getInitialMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+
+  // Save to sessionStorage on change
   useEffect(() => {
-    // Add initial greeting when agent changes
-    setMessages([
-      {
-        id: "welcome",
-        role: "assistant",
-        content: `Salam! Mən ${agent.name}. Sizə necə kömək edə bilərəm?`,
-        timestamp: new Date()
-      }
-    ]);
-  }, [agent.id, agent.name]);
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(messages));
+    } catch { /* ignore */ }
+  }, [messages, storageKey]);
 
   useEffect(() => {
     // Scroll to bottom on new messages
@@ -37,6 +48,18 @@ export function ChatInterface({ agent }: ChatInterfaceProps) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleClearChat = () => {
+    const welcome: Message = {
+      id: "welcome",
+      role: "assistant",
+      content: `Salam! Mən ${agent.name}. Sizə necə kömək edə bilərəm?`,
+      timestamp: new Date()
+    };
+    setMessages([welcome]);
+    sessionStorage.removeItem(storageKey);
+    toast.success("Söhbət təmizləndi");
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -153,14 +176,19 @@ export function ChatInterface({ agent }: ChatInterfaceProps) {
   return (
     <div className="flex h-[600px] flex-col rounded-2xl border border-border/50 bg-gradient-card">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-border/50 p-4">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${agent.color}`}>
-          <agent.icon className="h-5 w-5 text-white" />
+      <div className="flex items-center justify-between gap-3 border-b border-border/50 p-4">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${agent.color}`}>
+            <agent.icon className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-display font-semibold text-foreground">{agent.name}</h3>
+            <p className="text-xs text-muted-foreground">{agent.description}</p>
+          </div>
         </div>
-        <div>
-          <h3 className="font-display font-semibold text-foreground">{agent.name}</h3>
-          <p className="text-xs text-muted-foreground">{agent.description}</p>
-        </div>
+        <Button variant="ghost" size="sm" onClick={handleClearChat} className="text-xs text-muted-foreground hover:text-destructive">
+          <Trash2 className="h-4 w-4 mr-1" /> Söhbəti Sil
+        </Button>
       </div>
 
       {/* Messages */}
