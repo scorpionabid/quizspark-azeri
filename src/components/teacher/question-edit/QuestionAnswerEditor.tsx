@@ -4,6 +4,7 @@ import { MultipleChoiceEditor } from './MultipleChoiceEditor';
 import { MatchingEditor } from './MatchingEditor';
 import { OrderingEditor } from './OrderingEditor';
 import { NumericalEditor } from './NumericalEditor';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface QuestionAnswerEditorProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,11 +25,39 @@ export function QuestionAnswerEditor({ formData, setFormData }: QuestionAnswerEd
     return (
         <div className="space-y-4">
             {/* Options for MC and TF */}
-            {showOptions && (
+            {(question_type === 'multiple_choice' || question_type === 'video') && (
                 <MultipleChoiceEditor
                     options={formData.options}
                     onChange={(options) => setFormData({ ...formData, options })}
+                    correctAnswer={formData.correct_answer}
+                    onCorrectAnswerChange={(answer) => setFormData({ ...formData, correct_answer: answer })}
                 />
+            )}
+
+            {/* True/False Toggle UX */}
+            {question_type === 'true_false' && (
+                <div className="space-y-3">
+                    <Label className="text-base px-1">Düzgün Cavab *</Label>
+                    <RadioGroup
+                        value={formData.correct_answer}
+                        onValueChange={(answer) => setFormData({ ...formData, correct_answer: answer })}
+                        className="flex gap-4 px-1"
+                    >
+                        <div className="flex items-center gap-2 bg-green-50/50 dark:bg-green-950/20 px-4 py-3 rounded-lg border border-green-100 dark:border-green-900/30 cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors">
+                            <RadioGroupItem value="A" id="tf-true" className="text-green-600" />
+                            <Label htmlFor="tf-true" className="cursor-pointer font-semibold text-green-600">
+                                Doğru
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2 bg-red-50/50 dark:bg-red-950/20 px-4 py-3 rounded-lg border border-red-100 dark:border-red-900/30 cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                            <RadioGroupItem value="B" id="tf-false" className="text-red-600" />
+                            <Label htmlFor="tf-false" className="cursor-pointer font-semibold text-red-600">
+                                Yanlış
+                            </Label>
+                        </div>
+                    </RadioGroup>
+                    <p className="text-[10px] text-muted-foreground px-1 italic">Məlumat: A = Doğru · B = Yanlış</p>
+                </div>
             )}
 
             {/* Matching Editor */}
@@ -57,17 +86,20 @@ export function QuestionAnswerEditor({ formData, setFormData }: QuestionAnswerEd
             )}
 
             {/* Correct Answer - Hidden or shown depending on type */}
-            {!isMatching && !isOrdering && !isNumerical && (
-                <div className="space-y-2">
-                    <Label htmlFor="correct_answer">Düzgün Cavab *</Label>
-                    <Input
-                        id="correct_answer"
-                        value={formData.correct_answer}
-                        onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
-                        placeholder={showOptions ? 'Məs: A, B, C, D' : 'Düzgün cavabı daxil edin'}
-                    />
-                </div>
-            )}
+            {!isMatching && !isOrdering && !isNumerical &&
+                question_type !== 'multiple_choice' &&
+                question_type !== 'true_false' &&
+                question_type !== 'video' && (
+                    <div className="space-y-2">
+                        <Label htmlFor="correct_answer">Düzgün Cavab *</Label>
+                        <Input
+                            id="correct_answer"
+                            value={formData.correct_answer}
+                            onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
+                            placeholder="Düzgün cavabı daxil edin"
+                        />
+                    </div>
+                )}
 
             {/* Hint */}
             <div className="space-y-2">

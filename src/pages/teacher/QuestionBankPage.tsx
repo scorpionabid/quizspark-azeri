@@ -173,26 +173,47 @@ export default function QuestionBankPage() {
   };
 
   const handleDuplicateClick = (question: QuestionBankItem) => {
-    const duplicate = {
-      ...question,
-      question_text: `${question.question_text} (kopya)`,
-    };
     createQuestion.mutate({
-      question_text: duplicate.question_text,
-      question_type: duplicate.question_type,
-      options: duplicate.options,
-      correct_answer: duplicate.correct_answer,
-      explanation: duplicate.explanation,
-      category: duplicate.category,
-      difficulty: duplicate.difficulty,
-      bloom_level: duplicate.bloom_level,
-      tags: duplicate.tags,
+      question_text: `${question.question_text} (kopya)`,
+      title: question.title ? `${question.title} (kopya)` : null,
+      question_type: question.question_type,
+      options: question.options,
+      correct_answer: question.correct_answer,
+      explanation: question.explanation,
+      category: question.category,
+      difficulty: question.difficulty,
+      bloom_level: question.bloom_level,
+      tags: question.tags,
       user_id: null,
       source_document_id: null,
-      question_image_url: duplicate.question_image_url || null,
-      option_images: duplicate.option_images || null,
-      media_type: duplicate.media_type || null,
-      media_url: duplicate.media_url || null,
+      question_image_url: question.question_image_url || null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      option_images: (question as any).option_images || null,
+      media_type: question.media_type || null,
+      media_url: question.media_url || null,
+      weight: question.weight || 1.0,
+      hint: question.hint || null,
+      time_limit: question.time_limit || null,
+      video_url: question.video_url || null,
+      video_start_time: question.video_start_time || null,
+      video_end_time: question.video_end_time || null,
+      model_3d_url: question.model_3d_url || null,
+      model_3d_type: question.model_3d_type || 'glb',
+      fill_blank_template: question.fill_blank_template || null,
+      numerical_answer: question.numerical_answer ?? null,
+      numerical_tolerance: question.numerical_tolerance ?? 0,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      matching_pairs: (question as any).matching_pairs || null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sequence_items: (question as any).sequence_items || null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      hotspot_data: (question as any).hotspot_data || null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      per_option_explanations: (question as any).per_option_explanations || null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      feedback_enabled: (question as any).feedback_enabled || false,
+      quality_score: null,
+      usage_count: null,
     });
   };
 

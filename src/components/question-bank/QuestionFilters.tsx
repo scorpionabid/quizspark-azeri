@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Search, X, Filter } from 'lucide-react';
 import { QuestionFilters as Filters } from '@/hooks/useQuestionBank';
 import { useQuestionCategories } from '@/hooks/useQuestionCategories';
+import { QUESTION_TYPES } from '@/types/question';
 
 interface QuestionFiltersProps {
   filters: Filters;
@@ -18,12 +19,7 @@ const difficulties = [
   { value: 'çətin', label: 'Çətin' },
 ];
 
-const questionTypes = [
-  { value: 'multiple_choice', label: 'Çoxseçimli' },
-  { value: 'true_false', label: 'Doğru/Yanlış' },
-  { value: 'short_answer', label: 'Qısa cavab' },
-  { value: 'essay', label: 'Esse' },
-];
+
 
 export function QuestionFilters({
   filters,
@@ -33,16 +29,16 @@ export function QuestionFilters({
 }: QuestionFiltersProps) {
   // Fetch categories from database
   const { data: dbCategories = [] } = useQuestionCategories();
-  
+
   // Use database categories, fall back to prop categories for backwards compatibility
-  const categories = dbCategories.length > 0 
-    ? dbCategories 
+  const categories = dbCategories.length > 0
+    ? dbCategories
     : propCategories.map(name => ({ id: name, name, color: '#6366f1' }));
 
-  const hasActiveFilters = 
-    filters.search || 
-    (filters.category && filters.category !== 'all') || 
-    (filters.difficulty && filters.difficulty !== 'all') || 
+  const hasActiveFilters =
+    filters.search ||
+    (filters.category && filters.category !== 'all') ||
+    (filters.difficulty && filters.difficulty !== 'all') ||
     (filters.question_type && filters.question_type !== 'all');
 
   return (
@@ -88,8 +84,8 @@ export function QuestionFilters({
             {categories.map((cat) => (
               <SelectItem key={cat.id || cat.name} value={cat.name}>
                 <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full shrink-0" 
+                  <div
+                    className="w-3 h-3 rounded-full shrink-0"
                     style={{ backgroundColor: cat.color || '#6366f1' }}
                   />
                   {cat.name}
@@ -127,7 +123,7 @@ export function QuestionFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Bütün tiplər</SelectItem>
-            {questionTypes.map((type) => (
+            {QUESTION_TYPES.map((type) => (
               <SelectItem key={type.value} value={type.value}>
                 {type.label}
               </SelectItem>

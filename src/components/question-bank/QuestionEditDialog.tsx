@@ -220,7 +220,9 @@ export function QuestionEditDialog({
         title: question.title || '',
         question_text: question.question_text,
         question_type: question.question_type,
-        options: parseOptions(question.options),
+        options: question.question_type === 'true_false'
+          ? ['Doğru', 'Yanlış']
+          : parseOptions(question.options),
         correct_answer: question.correct_answer,
         explanation: question.explanation || '',
         category: question.category || '',
@@ -413,7 +415,7 @@ export function QuestionEditDialog({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="paste_area">Test Mətnini Yapışdırın</Label>
+                <span className="text-sm font-medium text-muted-foreground">Test Mətnini Yapışdırın</span>
                 <Textarea
                   id="paste_area"
                   value={pastedText}
@@ -444,7 +446,20 @@ export function QuestionEditDialog({
               <div className="grid grid-cols-2 gap-4">
                 <QuestionTypeSelector
                   value={formData.question_type}
-                  onChange={(val) => setFormData({ ...formData, question_type: val })}
+                  onChange={(val) => {
+                    if (val === 'true_false') {
+                      setFormData({
+                        ...formData,
+                        question_type: val,
+                        options: ['Doğru', 'Yanlış'],
+                        correct_answer: formData.correct_answer === 'A' || formData.correct_answer === 'B' ? formData.correct_answer : ''
+                      });
+                    } else if (formData.question_type === 'true_false') {
+                      setFormData({ ...formData, question_type: val, options: ['', '', '', ''] });
+                    } else {
+                      setFormData({ ...formData, question_type: val });
+                    }
+                  }}
                 />
               </div>
 
