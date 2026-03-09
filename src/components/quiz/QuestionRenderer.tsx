@@ -10,6 +10,7 @@ import { QuestionVideoPlayer } from '../question-bank/QuestionVideoPlayer';
 import { Question3DViewer } from '../question-bank/Question3DViewer';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Image as ImageIcon, Video, Music, Box, MonitorPlay } from 'lucide-react';
 
 interface Props {
     question: Question;
@@ -47,18 +48,65 @@ export function QuestionRenderer({ question, value, onChange, showFeedback, disa
         }
     };
 
+    const renderMedia = () => {
+        return (
+            <div className="space-y-4 mb-4">
+                {/* Image Section */}
+                {(question.question_image_url || (question.media_type === 'image' && question.media_url)) && (
+                    <div className="relative group">
+                        <img
+                            src={question.question_image_url || question.media_url!}
+                            alt="Sual şəkli"
+                            className="max-h-80 w-auto mx-auto rounded-2xl border-2 border-primary/10 shadow-lg object-contain bg-background/50"
+                        />
+                    </div>
+                )}
+
+                {/* Video Section */}
+                {(question.question_type === 'video' || question.media_type === 'video') && (question.video_url || question.media_url) && (
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary/60 px-1">
+                            <MonitorPlay className="w-3 h-3" />
+                            <span>Video Material</span>
+                        </div>
+                        <QuestionVideoPlayer
+                            videoUrl={question.video_url || question.media_url!}
+                            startTime={question.video_start_time || undefined}
+                            endTime={question.video_end_time || undefined}
+                        />
+                    </div>
+                )}
+
+                {/* 3D Model Section */}
+                {(question.question_type === 'model_3d' || question.model_3d_url) && (
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-secondary/60 px-1">
+                            <Box className="w-3 h-3" />
+                            <span>3D Model</span>
+                        </div>
+                        <Question3DViewer modelUrl={question.model_3d_url || question.media_url!} />
+                    </div>
+                )}
+
+                {/* Audio Section */}
+                {question.media_type === 'audio' && question.media_url && (
+                    <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary/60">
+                            <Music className="w-3 h-3" />
+                            <span>Səs Yazısı</span>
+                        </div>
+                        <audio src={question.media_url} controls className="w-full h-10" />
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderContent = () => {
         switch (question.question_type) {
             case 'video':
                 return (
                     <div className="space-y-4">
-                        {question.video_url && (
-                            <QuestionVideoPlayer
-                                videoUrl={question.video_url}
-                                startTime={question.video_start_time || undefined}
-                                endTime={question.video_end_time || undefined}
-                            />
-                        )}
                         <Input
                             disabled={disabled || showFeedback}
                             placeholder="Sizin cavabınız..."
@@ -70,9 +118,6 @@ export function QuestionRenderer({ question, value, onChange, showFeedback, disa
             case 'model_3d':
                 return (
                     <div className="space-y-4">
-                        {question.model_3d_url && (
-                            <Question3DViewer modelUrl={question.model_3d_url} />
-                        )}
                         <Input
                             disabled={disabled || showFeedback}
                             placeholder="3D əsasında cavabınız..."
@@ -241,6 +286,7 @@ export function QuestionRenderer({ question, value, onChange, showFeedback, disa
 
     return (
         <div className="space-y-4">
+            {renderMedia()}
             {renderContent()}
 
             {showFeedback && (

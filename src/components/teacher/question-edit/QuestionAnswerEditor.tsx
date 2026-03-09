@@ -14,10 +14,12 @@ interface QuestionAnswerEditorProps {
 
 export function QuestionAnswerEditor({ formData, setFormData }: QuestionAnswerEditorProps) {
     const { question_type } = formData;
-    const showOptions = question_type === 'multiple_choice' || question_type === 'true_false';
-    const isMatching = question_type === 'matching';
-    const isOrdering = question_type === 'ordering';
-    const isNumerical = question_type === 'numerical';
+    // Show appropriate editor based on type. 
+    // For 'video' type, we default to Multiple Choice but allow others if data exists
+    const showOptions = question_type === 'multiple_choice' || question_type === 'true_false' || question_type === 'video';
+    const isMatching = question_type === 'matching' || (question_type === 'video' && formData.matching_pairs?.length > 0);
+    const isOrdering = question_type === 'ordering' || (question_type === 'video' && formData.sequence_items?.length > 0);
+    const isNumerical = question_type === 'numerical' || (question_type === 'video' && formData.numerical_answer !== '');
 
     return (
         <div className="space-y-4">

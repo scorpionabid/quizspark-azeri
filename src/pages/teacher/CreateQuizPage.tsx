@@ -11,6 +11,12 @@ import { toast } from 'sonner';
 import { useCreateQuiz, useQuiz, useUpdateQuiz } from '@/hooks/useQuizzes';
 import { useBulkCreateQuestions, useQuestions } from '@/hooks/useQuestions';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActiveQuizAttempts, useClearActiveAttempts } from '@/hooks/useQuizAttempts';
+
+// UI
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle, Unlock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // Components
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -150,6 +156,10 @@ export default function CreateQuizPage() {
   const createQuestions = useBulkCreateQuestions();
   const { data: existingQuiz, isLoading: quizLoading } = useQuiz(id);
   const { data: existingQuestions, isLoading: questionsLoading } = useQuestions(id);
+  const { data: activeAttempts = 0 } = useActiveQuizAttempts(id);
+  const clearAttempts = useClearActiveAttempts();
+
+  const isLocked = !!id && !!existingQuiz?.is_published && activeAttempts > 0;
 
   // Metadata form
   const form = useForm<QuizMetadataFormData>({
@@ -502,9 +512,34 @@ export default function CreateQuizPage() {
         <QuizActionHeader
           onBack={() => navigate('/teacher/dashboard')}
           onSave={handleSave}
-          isSubmitting={isSubmitting}
+          isSubmitting={isSubmitting || isLocked}
           questionCount={questions.length}
         />
+
+        {isLocked && (
+          <Alert variant="destructive" className="mb-6 animate-pulse border-2">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Diqqət: Quiz kilidlənib</AlertTitle>
+            <AlertDescription className="flex flex-col gap-4">
+              <p>
+                Bu quiz hal-hazırda <strong>{activeAttempts} şagird</strong> tərəfindən həll edilir.
+                Məlumatların itməməsi və nəticələrin düzgünlüyü üçün, bütün sessiyalar bitənə qədər redaktə müvəqqəti dayandırılıb.
+              </p>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-background/50 hover:bg-background border-destructive/30 text-destructive hover:text-destructive"
+                  onClick={() => id && clearAttempts.mutate(id)}
+                  disabled={clearAttempts.isPending}
+                >
+                  <Unlock className="mr-2 h-4 w-4" />
+                  Quizi Məcburi Aç (Force Unlock)
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <QuizMetadataForm form={form} isEditMode={!!id} />
 

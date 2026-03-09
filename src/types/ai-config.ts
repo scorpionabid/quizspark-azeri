@@ -43,4 +43,7 @@ export interface AIUserUsage {
   usage_date: string;
   total_requests: number;
   total_tokens: number;
+  email?: string;
+  full_name?: string;
+  ai_daily_limit?: number | null;
 }

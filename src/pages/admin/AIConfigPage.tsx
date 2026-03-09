@@ -86,15 +86,20 @@ export default function AIConfigPage() {
         },
       });
 
-      // Fetch user usage
-      const { data: dailyUsage } = await supabase
-        .from("ai_daily_usage")
-        .select("*")
-        .eq("usage_date", today)
-        .order("total_requests", { ascending: false })
-        .limit(50);
+      // Fetch user usage from Edge Function
+      const { data: usageData, error: usageError } = await supabase.functions.invoke("ai-config", {
+        method: "GET",
+        headers: {
+          path: "user-usage"
+        }
+      });
 
-      setUserUsage((dailyUsage as unknown as AIUserUsage[]) || []);
+      if (!usageError && usageData?.usage) {
+        setUserUsage(usageData.usage as AIUserUsage[]);
+      } else {
+        // Fallback or handle error
+        console.error("Error fetching user usage:", usageError);
+      }
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -111,6 +116,35 @@ export default function AIConfigPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleUpdateUserLimit = async (userId: string, limit: number | null) => {
+    try {
+      const { error } = await supabase.functions.invoke("ai-config", {
+        method: "PUT",
+        headers: {
+          path: "user-limit"
+        },
+        body: { user_id: userId, ai_daily_limit: limit }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Uğurlu",
+        description: "İstifadəçi limiti yeniləndi",
+      });
+
+      // Refresh user usage data to show updated limits
+      fetchData();
+    } catch (error) {
+      console.error("Error updating user limit:", error);
+      toast({
+        title: "Xəta",
+        description: "Limit yenilənərkən xəta baş verdi",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleProviderToggle = async (id: string, enabled: boolean) => {
     try {
@@ -266,6 +300,7 @@ export default function AIConfigPage() {
             usage={userUsage}
             userLimit={config?.user_daily_limit || 100}
             isLoading={isLoading}
+            onUpdateLimit={handleUpdateUserLimit}
           />
         </div>
       </div>

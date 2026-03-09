@@ -1,52 +1,13 @@
 /// <reference lib="deno.ns" />
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkUsageLimit, logUsage } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-async function logUsage(supabase: SupabaseClient, userId: string | null, provider: string, model: string, inputTokens: number, outputTokens: number, requestType: string) {
-  try {
-    await supabase.from('ai_usage_logs').insert({
-      user_id: userId,
-      provider,
-      model,
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      request_type: requestType,
-    });
-
-    const today = new Date().toISOString().split('T')[0];
-    const { data: existing } = await supabase
-      .from('ai_daily_usage')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('usage_date', today)
-      .single();
-
-    if (existing) {
-      await supabase
-        .from('ai_daily_usage')
-        .update({
-          total_requests: existing.total_requests + 1,
-          total_tokens: existing.total_tokens + inputTokens + outputTokens,
-        })
-        .eq('id', existing.id);
-    } else {
-      await supabase.from('ai_daily_usage').insert({
-        user_id: userId,
-        usage_date: today,
-        total_requests: 1,
-        total_tokens: inputTokens + outputTokens,
-      });
-    }
-  } catch (error) {
-    console.error('Error logging usage:', error);
-  }
-}
 
 function getToolSchemaForType(questionType: string) {
   if (questionType === 'true_false') {
@@ -168,6 +129,32 @@ serve(async (req: Request) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user from auth header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (userError || !user) {
+      throw new Error('Unauthorized');
+    }
+
+    const userId = user.id;
+
+    // Check usage limit
+    const usageCheck = await checkUsageLimit(userId, supabase);
+    if (!usageCheck.allowed) {
+      return new Response(
+        JSON.stringify({ error: usageCheck.message }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const {
       topic,
       subject,
@@ -185,18 +172,6 @@ serve(async (req: Request) => {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    let userId: string | null = null;
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
-      userId = user?.id || null;
     }
 
     console.log(`Generating ${questionCount} ${questionType} questions for topic: ${topic}, subject: ${subject}, difficulty: ${difficulty}`);
@@ -252,7 +227,7 @@ Aşağıdakı sənəd məzmununa əsaslanaraq suallar yarat:
 
 ${documentContext}
 
-Bu sənəddəki məlumatlardan istifadə edərək ${questionCount} ədəd test sualı yarat.`;
+Bu sənədə daxil olan məlumatlardan istifadə edərək ${questionCount} ədəd test sualı yarat.`;
     } else {
       userPrompt += `
 
@@ -324,8 +299,8 @@ Bu mövzu üzrə ${questionCount} ədəd test sualı yarat.`;
     const data = await response.json();
     console.log('AI response received:', JSON.stringify(data).substring(0, 500));
 
-    const usage = data.usage || {};
-    await logUsage(supabase, userId, 'lovable', model, usage.prompt_tokens || 0, usage.completion_tokens || 0, 'quiz_generation');
+    const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
+    await logUsage(userId, supabase, usage.prompt_tokens, usage.completion_tokens, model, 'quiz_generation');
 
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall || toolCall.function.name !== 'create_quiz_questions') {

@@ -24,7 +24,7 @@ serve(async (req) => {
       const token = authHeader.replace("Bearer ", "");
       const { data: { user } } = await supabase.auth.getUser(token);
       userId = user?.id || null;
-      
+
       if (userId) {
         const { data: roleData } = await supabase
           .from("user_roles")
@@ -196,17 +196,46 @@ serve(async (req) => {
       }
 
       const today = new Date().toISOString().split("T")[0];
-      
-      const { data: dailyUsage, error } = await supabase
-        .from("ai_daily_usage")
+
+      const { data: usageData, error } = await supabase
+        .from("admin_ai_usage_monitoring")
         .select("*")
         .eq("usage_date", today)
         .order("total_requests", { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
 
-      return new Response(JSON.stringify({ usage: dailyUsage || [] }), {
+      return new Response(JSON.stringify({ usage: usageData || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // PUT /ai-config/user-limit - Update user specific limit (admin only)
+    if (req.method === "PUT" && path === "user-limit") {
+      if (!isAdmin) {
+        return new Response(
+          JSON.stringify({ error: "Admin access required" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { user_id, ai_daily_limit } = await req.json();
+
+      if (!user_id) {
+        throw new Error("user_id is required");
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({ ai_daily_limit })
+        .eq("user_id", user_id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ profile: data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

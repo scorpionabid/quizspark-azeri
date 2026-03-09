@@ -259,3 +259,59 @@ export function useGlobalLeaderboard() {
     },
   });
 }
+
+export function useActiveQuizAttempts(quizId: string | undefined) {
+  return useQuery({
+    queryKey: ['active-attempts', quizId],
+    queryFn: async () => {
+      if (!quizId) return 0;
+
+      // First get quiz duration to calculate stale threshold
+      const { data: quiz } = await supabase
+        .from('quizzes')
+        .select('duration')
+        .eq('id', quizId)
+        .single();
+
+      const duration = quiz?.duration || 20;
+      const staleThreshold = new Date();
+      // Threshold = duration + 10 minutes margin
+      staleThreshold.setMinutes(staleThreshold.getMinutes() - (duration + 10));
+
+      const { count, error } = await supabase
+        .from('quiz_attempts')
+        .select('*', { count: 'exact', head: true })
+        .eq('quiz_id', quizId)
+        .is('completed_at', null)
+        .gt('started_at', staleThreshold.toISOString());
+
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!quizId,
+    refetchInterval: 10000,
+  });
+}
+
+export function useClearActiveAttempts() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (quizId: string) => {
+      const { error } = await supabase
+        .from('quiz_attempts')
+        .update({ completed_at: new Date().toISOString() })
+        .eq('quiz_id', quizId)
+        .is('completed_at', null);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, quizId) => {
+      queryClient.invalidateQueries({ queryKey: ['active-attempts', quizId] });
+      toast.success('Sessiyalar təmizləndi, quiz açıldı');
+    },
+    onError: (error: Error) => {
+      toast.error(`Xəta: ${error.message}`);
+    },
+  });
+}

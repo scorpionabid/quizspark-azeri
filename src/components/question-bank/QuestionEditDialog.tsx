@@ -17,7 +17,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Loader2, Image as ImageIcon, Sparkles, Wand2, ClipboardPaste, Type, FileText } from 'lucide-react';
+import {
+  X,
+  Search,
+  Trash2,
+  Save,
+  Plus,
+  AlertCircle,
+  Image as ImageIcon,
+  Loader2,
+  AlertTriangle,
+  Sparkles,
+  Wand2,
+  ClipboardPaste,
+  Type,
+  FileText
+} from 'lucide-react';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, useCreateQuestionCategory } from '@/hooks/useQuestionCategories';
 import { useQuestionImageUpload } from '@/hooks/useQuestionImageUpload';
@@ -102,6 +117,10 @@ export function QuestionEditDialog({
     fill_blank_template: '',
     numerical_answer: '' as number | string,
     numerical_tolerance: 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    matching_pairs: [] as any[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sequence_items: [] as any[],
   });
   const { uploadImage, isUploading } = useQuestionImageUpload();
   const [newCategory, setNewCategory] = useState('');
@@ -222,6 +241,10 @@ export function QuestionEditDialog({
         fill_blank_template: question.fill_blank_template || '',
         numerical_answer: question.numerical_answer ?? '',
         numerical_tolerance: question.numerical_tolerance ?? 0,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        matching_pairs: (question as any).matching_pairs || [],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sequence_items: (question as any).sequence_items || [],
       });
     } else {
       setFormData({
@@ -249,6 +272,8 @@ export function QuestionEditDialog({
         fill_blank_template: '',
         numerical_answer: '',
         numerical_tolerance: 0,
+        matching_pairs: [],
+        sequence_items: [],
       });
     }
   }, [question, mode, open]);
@@ -316,11 +341,19 @@ export function QuestionEditDialog({
       numerical_tolerance: Number(formData.numerical_tolerance) || 0,
     };
 
-    // Only include options for multiple choice and true/false
-    if (formData.question_type === 'multiple_choice' || formData.question_type === 'true_false') {
+    // Include options if it's MCQ, TF or Video (as video can now be MCQ)
+    if (formData.question_type === 'multiple_choice' || formData.question_type === 'true_false' || formData.question_type === 'video') {
       data.options = formData.options.filter((o) => o.trim() !== '');
     } else {
       data.options = null;
+    }
+
+    // Include matching/ordering data if they exist
+    if (formData.matching_pairs && formData.matching_pairs.length > 0) {
+      data.matching_pairs = formData.matching_pairs as unknown as Record<string, string>;
+    }
+    if (formData.sequence_items && formData.sequence_items.length > 0) {
+      data.sequence_items = formData.sequence_items as unknown as string[];
     }
 
     if (mode === 'edit' && question) {
@@ -408,6 +441,13 @@ export function QuestionEditDialog({
             </div>
           ) : (
             <>
+              <div className="grid grid-cols-2 gap-4">
+                <QuestionTypeSelector
+                  value={formData.question_type}
+                  onChange={(val) => setFormData({ ...formData, question_type: val })}
+                />
+              </div>
+
               <QuestionBasicInfo
                 formData={formData}
                 setFormData={setFormData}
@@ -430,28 +470,75 @@ export function QuestionEditDialog({
                 isCreatingCategory={createCategory.isPending}
               />
 
-              <div className="space-y-2 relative">
-                <Label htmlFor="question_text">Sual *</Label>
-                <Textarea
-                  id="question_text"
-                  value={formData.question_text}
-                  onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
-                  placeholder="Sualı daxil edin..."
-                  rows={3}
-                  className="pr-12"
-                />
-                <QuestionAISection
-                  onAnalyze={handleAIAnalysis}
-                  isEnhancing={isEnhancing}
-                  disabled={!formData.question_text}
-                />
-              </div>
+              <div className="space-y-4">
+                <div className="space-y-2 relative">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="question_text">Sual *</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        id="question-image-upload"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const url = await uploadImage(file);
+                            if (url) setFormData(prev => ({ ...prev, question_image_url: url }));
+                          }
+                        }}
+                        disabled={isUploading}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs cursor-pointer"
+                        asChild
+                      >
+                        <label htmlFor="question-image-upload">
+                          {isUploading ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <ImageIcon className="h-3 w-3 mr-1" />
+                          )}
+                          Şəkil Əlavə Et
+                        </label>
+                      </Button>
+                    </div>
+                  </div>
+                  <Textarea
+                    id="question_text"
+                    value={formData.question_text}
+                    onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
+                    placeholder="Sualı daxil edin..."
+                    rows={3}
+                    className="pr-12"
+                  />
+                  <QuestionAISection
+                    onAnalyze={handleAIAnalysis}
+                    isEnhancing={isEnhancing}
+                    disabled={!formData.question_text}
+                  />
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <QuestionTypeSelector
-                  value={formData.question_type}
-                  onChange={(val) => setFormData({ ...formData, question_type: val })}
-                />
+                {formData.question_image_url && (
+                  <div className="relative w-full max-w-md aspect-video rounded-lg overflow-hidden border bg-muted/30 group">
+                    <img
+                      src={formData.question_image_url}
+                      alt="Sual şəkli"
+                      className="w-full h-full object-contain"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setFormData({ ...formData, question_image_url: '' })}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <QuestionAnswerEditor

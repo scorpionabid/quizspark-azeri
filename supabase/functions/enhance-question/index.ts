@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-expect-error Supabase Deno import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkUsageLimit, logUsage } from "../_shared/ai-usage.ts";
 
 // IDE tipləmə xətalarının qarşısını almaq üçün Deno obyektini elan edirik
 declare const Deno: { env: { get(key: string): string | undefined } };
@@ -116,6 +117,32 @@ serve(async (req: Request) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user from auth header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (userError || !user) {
+      throw new Error('Unauthorized');
+    }
+
+    const userId = user.id;
+
+    // Check usage limit
+    const usageCheck = await checkUsageLimit(userId, supabase);
+    if (!usageCheck.allowed) {
+      return new Response(
+        JSON.stringify({ error: usageCheck.message }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const body = await req.json();
     const action = body.action as EnhanceAction;
 
@@ -141,11 +168,8 @@ serve(async (req: Request) => {
 
     // Create Supabase client to fetch AI config
     let targetModelId = 'google/gemini-2.5-flash'; // Default fallback
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
     if (supabaseUrl && supabaseServiceKey) {
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
       try {
         const { data: configData, error: configError } = await supabase
           .from('ai_config')
@@ -170,6 +194,8 @@ serve(async (req: Request) => {
     }
 
     console.log(`Processing action: ${action} with model: ${targetModelId} for text: ${questionText?.substring(0, 50)}...`);
+
+    let resultResponse: Response;
 
     // Handle parse_pasted_test separately with its own tool
     if (action === 'parse_pasted_test') {
@@ -217,6 +243,9 @@ serve(async (req: Request) => {
         throw new Error(`AI error (${parseResponse.status}): ${err.substring(0, 100)}`);
       }
       const data = await parseResponse.json();
+      const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
+      await logUsage(userId, supabase, usage.prompt_tokens, usage.completion_tokens, targetModelId, action);
+
       const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall) {
         return new Response(JSON.stringify(JSON.parse(toolCall.function.arguments)), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -265,6 +294,9 @@ serve(async (req: Request) => {
         throw new Error(`AI error (${analyzeResponse.status}): ${err.substring(0, 100)}`);
       }
       const data = await analyzeResponse.json();
+      const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
+      await logUsage(userId, supabase, usage.prompt_tokens, usage.completion_tokens, targetModelId, action);
+
       const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall) {
         return new Response(JSON.stringify(JSON.parse(toolCall.function.arguments)), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -316,6 +348,9 @@ Həmçinin konkret təkmilləşdirmə təklifləri ver.`;
         throw new Error(`AI error (${analysisResponse.status}): ${err.substring(0, 100)}`);
       }
       const analysisData = await analysisResponse.json();
+      const usage = analysisData.usage || { prompt_tokens: 0, completion_tokens: 0 };
+      await logUsage(userId, supabase, usage.prompt_tokens, usage.completion_tokens, targetModelId, action);
+
       const toolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall) {
         const analysis = JSON.parse(toolCall.function.arguments);
@@ -361,6 +396,9 @@ Tapşırıq: ${actionPrompts[action]}`;
         throw new Error(`AI error (${suggestionResponse.status}): ${err.substring(0, 100)}`);
       }
       const suggestionData = await suggestionResponse.json();
+      const usage = suggestionData.usage || { prompt_tokens: 0, completion_tokens: 0 };
+      await logUsage(userId, supabase, usage.prompt_tokens, usage.completion_tokens, targetModelId, action);
+
       const toolCall = suggestionData.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall) {
         const suggestionArgs = JSON.parse(toolCall.function.arguments);
@@ -427,6 +465,9 @@ Tapşırıq: ${actionPrompts[action]}`;
     }
 
     const data = await response.json();
+    const usage = data.usage || { prompt_tokens: 0, completion_tokens: 0 };
+    await logUsage(userId, supabase, usage.prompt_tokens, usage.completion_tokens, targetModelId, action);
+
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall) {
       const enhancedQuestion = JSON.parse(toolCall.function.arguments);
@@ -444,7 +485,7 @@ Tapşırıq: ${actionPrompts[action]}`;
 
     if (errorMsg.includes('429')) {
       status = 429;
-      friendlyMsg = 'Sorğu limiti aşıldı. Zəhmət olmasa bir az gözləyin (AI Rate Limit).';
+      friendlyMsg = errorMsg.includes('limitiniz') ? errorMsg : 'Sorğu limiti aşıldı. Zəhmət olmasa bir az gözləyin (AI Rate Limit).';
     } else if (errorMsg.includes('402')) {
       status = 402;
       friendlyMsg = 'Kredit balansı bitib.';
