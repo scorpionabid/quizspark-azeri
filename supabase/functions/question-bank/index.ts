@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,7 +9,7 @@ serve(async (req) => {
 
   try {
     const { action, questions, searchQuery, filters } = await req.json();
-    
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -27,7 +23,7 @@ serve(async (req) => {
     // Generate embedding for text using Lovable AI
     async function generateEmbedding(text: string): Promise<number[]> {
       console.log("Generating embedding for text:", text.substring(0, 100));
-      
+
       const response = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
         method: "POST",
         headers: {
@@ -53,7 +49,7 @@ serve(async (req) => {
 
     if (action === "save") {
       console.log("Saving questions to bank:", questions?.length);
-      
+
       if (!questions || !Array.isArray(questions)) {
         throw new Error("Questions array is required");
       }
@@ -64,7 +60,7 @@ serve(async (req) => {
         // Generate embedding for the question
         const embeddingText = `${q.question} ${q.explanation || ""} ${q.category || ""}`;
         let embedding = null;
-        
+
         try {
           embedding = await generateEmbedding(embeddingText);
         } catch (embError) {
@@ -106,7 +102,7 @@ serve(async (req) => {
 
     if (action === "search") {
       console.log("Searching questions with query:", searchQuery);
-      
+
       if (!searchQuery) {
         // Return all questions if no search query
         const { data, error } = await supabase
@@ -159,7 +155,7 @@ serve(async (req) => {
 
     if (action === "filter") {
       console.log("Filtering questions with:", filters);
-      
+
       let query = supabase.from("question_bank").select("*");
 
       if (filters?.category) {
@@ -186,7 +182,7 @@ serve(async (req) => {
 
     if (action === "delete") {
       const { questionId } = await req.json();
-      
+
       const { error } = await supabase
         .from("question_bank")
         .delete()

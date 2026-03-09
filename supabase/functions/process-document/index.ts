@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -45,7 +42,7 @@ serve(async (req) => {
     // --- Process file ---
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    
+
     if (!file) {
       throw new Error('No file provided');
     }
@@ -73,7 +70,7 @@ serve(async (req) => {
 
     // Extract text content based on file type
     let textContent = '';
-    
+
     if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
       textContent = await file.text();
     } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
@@ -81,7 +78,7 @@ serve(async (req) => {
       if (LOVABLE_API_KEY) {
         const arrayBuffer = await file.arrayBuffer();
         const base64 = encodeBase64(arrayBuffer);
-        
+
         const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -121,7 +118,7 @@ serve(async (req) => {
       if (LOVABLE_API_KEY) {
         const arrayBuffer = await file.arrayBuffer();
         const base64 = encodeBase64(arrayBuffer);
-        
+
         const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -200,9 +197,9 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing document:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : 'Naməlum xəta baş verdi' 
+        error: error instanceof Error ? error.message : 'Naməlum xəta baş verdi'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -3,14 +3,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-expect-error Supabase Deno import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveModelByAlias } from "../_shared/ai-usage.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 // IDE tipləmə xətalarının qarşısını almaq üçün Deno obyektini elan edirik
 declare const Deno: { env: { get(key: string): string | undefined } };
 
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 async function fetchAI(lovableKey: string, geminiKey: string | undefined, body: Record<string, unknown>, targetModelId: string): Promise<Response> {
     const model = body.model || targetModelId;

@@ -1,16 +1,14 @@
 // @ts-expect-error Deno import
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-// @ts-expect-error Supabase Deno import
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import { checkUsageLimit, logUsage, resolveModelByAlias } from "../_shared/ai-usage.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 // IDE tipləmə xətalarının qarşısını almaq üçün Deno obyektini elan edirik
 declare const Deno: { env: { get(key: string): string | undefined } };
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 type EnhanceAction = "simplify" | "harder" | "improve_options" | "expand_explanation" | "similar" | "quality_analysis"
   | "suggest_video_search" | "generate_rubric" | "generate_per_option_explanations" | "generate_hint" | "suggest_3d_model"
