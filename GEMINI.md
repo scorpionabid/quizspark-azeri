@@ -39,13 +39,15 @@ Layihə artıq Docker konteynerində işləyir. Port münaqişələrinin qarşı
 
 ---
 
-## 4. 🤖 Agent İş Axını (Azeri Requirement Refiner)
+## 4. 🤖 Agent İş Axını (Agent Workflows & Skills)
 
-Layihədə yeni funksionallıqlar əlavə edərkən `.agent/workflows/azeri-requirement-refiner.md` təlimatına uyğun hərəkət edilməlidir:
+Layihədə yeni funksionallıqlar əlavə edərkən ən optimal "Skill" (rol) faylına baxılmalıdır. Bu, "Vibe Coding" prosesinin təkmilləşdirilməsi və xüsusi vəziyyətlərdə yaddaşın (tokenlərin) az sərf edilməsi üçündür:
 
-1. **Dəqiqləşdirmə**: Sadə istəkləri suallarla (nümunə cavablarla) peşəkar tapşırığa çevirmək.
-2. **Texniki Analiz**: Dəyişikliyin `src/pages`, `src/components` və Supabase sxeminə təsirini yoxlamaq.
-3. **İcra**: `implementation_plan.md` hazırlayıb təsdiq aldıqdan sonra kod yazmaq.
+1. **Süni İntellekt Dəqiqləşdirməsi (AI Refiner):** Tələbləri dəqiqləşdirmək üçün `.agent/workflows/azeri-requirement-refiner.md` çalışdırın.
+2. **Frontend Tapşırıqları:** Veb interfeys, React komponenti, State dəyişiklikləri üçün `.agent/skills/frontend-developer.md` biliklərindən (və onun yönləndirdiyi `FRONTEND_ARCHITECTURE.md` faylından) istifadə edin.
+3. **Backend / Verilənlər Bazas (DB) Tapşırıqları:** Supabase, RLS, Edge Function dəyişiklikləri üçün `.agent/skills/backend-architect.md` biliklərindən (və əlaqəli `DB_SCHEMA.md`, `BACKEND_ARCHITECTURE.md` fayllarından) istifadə edin.
+4. **DevOps və Test Tapşırıqları:** CI/CD (GitHub Actions), Husky (Pre-commit hooks), Unit və E2E testlər, Kod keyfiyyəti üçün `.agent/skills/devops-engineer.md` biliklərindən (və `.agent/knowledge/DEVOPS_TESTING.md`) istifadə edin.
+5. **İcra Planı:** Həmişə `implementation_plan.md` hazırlayıb təsdiq aldıqdan sonra kod yazmağa başlayın.
 
 ---
 
