@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-expect-error Supabase Deno import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { checkUsageLimit, logUsage } from "../_shared/ai-usage.ts";
+import { checkUsageLimit, logUsage, resolveModelByAlias } from "../_shared/ai-usage.ts";
 
 // IDE tipləmə xətalarının qarşısını almaq üçün Deno obyektini elan edirik
 declare const Deno: { env: { get(key: string): string | undefined } };
@@ -169,28 +169,14 @@ serve(async (req: Request) => {
     // Create Supabase client to fetch AI config
     let targetModelId = 'google/gemini-2.5-flash'; // Default fallback
 
-    if (supabaseUrl && supabaseServiceKey) {
-      try {
-        const { data: configData, error: configError } = await supabase
-          .from('ai_config')
-          .select('default_model_id')
-          .single();
-
-        if (!configError && configData?.default_model_id) {
-          const { data: modelData, error: modelError } = await supabase
-            .from('ai_models')
-            .select('model_id')
-            .eq('id', configData.default_model_id)
-            .single();
-
-          if (!modelError && modelData?.model_id) {
-            targetModelId = modelData.model_id;
-            console.log(`Dynamic model loaded: ${targetModelId}`);
-          }
-        }
-      } catch (e) {
-        console.error("Error fetching model config:", e);
+    try {
+      const aliasedModelId = await resolveModelByAlias('TEXT_ANALYSIS', supabase);
+      if (aliasedModelId) {
+        targetModelId = aliasedModelId;
+        console.log(`Dynamic model matched by alias: ${targetModelId}`);
       }
+    } catch (e) {
+      console.error("Error fetching model alias config:", e);
     }
 
     console.log(`Processing action: ${action} with model: ${targetModelId} for text: ${questionText?.substring(0, 50)}...`);

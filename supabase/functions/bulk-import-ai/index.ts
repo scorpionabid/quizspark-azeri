@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-expect-error Supabase Deno import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveModelByAlias } from "../_shared/ai-usage.ts";
 
 // IDE tipləmə xətalarının qarşısını almaq üçün Deno obyektini elan edirik
 declare const Deno: { env: { get(key: string): string | undefined } };
@@ -46,9 +47,15 @@ serve(async (req: Request) => {
         }
         const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
-        const targetModelId = requestedModel || 'google/gemini-2.0-flash';
+        // Setup Supabase for alias resolution
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        console.log(`Bulk importing questions from ${image ? 'image' : 'text'}. Length: ${text?.length || 0}`);
+        const aliasedModelId = await resolveModelByAlias('VISION_OCR', supabase);
+        const targetModelId = requestedModel || aliasedModelId || 'google/gemini-2.0-flash';
+
+        console.log(`Bulk importing questions from ${image ? 'image' : 'text'}. Using model: ${targetModelId}`);
 
         const systemPrompt = `Sən test suallarını mətndən və ya şəkildən çıxaran və strukturlaşdıran ekspert müəllimsən. 
     Verilən girişi analiz et və hər bir sualı obyekt halına salaraq bütün sualları qaytar.

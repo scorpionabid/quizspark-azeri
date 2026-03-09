@@ -7,7 +7,7 @@ import { ProviderCard } from "@/components/admin/ProviderCard";
 import { UsageStatsCard } from "@/components/admin/UsageStatsCard";
 import { UserUsageTable } from "@/components/admin/UserUsageTable";
 import { ConfigSettingsCard } from "@/components/admin/ConfigSettingsCard";
-import { AIProvider, AIConfig, AIUsageStats, AIUserUsage } from "@/types/ai-config";
+import { AIProvider, AIConfig, AIUsageStats, AIUserUsage, AIModelAlias } from "@/types/ai-config";
 
 export default function AIConfigPage() {
   const { toast } = useToast();
@@ -19,6 +19,7 @@ export default function AIConfigPage() {
   const [config, setConfig] = useState<AIConfig | null>(null);
   const [usageStats, setUsageStats] = useState<AIUsageStats | null>(null);
   const [userUsage, setUserUsage] = useState<AIUserUsage[]>([]);
+  const [aliases, setAliases] = useState<AIModelAlias[]>([]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -96,9 +97,17 @@ export default function AIConfigPage() {
 
       if (!usageError && usageData?.usage) {
         setUserUsage(usageData.usage as AIUserUsage[]);
-      } else {
-        // Fallback or handle error
-        console.error("Error fetching user usage:", usageError);
+      }
+
+      // Fetch aliases
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: aliasData } = await (supabase as any)
+        .from("ai_model_aliases")
+        .select("*")
+        .order("alias_key");
+
+      if (aliasData) {
+        setAliases(aliasData as AIModelAlias[]);
       }
 
     } catch (error) {
@@ -141,6 +150,34 @@ export default function AIConfigPage() {
       toast({
         title: "Xəta",
         description: "Limit yenilənərkən xəta baş verdi",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAliasChange = async (aliasKey: string, modelId: string) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from("ai_model_aliases")
+        .update({ model_id: modelId, updated_at: new Date().toISOString() })
+        .eq("alias_key", aliasKey);
+
+      if (error) throw error;
+
+      setAliases(prev => prev.map(a =>
+        a.alias_key === aliasKey ? { ...a, model_id: modelId, updated_at: new Date().toISOString() } : a
+      ));
+
+      toast({
+        title: "Uğurlu",
+        description: `${aliasKey} üçün model yeniləndi`,
+      });
+    } catch (error) {
+      console.error("Error updating alias:", error);
+      toast({
+        title: "Xəta",
+        description: "Alias yenilənərkən xəta baş verdi",
         variant: "destructive",
       });
     }
@@ -284,7 +321,9 @@ export default function AIConfigPage() {
             <ConfigSettingsCard
               config={config}
               providers={providers}
+              aliases={aliases}
               onConfigChange={handleConfigChange}
+              onAliasChange={handleAliasChange}
             />
           </div>
         </div>

@@ -105,3 +105,27 @@ export async function logUsage(
         });
     }
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function resolveModelByAlias(alias: string, supabase: any): Promise<string | null> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+        .from('ai_model_aliases')
+        .select(`
+            model_id,
+            ai_models (
+                model_id
+            )
+        `)
+        .eq('alias_key', alias)
+        .single();
+
+    if (error || !data) {
+        console.error(`Error resolving alias ${alias}:`, error);
+        return null;
+    }
+
+    // Return the actual provider-specific model_id (e.g., 'google/gemini-2.0-flash')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data.ai_models as any)?.model_id || null;
+}

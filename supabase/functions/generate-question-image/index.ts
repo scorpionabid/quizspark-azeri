@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encode as encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { resolveModelByAlias } from "../_shared/ai-usage.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,6 +52,9 @@ serve(async (req) => {
 
     console.log(`Generating image with prompt: ${imagePrompt.substring(0, 100)}...`);
 
+    const aliasedModelId = await resolveModelByAlias('IMAGE_GENERATION', supabase);
+    const targetModelId = aliasedModelId || 'google/gemini-2.5-flash-image';
+
     // Call Lovable AI with image generation model
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -59,7 +63,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image',
+        model: targetModelId,
         messages: [
           { role: 'user', content: imagePrompt }
         ],
@@ -70,7 +74,7 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI gateway error:', response.status, errorText);
-      
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Sorğu limiti aşıldı. Zəhmət olmasa bir az gözləyin.' }),
@@ -83,7 +87,7 @@ serve(async (req) => {
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
+
       throw new Error(`AI gateway error: ${response.status}`);
     }
 
@@ -110,12 +114,12 @@ serve(async (req) => {
         if (base64Match) {
           const imageType = base64Match[1];
           const base64Data = base64Match[2];
-          
+
           // Decode base64 to Uint8Array using the imported function
           const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-          
+
           const fileName = `${userId}/${Date.now()}.${imageType}`;
-          
+
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('question-images')
             .upload(fileName, binaryData, {
@@ -129,7 +133,7 @@ serve(async (req) => {
             const { data: publicUrl } = supabase.storage
               .from('question-images')
               .getPublicUrl(fileName);
-            
+
             storedUrl = publicUrl.publicUrl;
             console.log('Image stored at:', storedUrl);
           }
@@ -151,7 +155,7 @@ serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         imageUrl: storedUrl,
         isBase64: storedUrl.startsWith('data:')
       }),

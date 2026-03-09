@@ -5,15 +5,17 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings } from "lucide-react";
-import { AIConfig, AIProvider } from "@/types/ai-config";
+import { AIConfig, AIProvider, AIModelAlias } from "@/types/ai-config";
 
 interface ConfigSettingsCardProps {
   config: AIConfig | null;
   providers: AIProvider[];
+  aliases: AIModelAlias[];
   onConfigChange: (updates: Partial<AIConfig>) => void;
+  onAliasChange: (aliasKey: string, modelId: string) => void;
 }
 
-export function ConfigSettingsCard({ config, providers, onConfigChange }: ConfigSettingsCardProps) {
+export function ConfigSettingsCard({ config, providers, aliases, onConfigChange, onAliasChange }: ConfigSettingsCardProps) {
   if (!config) {
     return (
       <Card>
@@ -63,9 +65,9 @@ export function ConfigSettingsCard({ config, providers, onConfigChange }: Config
             onValueChange={(value) => {
               const provider = providers.find(p => p.id === value);
               const defaultModel = provider?.models.find(m => m.is_default) || provider?.models[0];
-              onConfigChange({ 
+              onConfigChange({
                 default_provider_id: value,
-                default_model_id: defaultModel?.id 
+                default_model_id: defaultModel?.id
               });
             }}
           >
@@ -168,6 +170,39 @@ export function ConfigSettingsCard({ config, providers, onConfigChange }: Config
               value={config.teacher_daily_limit}
               onChange={(e) => onConfigChange({ teacher_daily_limit: parseInt(e.target.value) || 0 })}
             />
+          </div>
+        </div>
+
+        {/* Model Aliases Section */}
+        <div className="pt-4 border-t space-y-4">
+          <Label className="text-base font-semibold">Model Aliasları (Dinamik Upgrade)</Label>
+          <div className="space-y-4">
+            {aliases.map((alias) => (
+              <div key={alias.id} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-xs font-bold uppercase text-primary">{alias.alias_key.replace('_', ' ')}</Label>
+                  <span className="text-[10px] text-muted-foreground">Son yenilənmə: {new Date(alias.updated_at).toLocaleDateString()}</span>
+                </div>
+                <Select
+                  value={alias.model_id}
+                  onValueChange={(value) => onAliasChange(alias.alias_key, value)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Model seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers.flatMap(p => p.models).map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        {model.display_name} ({providers.find(p => p.id === model.provider_id)?.display_name})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {alias.description && (
+                  <p className="text-[11px] text-muted-foreground italic px-1">{alias.description}</p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </CardContent>

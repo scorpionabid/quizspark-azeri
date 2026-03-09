@@ -47,3 +47,11 @@ export interface AIUserUsage {
   full_name?: string;
   ai_daily_limit?: number | null;
 }
+
+export interface AIModelAlias {
+  id: string;
+  alias_key: string;
+  model_id: string;
+  description?: string;
+  updated_at: string;
+}
