@@ -24,15 +24,21 @@ dist-ssr
 *.sw?
 
 # Docker
-Dockerfile
 docker-compose.yml
 nginx.conf
+
 # Environment variables
 .env
 .env.*
 !.env.example
 
-# Supabase
+# Supabase local dev
 supabase/.temp/
 supabase/.branches/
 supabase/.env
+
+# Supabase self-hosted Docker (secrets + data)
+supabase-docker/.env
+supabase-docker/volumes/db/data/
+supabase-docker/volumes/storage/
+supabase-docker/volumes/snippets/

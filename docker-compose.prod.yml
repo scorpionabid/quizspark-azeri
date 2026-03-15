@@ -15,3 +15,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    networks:
+      - quizspark_network
+
+networks:
+  quizspark_network:
+    external: true
