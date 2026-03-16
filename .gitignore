@@ -1,5 +1,5 @@
-# Logs
-logs
+# Logs (yalnız root səviyyəsində)
+/logs
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -23,9 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Docker
-docker-compose.yml
-nginx.conf
+# Docker (yalnız root səviyyəsində)
+/docker-compose.yml
+/nginx.conf
 
 # Environment variables
 .env
