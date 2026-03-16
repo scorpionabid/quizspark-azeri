@@ -1,3 +1,16 @@
+# ---- Development Stage ----
+FROM node:20-alpine AS dev
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
+
+COPY . .
+
+EXPOSE 8080
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8080"]
+
 # ---- Build Stage ----
 FROM node:20-alpine AS builder
 

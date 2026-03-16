@@ -54,10 +54,18 @@ serve(async (req: Request) => {
 
         console.log(`Bulk importing questions from ${image ? 'image' : 'text'}. Using model: ${targetModelId}`);
 
-        const systemPrompt = `Sən test suallarını mətndən və ya şəkildən çıxaran və strukturlaşdıran ekspert müəllimsən. 
-    Verilən girişi analiz et və hər bir sualı obyekt halına salaraq bütün sualları qaytar.
-    Dil: Azərbaycan dili.
-    Format: Yalnız aşağıdakı funksiyanı çağıraraq JSON formatında cavab ver.`;
+        const systemPrompt = `Sən test suallarını mətndən və ya şəkildən çıxaran, strukturlaşdıran və zənginləşdirən ekspert müəllimsən.
+Göstərişlər:
+1. Verilən mətn və ya şəkildəki HƏR bir sualı tap — heç birini buraxma.
+2. Sual tipini dəqiq müəyyən et (çoxseçimli, doğru/yanlış, qısa cavab, uyğunlaşdırma, sıralama, rəqəmsal, boşluq doldur).
+3. Çoxseçimli suallar üçün variantları (A, B, C, D) ayrı-ayrılıqda qaytarra. Düzgün cavabı tam variant mətni kimi göndər.
+4. Doğru/Yanlış suallar üçün options = ["Doğru", "Yanlış"], correct_answer = "Doğru" ya da "Yanlış".
+5. Kateqoriyanı mövzudan çıxar (məs. "Riyaziyyat", "Tarix", "Biologiya"). Açıq göstərilməyibsə, kontekstdən əvvəlcis qiymətləndir.
+6. Çətinlik səviyyəsini qiymətləndir: "asan" (bilik), "orta" (anlama/tətbiq), "çətin" (analiz/yaratma).
+7. Bloom taksonomiyasını müəyyən et: remembering, understanding, applying, analyzing, evaluating, creating.
+8. OCR köpükləri (xüsusi simvollar, izahsız boşluqlar) varsa onları düzəlt.
+9. Cavabında yalnız aşağıdakı funksiyanı çağır — başqa mətn əlavə etmə.
+Dil: Bütün cavabların Azərbaycan dilindədir.`;
 
         const userContent: Record<string, unknown>[] = [];
 
