@@ -221,14 +221,15 @@ export const parseGIFT = (content: string): ParsedQuestion[] => {
 
 /**
  * Metadata satırlarını oxuyur.
- * Dəstəklənən açarlar: İzahat, Kateqoriya, Çətinlik, Bloom, Taqlar, ANSWER.
+ * Dəstəklənən açarlar: İzahat, Kateqoriya, Çətinlik, Bloom, Taqlar, ANSWER,
+ * Tolerans, Dil (kod tipi üçün).
  * Həm Azərbaycanca, həm ingilis dilini qəbul edir.
  */
 function extractMetadata(lines: string[], target: Partial<ParsedQuestion>) {
   for (const line of lines) {
     const clean = line.trim();
     const metaMatch = clean.match(
-      /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[-:]?\s*(.+)$/i,
+      /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language)\s*[-:]?\s*(.+)$/i,
     );
     if (!metaMatch) continue;
     const key = metaMatch[1].toLowerCase();
@@ -247,6 +248,11 @@ function extractMetadata(lines: string[], target: Partial<ParsedQuestion>) {
         .split(/[,;]/)
         .map(t => t.trim())
         .filter(Boolean);
+    } else if (['tolerans', 'tolerance'].includes(key)) {
+      const tol = parseFloat(value);
+      if (!isNaN(tol)) target.numerical_tolerance = tol;
+    } else if (['dil', 'language'].includes(key)) {
+      target.hint = `lang:${value.toLowerCase()}`;
     } else if (['answer', 'düzgün', 'cavab', 'doğru', 'doğru cavab', 'düzgün cavab'].includes(key)) {
       const letter = value.trim().toUpperCase();
       // Əgər variant mətni birbaşa verilibsə (Format 3 kimi)
@@ -261,9 +267,332 @@ function extractMetadata(lines: string[], target: Partial<ParsedQuestion>) {
             target.correct_answer = opts[idx];
           }
         }
+      } else {
+        // Variant yoxdursa cavabı birbaşa saxla (fill_blank, short_answer, numerical, code)
+        if (!target.correct_answer) target.correct_answer = value.trim();
       }
     }
   }
+}
+
+// ─── ADVANCED TYPE PARSERS ───────────────────────────────────────────────────
+
+/**
+ * Uyğunlaşdırma (matching) bloku parse edir.
+ * Dəstəklənən cüt formatları: `sol → sağ`, `sol -> sağ`, `sol = sağ`, `sol :: sağ`
+ */
+function parseMatchingBlock(
+  lines: string[],
+  lineOffset: number,
+): { questions: ParsedQuestion[]; warnings: ParseWarning[] } {
+  const PAIR_RE = /^(.+?)\s*(?:→|->|=|::)\s*(.+)$/;
+  const META_RE =
+    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type)\s*[-:]/iu;
+
+  const questionLines: string[] = [];
+  const pairs: Array<{ left: string; right: string }> = [];
+  const metaLines: string[] = [];
+
+  for (const line of lines) {
+    const clean = line.trim();
+    if (!clean) continue;
+    const pairMatch = clean.match(PAIR_RE);
+    if (pairMatch && !META_RE.test(clean)) {
+      pairs.push({ left: pairMatch[1].trim(), right: pairMatch[2].trim() });
+    } else if (META_RE.test(clean)) {
+      metaLines.push(clean);
+    } else if (pairs.length === 0) {
+      questionLines.push(clean);
+    } else {
+      metaLines.push(clean);
+    }
+  }
+
+  const questionText =
+    questionLines.filter(l => !/^Tip\s*:/i.test(l)).join(' ').trim() ||
+    'Uyğunlaşdırın';
+
+  // Record<left, right> formatında saxla
+  const pairsRecord: Record<string, string> = Object.fromEntries(
+    pairs.map(p => [p.left, p.right]),
+  );
+
+  const result: Partial<ParsedQuestion> = {
+    question_text: questionText,
+    question_type: 'matching',
+    difficulty: 'orta',
+    matching_pairs: pairsRecord,
+    correct_answer: pairs.map(p => `${p.left}:${p.right}`).join('|||'),
+  };
+
+  extractMetadata(metaLines, result);
+
+  const warnings: ParseWarning[] = [];
+  if (pairs.length < 2) {
+    warnings.push({
+      line: lineOffset,
+      type: 'missing_answer',
+      message: `Uyğunlaşdırma sualında ən azı 2 cüt lazımdır`,
+    });
+  }
+
+  return { questions: [result as ParsedQuestion], warnings };
+}
+
+/**
+ * Ardıcıllıq (ordering) bloku parse edir.
+ * Nömrəli siyahı: `1) Birinci`, `1. Birinci`, yaxud bullet siyahısı.
+ */
+function parseOrderingBlock(
+  lines: string[],
+  lineOffset: number,
+): { questions: ParsedQuestion[]; warnings: ParseWarning[] } {
+  const ITEM_RE = /^(?:\d+[.)]\s+|[-•*]\s+)(.+)$/;
+  const META_RE =
+    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type)\s*[-:]/iu;
+
+  const questionLines: string[] = [];
+  const items: string[] = [];
+  const metaLines: string[] = [];
+
+  for (const line of lines) {
+    const clean = line.trim();
+    if (!clean) continue;
+    const itemMatch = clean.match(ITEM_RE);
+    if (itemMatch && !META_RE.test(clean)) {
+      items.push(itemMatch[1].trim());
+    } else if (META_RE.test(clean)) {
+      metaLines.push(clean);
+    } else if (items.length === 0) {
+      questionLines.push(clean);
+    } else {
+      metaLines.push(clean);
+    }
+  }
+
+  const questionText =
+    questionLines.filter(l => !/^Tip\s*:/i.test(l)).join(' ').trim() ||
+    'Düzgün ardıcıllığı müəyyən edin';
+
+  const result: Partial<ParsedQuestion> = {
+    question_text: questionText,
+    question_type: 'ordering',
+    difficulty: 'orta',
+    sequence_items: items as unknown as string[],
+    correct_answer: items.join('|||'),
+  };
+
+  extractMetadata(metaLines, result);
+
+  const warnings: ParseWarning[] = [];
+  if (items.length < 2) {
+    warnings.push({
+      line: lineOffset,
+      type: 'missing_answer',
+      message: `Ardıcıllıq sualında ən azı 2 element lazımdır`,
+    });
+  }
+
+  return { questions: [result as ParsedQuestion], warnings };
+}
+
+/**
+ * Boşluq doldur (fill_blank) bloku parse edir.
+ * Sual mətnindəki ___ boşluq sayını tapır, Cavab: bölməsindən cavabları alır.
+ */
+function parseFillBlankBlock(
+  lines: string[],
+  lineOffset: number,
+): { questions: ParsedQuestion[]; warnings: ParseWarning[] } {
+  const META_RE =
+    /^(Cavab|Düzgün cavab|Answer|İzahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type)\s*[-:]/iu;
+
+  const questionLines: string[] = [];
+  const metaLines: string[] = [];
+
+  for (const line of lines) {
+    const clean = line.trim();
+    if (!clean) continue;
+    if (META_RE.test(clean)) {
+      metaLines.push(clean);
+    } else {
+      questionLines.push(clean);
+    }
+  }
+
+  const template = questionLines
+    .filter(l => !/^Tip\s*:/i.test(l))
+    .join(' ')
+    .trim();
+
+  const result: Partial<ParsedQuestion> = {
+    question_text: template,
+    question_type: 'fill_blank',
+    difficulty: 'orta',
+    fill_blank_template: template,
+  };
+
+  extractMetadata(metaLines, result);
+
+  const warnings: ParseWarning[] = [];
+  if (!template.includes('___')) {
+    warnings.push({
+      line: lineOffset,
+      type: 'empty_question',
+      message: `Fill-blank sualında ___ boşluq işarəsi tapılmadı`,
+    });
+  }
+  if (!result.correct_answer) {
+    warnings.push({
+      line: lineOffset,
+      type: 'missing_answer',
+      message: `Fill-blank sualında "Cavab:" bölməsi tapılmadı`,
+    });
+  }
+
+  return { questions: [result as ParsedQuestion], warnings };
+}
+
+/**
+ * Rəqəmsal (numerical) bloku parse edir.
+ * Cavab: 42, Tolerans: 0.5 formatını dəstəkləyir.
+ */
+function parseNumericalBlock(
+  lines: string[],
+  lineOffset: number,
+): { questions: ParsedQuestion[]; warnings: ParseWarning[] } {
+  const META_RE =
+    /^(Cavab|Düzgün cavab|Answer|Tolerans|Tolerance|İzahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type)\s*[-:]/iu;
+
+  const questionLines: string[] = [];
+  const metaLines: string[] = [];
+
+  for (const line of lines) {
+    const clean = line.trim();
+    if (!clean) continue;
+    if (META_RE.test(clean)) {
+      metaLines.push(clean);
+    } else {
+      questionLines.push(clean);
+    }
+  }
+
+  const questionText = questionLines
+    .filter(l => !/^Tip\s*:/i.test(l))
+    .join(' ')
+    .trim();
+
+  const result: Partial<ParsedQuestion> = {
+    question_text: questionText,
+    question_type: 'numerical',
+    difficulty: 'orta',
+  };
+
+  extractMetadata(metaLines, result);
+
+  // numerical_answer-ı correct_answer-dan al
+  if (result.correct_answer && !result.numerical_answer) {
+    const parsed = parseFloat(result.correct_answer);
+    if (!isNaN(parsed)) result.numerical_answer = parsed;
+  }
+
+  const warnings: ParseWarning[] = [];
+  if (!result.correct_answer) {
+    warnings.push({
+      line: lineOffset,
+      type: 'missing_answer',
+      message: `Rəqəmsal sualda "Cavab:" bölməsi tapılmadı`,
+    });
+  }
+
+  return { questions: [result as ParsedQuestion], warnings };
+}
+
+/**
+ * Kod (code) bloku parse edir.
+ * ```python ... ``` formatından kodu alır.
+ * Dil: python, Cavab: <çıxış>
+ */
+function parseCodeBlock(
+  lines: string[],
+  lineOffset: number,
+): { questions: ParsedQuestion[]; warnings: ParseWarning[] } {
+  const META_RE =
+    /^(Cavab|Düzgün cavab|Answer|Dil|Language|İzahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type)\s*[-:]/iu;
+
+  const questionLines: string[] = [];
+  const metaLines: string[] = [];
+  const codeLines: string[] = [];
+
+  let inCode = false;
+  let codeLang = '';
+
+  for (const line of lines) {
+    const clean = line.trim();
+    if (!clean) {
+      if (inCode) codeLines.push('');
+      continue;
+    }
+
+    // ``` başlanğıcı
+    const fenceStart = clean.match(/^```(\w*)$/);
+    if (fenceStart && !inCode) {
+      inCode = true;
+      codeLang = fenceStart[1] || '';
+      continue;
+    }
+    // ``` sonu
+    if (clean === '```' && inCode) {
+      inCode = false;
+      continue;
+    }
+
+    if (inCode) {
+      codeLines.push(line); // orijinal indentasiya saxla
+    } else if (META_RE.test(clean)) {
+      metaLines.push(clean);
+    } else {
+      questionLines.push(clean);
+    }
+  }
+
+  const questionText = questionLines
+    .filter(l => !/^Tip\s*:/i.test(l))
+    .join(' ')
+    .trim();
+
+  const codeSnippet = codeLines.join('\n').trim();
+
+  const result: Partial<ParsedQuestion> = {
+    question_text: questionText,
+    question_type: 'code',
+    difficulty: 'orta',
+    fill_blank_template: codeSnippet || null,
+  };
+
+  if (codeLang) result.hint = `lang:${codeLang.toLowerCase()}`;
+
+  extractMetadata(metaLines, result);
+
+  // Dil metadatası varsa hint-i override et
+  if (
+    !result.hint?.startsWith('lang:') &&
+    result.hint &&
+    !result.hint.startsWith('lang:')
+  ) {
+    result.hint = `lang:${result.hint}`;
+  }
+
+  const warnings: ParseWarning[] = [];
+  if (!result.correct_answer) {
+    warnings.push({
+      line: lineOffset,
+      type: 'missing_answer',
+      message: `Kod sualında "Cavab:" bölməsi tapılmadı`,
+    });
+  }
+
+  return { questions: [result as ParsedQuestion], warnings };
 }
 
 /**
@@ -468,6 +797,10 @@ function parseMarkdownFormat3(content: string): ParseResult {
 
 /**
  * Tək sual blokunu parse edir. Hər format növünü tanıyır:
+ * - `Tip: matching/ordering/fill_blank/numerical/code` → mürəkkəb tip parserlər
+ * - Uyğunlaşdırma auto-detect: `left → right` cütlər
+ * - Fill-blank auto-detect: mətndə `___` varsa
+ * - Kod auto-detect: ``` blok varsa
  * - Checklist: `- [x] ...`
  * - Aiken: `A) ...` + `ANSWER: A`
  * - Bullet: `- Variant`
@@ -479,6 +812,46 @@ function parseSingleBlock(
 ): { questions: ParsedQuestion[]; warnings: ParseWarning[] } {
   const lines = block.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (!lines.length) return { questions: [], warnings: [] };
+
+  // ── Açıq `Tip:` marker — hansı parser istifadə olunacağını bildirir ──────────
+  const tipLine = lines.find(l => /^Tip\s*:/i.test(l));
+  if (tipLine) {
+    const tipValue = tipLine.replace(/^Tip\s*:\s*/i, '').trim().toLowerCase();
+    if (['matching', 'uyğunlaşdırma', 'uygunlashdirma'].some(t => tipValue.includes(t))) {
+      return parseMatchingBlock(lines, lineOffset);
+    }
+    if (['ordering', 'ardıcıllıq', 'sıralama', 'siralama'].some(t => tipValue.includes(t))) {
+      return parseOrderingBlock(lines, lineOffset);
+    }
+    if (['fill_blank', 'fill blank', 'boşluq', 'bosluq'].some(t => tipValue.includes(t))) {
+      return parseFillBlankBlock(lines, lineOffset);
+    }
+    if (['numerical', 'rəqəmsal', 'reqemsal'].some(t => tipValue.includes(t))) {
+      return parseNumericalBlock(lines, lineOffset);
+    }
+    if (['code', 'kod'].some(t => tipValue.includes(t))) {
+      return parseCodeBlock(lines, lineOffset);
+    }
+  }
+
+  // ── Auto-detect: uyğunlaşdırma (→ / -> / :: cütlər) ─────────────────────────
+  const META_RE_LIGHT = /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Cavab|Düzgün|ANSWER|Tolerans|Dil)\s*[-:]/iu;
+  const PAIR_RE = /^.+\s*(?:→|->|::)\s*.+$/;
+  const pairLines = lines.filter(l => PAIR_RE.test(l) && !META_RE_LIGHT.test(l));
+  if (pairLines.length >= 2) {
+    return parseMatchingBlock(lines, lineOffset);
+  }
+
+  // ── Auto-detect: fill_blank (___ markeri varsa) ───────────────────────────────
+  const hasBlank = lines.some(l => /___/.test(l) && !META_RE_LIGHT.test(l));
+  if (hasBlank) {
+    return parseFillBlankBlock(lines, lineOffset);
+  }
+
+  // ── Auto-detect: kod (``` bloku varsa) ───────────────────────────────────────
+  if (block.includes('```')) {
+    return parseCodeBlock(lines, lineOffset);
+  }
 
   // Checklist formatı: `- [x] Düzgün` varsa format1-ə yönləndir
   if (/^[-*]\s*\[[ xX]\]/.test(block)) {

@@ -1,323 +1,641 @@
 import React, { useState } from 'react';
-import { QuestionAnswer, QuestionType } from '@/types/question';
 import { Question } from '@/hooks/useQuestions';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { QuestionVideoPlayer } from '../question-bank/QuestionVideoPlayer';
 import { Question3DViewer } from '../question-bank/Question3DViewer';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Image as ImageIcon, Video, Music, Box, MonitorPlay } from 'lucide-react';
+import {
+  Music,
+  Box,
+  MonitorPlay,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  Code2,
+} from 'lucide-react';
 
 interface Props {
-    question: Question;
-    value: string;
-    onChange: (val: string) => void;
-    showFeedback?: boolean;
-    disabled?: boolean;
+  question: Question;
+  value: string;
+  onChange: (val: string) => void;
+  showFeedback?: boolean;
+  disabled?: boolean;
 }
 
-export function QuestionRenderer({ question, value, onChange, showFeedback, disabled }: Props) {
-    const [matchingSelection, setMatchingSelection] = useState<{ left?: string, right?: string }>({});
-    const [orderingSequence, setOrderingSequence] = useState<string[]>([]);
+// ─── Tip-spesifik cavab yoxlama ───────────────────────────────────────────────
+function isAnswerCorrect(question: Question, value: string): boolean {
+  const qt = question.question_type;
 
-    // Initialize ordering sequence if empty
-    React.useEffect(() => {
-        if (question.question_type === 'ordering' && orderingSequence.length === 0 && question.sequence_items) {
-            setOrderingSequence([...question.sequence_items].sort(() => Math.random() - 0.5));
-        }
-    }, [question.id, question.question_type, question.sequence_items, orderingSequence.length]);
+  if (qt === 'numerical') {
+    const numAnswer = parseFloat(value);
+    const correctNum = question.numerical_answer ?? parseFloat(question.correct_answer);
+    const tolerance = question.numerical_tolerance ?? 0;
+    if (isNaN(numAnswer) || isNaN(correctNum)) return false;
+    return Math.abs(numAnswer - correctNum) <= tolerance;
+  }
 
-    const handleSelect = (val: string) => {
-        if (disabled || showFeedback) return;
-        onChange(val);
-    };
+  if (qt === 'fill_blank') {
+    const studentAnswers = value.split('|').map(a => a.trim().toLowerCase());
+    const correctAnswers = question.correct_answer.split('|').map(a => a.trim().toLowerCase());
+    if (studentAnswers.length !== correctAnswers.length) return false;
+    return studentAnswers.every((a, i) => a === correctAnswers[i]);
+  }
 
-    const handleOrderingSwap = (idx: number) => {
-        if (disabled || showFeedback) return;
-        // Simple tap to move to front or swap logic
-        // For now, let's do a simple swap with the one above it
-        if (idx > 0) {
-            const newSeq = [...orderingSequence];
-            [newSeq[idx - 1], newSeq[idx]] = [newSeq[idx], newSeq[idx - 1]];
-            setOrderingSequence(newSeq);
-            onChange(newSeq.join('|||'));
-        }
-    };
+  if (qt === 'ordering') {
+    const studentSeq = value.split('|||').map(s => s.trim());
+    const correctSeq = (
+      question.sequence_items?.length
+        ? question.sequence_items
+        : question.correct_answer.split('|||')
+    ).map(s => s.trim());
+    if (studentSeq.length !== correctSeq.length) return false;
+    return studentSeq.every((item, i) => item === correctSeq[i]);
+  }
 
-    const renderMedia = () => {
-        return (
-            <div className="space-y-4 mb-4">
-                {/* Image Section */}
-                {(question.question_image_url || (question.media_type === 'image' && question.media_url)) && (
-                    <div className="relative group">
-                        <img
-                            src={question.question_image_url || question.media_url!}
-                            alt="Sual şəkli"
-                            className="max-h-80 w-auto mx-auto rounded-2xl border-2 border-primary/10 shadow-lg object-contain bg-background/50"
-                        />
-                    </div>
-                )}
+  if (qt === 'matching') {
+    const pairsRecord = normalizePairs(question.matching_pairs ?? null);
+    const studentPairs = parseMatchingValue(value);
+    return Object.entries(pairsRecord).every(([l, r]) => studentPairs[l] === r);
+  }
 
-                {/* Video Section */}
-                {(question.question_type === 'video' || question.media_type === 'video') && (question.video_url || question.media_url) && (
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary/60 px-1">
-                            <MonitorPlay className="w-3 h-3" />
-                            <span>Video Material</span>
-                        </div>
-                        <QuestionVideoPlayer
-                            videoUrl={question.video_url || question.media_url!}
-                            startTime={question.video_start_time || undefined}
-                            endTime={question.video_end_time || undefined}
-                        />
-                    </div>
-                )}
+  if (qt === 'true_false') {
+    // Həm A/B həm true/false konvensiyasını dəstəklə
+    const ca = question.correct_answer;
+    const isCorrectA = ca === 'A' || ca === 'Doğru' || ca.toLowerCase() === 'true';
+    if (isCorrectA) return value === 'true' || value === 'A';
+    return value === 'false' || value === 'B';
+  }
 
-                {/* 3D Model Section */}
-                {(question.question_type === 'model_3d' || question.model_3d_url) && (
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-secondary/60 px-1">
-                            <Box className="w-3 h-3" />
-                            <span>3D Model</span>
-                        </div>
-                        <Question3DViewer modelUrl={question.model_3d_url || question.media_url!} />
-                    </div>
-                )}
+  return value.trim() === question.correct_answer.trim();
+}
 
-                {/* Audio Section */}
-                {question.media_type === 'audio' && question.media_url && (
-                    <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex flex-col gap-2">
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary/60">
-                            <Music className="w-3 h-3" />
-                            <span>Səs Yazısı</span>
-                        </div>
-                        <audio src={question.media_url} controls className="w-full h-10" />
-                    </div>
-                )}
+// matching_pairs array [{left,right}] vs Record<string,string> hər ikisini normallaşdır
+function normalizePairs(
+  pairs: Record<string, string> | null,
+): Record<string, string> {
+  if (!pairs) return {};
+  if (Array.isArray(pairs)) {
+    return Object.fromEntries(
+      (pairs as unknown as Array<{ left: string; right: string }>).map(p => [
+        p.left,
+        p.right,
+      ]),
+    );
+  }
+  return pairs;
+}
+
+function parseMatchingValue(value: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (!value) return result;
+  value.split('|||').forEach(m => {
+    const colonIdx = m.indexOf(':');
+    if (colonIdx > -1) {
+      result[m.slice(0, colonIdx)] = m.slice(colonIdx + 1);
+    }
+  });
+  return result;
+}
+
+// ─── Əsas komponent ───────────────────────────────────────────────────────────
+export function QuestionRenderer({
+  question,
+  value,
+  onChange,
+  showFeedback,
+  disabled,
+}: Props) {
+  const [orderingSequence, setOrderingSequence] = useState<string[]>([]);
+  const [shuffledRightItems, setShuffledRightItems] = useState<string[]>([]);
+
+  // Ordering: ilk render-də qarışdır
+  React.useEffect(() => {
+    if (
+      question.question_type === 'ordering' &&
+      orderingSequence.length === 0 &&
+      question.sequence_items?.length
+    ) {
+      setOrderingSequence(
+        [...question.sequence_items].sort(() => Math.random() - 0.5),
+      );
+    }
+  }, [question.id, question.question_type, question.sequence_items, orderingSequence.length]);
+
+  // Matching: sağ tərəfi qarışdır
+  React.useEffect(() => {
+    if (question.question_type === 'matching' && question.matching_pairs) {
+      const pairsRecord = normalizePairs(question.matching_pairs);
+      setShuffledRightItems(
+        [...Object.values(pairsRecord)].sort(() => Math.random() - 0.5),
+      );
+    }
+  }, [question.id, question.question_type, question.matching_pairs]);
+
+  const handleSelect = (val: string) => {
+    if (disabled || showFeedback) return;
+    onChange(val);
+  };
+
+  // ─── Media ──────────────────────────────────────────────────────────────────
+  const renderMedia = () => (
+    <div className="space-y-4 mb-4">
+      {(question.question_image_url ||
+        (question.media_type === 'image' && question.media_url)) && (
+        <img
+          src={question.question_image_url || question.media_url!}
+          alt="Sual şəkli"
+          className="max-h-80 w-auto mx-auto rounded-2xl border-2 border-primary/10 shadow-lg object-contain bg-background/50"
+        />
+      )}
+
+      {(question.question_type === 'video' || question.media_type === 'video') &&
+        (question.video_url || question.media_url) && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary/60 px-1">
+              <MonitorPlay className="w-3 h-3" />
+              <span>Video Material</span>
             </div>
+            <QuestionVideoPlayer
+              videoUrl={question.video_url || question.media_url!}
+              startTime={question.video_start_time || undefined}
+              endTime={question.video_end_time || undefined}
+            />
+          </div>
+        )}
+
+      {(question.question_type === 'model_3d' || question.model_3d_url) && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-secondary/60 px-1">
+            <Box className="w-3 h-3" />
+            <span>3D Model</span>
+          </div>
+          <Question3DViewer modelUrl={question.model_3d_url || question.media_url!} />
+        </div>
+      )}
+
+      {question.media_type === 'audio' && question.media_url && (
+        <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary/60">
+            <Music className="w-3 h-3" />
+            <span>Səs Yazısı</span>
+          </div>
+          <audio src={question.media_url} controls className="w-full h-10" />
+        </div>
+      )}
+    </div>
+  );
+
+  // ─── Sual tipi render ────────────────────────────────────────────────────────
+  const renderContent = () => {
+    switch (question.question_type) {
+      // ── Multiple Choice ──────────────────────────────────────────────────────
+      case 'multiple_choice':
+        return (
+          <RadioGroup
+            value={value}
+            onValueChange={handleSelect}
+            disabled={disabled || showFeedback}
+            className="space-y-2"
+          >
+            {question.options?.map((opt, i) => (
+              <div key={i} className="flex items-center space-x-2">
+                <RadioGroupItem value={opt} id={`opt-${i}`} />
+                <Label htmlFor={`opt-${i}`}>{opt}</Label>
+              </div>
+            ))}
+          </RadioGroup>
         );
-    };
 
-    const renderContent = () => {
-        switch (question.question_type) {
-            case 'video':
-                return (
-                    <div className="space-y-4">
-                        <Input
-                            disabled={disabled || showFeedback}
-                            placeholder="Sizin cavabınız..."
-                            value={value}
-                            onChange={(e) => handleSelect(e.target.value)}
-                        />
-                    </div>
-                );
-            case 'model_3d':
-                return (
-                    <div className="space-y-4">
-                        <Input
-                            disabled={disabled || showFeedback}
-                            placeholder="3D əsasında cavabınız..."
-                            value={value}
-                            onChange={(e) => handleSelect(e.target.value)}
-                        />
-                    </div>
-                );
-            case 'true_false':
-                return (
-                    <RadioGroup value={value} onValueChange={handleSelect} disabled={disabled || showFeedback} className="flex gap-4">
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="true" id="true" />
-                            <Label htmlFor="true">Doğru</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="false" id="false" />
-                            <Label htmlFor="false">Yanlış</Label>
-                        </div>
-                    </RadioGroup>
-                );
-            case 'multiple_choice':
-                return (
-                    <RadioGroup value={value} onValueChange={handleSelect} disabled={disabled || showFeedback} className="space-y-2">
-                        {question.options?.map((opt, i) => (
-                            <div key={i} className="flex items-center space-x-2">
-                                <RadioGroupItem value={opt} id={`opt-${i}`} />
-                                <Label htmlFor={`opt-${i}`}>{opt}</Label>
-                            </div>
-                        ))}
-                    </RadioGroup>
-                );
-            case 'numerical':
-                return (
-                    <Input
-                        type="number"
-                        inputMode="decimal"
-                        className="h-14 text-lg font-bold text-center border-2 border-primary/20 focus:border-primary rounded-2xl"
-                        disabled={disabled || showFeedback}
-                        placeholder="Rəqəmi daxil edin..."
-                        value={value}
-                        onChange={(e) => handleSelect(e.target.value)}
+      // ── True / False ─────────────────────────────────────────────────────────
+      case 'true_false':
+        return (
+          <RadioGroup
+            value={value}
+            onValueChange={handleSelect}
+            disabled={disabled || showFeedback}
+            className="flex gap-4"
+          >
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50/50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors">
+              <RadioGroupItem value="true" id="tf-true" />
+              <Label htmlFor="tf-true" className="cursor-pointer font-semibold text-green-600">
+                Doğru
+              </Label>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+              <RadioGroupItem value="false" id="tf-false" />
+              <Label htmlFor="tf-false" className="cursor-pointer font-semibold text-red-600">
+                Yanlış
+              </Label>
+            </div>
+          </RadioGroup>
+        );
+
+      // ── Numerical ────────────────────────────────────────────────────────────
+      case 'numerical':
+        return (
+          <div className="space-y-2">
+            <Input
+              type="number"
+              inputMode="decimal"
+              className="h-14 text-lg font-bold text-center border-2 border-primary/20 focus:border-primary rounded-2xl"
+              disabled={disabled || showFeedback}
+              placeholder="Rəqəmi daxil edin..."
+              value={value}
+              onChange={e => handleSelect(e.target.value)}
+            />
+            {question.numerical_tolerance != null && question.numerical_tolerance > 0 && (
+              <p className="text-xs text-center text-muted-foreground">
+                ±{question.numerical_tolerance} tolerans daxilindəki cavablar qəbul edilir
+              </p>
+            )}
+          </div>
+        );
+
+      // ── Short Answer ─────────────────────────────────────────────────────────
+      case 'short_answer':
+        return (
+          <Input
+            className="h-12 border-2 border-primary/10 focus:border-primary rounded-xl"
+            disabled={disabled || showFeedback}
+            placeholder="Sizin cavabınız..."
+            value={value}
+            onChange={e => handleSelect(e.target.value)}
+          />
+        );
+
+      // ── Essay ─────────────────────────────────────────────────────────────────
+      case 'essay':
+        return (
+          <Textarea
+            disabled={disabled || showFeedback}
+            placeholder="Esse yazın..."
+            value={value}
+            onChange={e => handleSelect(e.target.value)}
+          />
+        );
+
+      // ── Fill Blank — hər ___ üçün ayrı input ────────────────────────────────
+      case 'fill_blank': {
+        const template =
+          question.fill_blank_template || question.question_text || '';
+        const blanks = (template.match(/___+/g) || []).length;
+        const answers = value ? value.split('|') : [];
+
+        // ___ ilə parçala, text + input növbəli render
+        const parts = template.split(/(___+)/g);
+        let blankIdx = 0;
+
+        const handleBlankChange = (idx: number, val: string) => {
+          if (disabled || showFeedback) return;
+          const newAnswers = Array.from(
+            { length: Math.max(blanks, answers.length, idx + 1) },
+            (_, i) => answers[i] ?? '',
+          );
+          newAnswers[idx] = val;
+          onChange(newAnswers.join('|'));
+        };
+
+        return (
+          <div className="space-y-3">
+            <div className="leading-loose text-base p-3 rounded-xl bg-muted/20 border border-border/40">
+              {parts.map((part, pi) => {
+                if (/^___+$/.test(part)) {
+                  const idx = blankIdx++;
+                  const ans = answers[idx] ?? '';
+                  const isCorrectBlank =
+                    showFeedback &&
+                    ans.trim().toLowerCase() ===
+                      (question.correct_answer.split('|')[idx] ?? '').trim().toLowerCase();
+                  return (
+                    <input
+                      key={pi}
+                      type="text"
+                      value={ans}
+                      onChange={e => handleBlankChange(idx, e.target.value)}
+                      disabled={disabled || showFeedback}
+                      placeholder="?"
+                      className={cn(
+                        'inline-block w-28 h-8 min-w-0 text-center text-sm border-0 border-b-2 rounded-none bg-transparent focus:outline-none focus:ring-0 px-1 mx-0.5 align-middle transition-colors',
+                        showFeedback
+                          ? isCorrectBlank
+                            ? 'border-green-500 text-green-600'
+                            : 'border-red-400 text-red-600'
+                          : 'border-primary/40 focus:border-primary',
+                      )}
                     />
-                );
-            case 'short_answer':
-            case 'fill_blank':
+                  );
+                }
                 return (
-                    <Input
-                        className="h-12 border-2 border-primary/10 focus:border-primary rounded-xl"
-                        disabled={disabled || showFeedback}
-                        placeholder="Sizin cavabınız..."
-                        value={value}
-                        onChange={(e) => handleSelect(e.target.value)}
-                    />
+                  <span key={pi} className="align-middle">
+                    {part}
+                  </span>
                 );
-            case 'essay':
-                return (
-                    <Textarea
-                        disabled={disabled || showFeedback}
-                        placeholder="Esse yazın..."
-                        value={value}
-                        onChange={(e) => handleSelect(e.target.value)}
-                    />
-                );
-            // Geri qalan tiplər üçün "Kod sualı", "Matching", "Ordering" (bunlar üçün MVP olaraq textArea və inkişaf səviyyəsində əlavə edilər)
-            case 'ordering': {
-                return (
-                    <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground mb-2 italic">Elementlərin üzərinə toxunaraq ardıcıllığı qurun</p>
-                        <div className="grid gap-2">
-                            {orderingSequence.map((item, idx) => (
-                                <div
-                                    key={idx}
-                                    className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border shadow-sm active:scale-95 transition-transform cursor-pointer hover:bg-muted/30"
-                                    onClick={() => handleOrderingSwap(idx)}
-                                >
-                                    <div className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary font-bold">{idx + 1}</div>
-                                    <span className="flex-1 text-sm">{item}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-            }
-            case 'matching': {
-                const pairs = question.matching_pairs || [];
-                // Simplified matching: click left, click right -> match
-                const handleMatch = (side: 'left' | 'right', val: string) => {
-                    const newSelection = { ...matchingSelection, [side]: val };
-                    if (newSelection.left && newSelection.right) {
-                        const matchStr = `${newSelection.left}:${newSelection.right}`;
-                        const currentMatches = value ? value.split('|||') : [];
-                        if (!currentMatches.includes(matchStr)) {
-                            onChange([...currentMatches, matchStr].join('|||'));
-                        }
-                        setMatchingSelection({});
-                    } else {
-                        setMatchingSelection(newSelection);
-                    }
-                };
+              })}
+            </div>
+            {blanks === 0 && (
+              <Input
+                disabled={disabled || showFeedback}
+                placeholder="Cavabınız..."
+                value={value}
+                onChange={e => handleSelect(e.target.value)}
+              />
+            )}
+          </div>
+        );
+      }
 
-                const currentMatches = value ? value.split('|||') : [];
+      // ── Code ──────────────────────────────────────────────────────────────────
+      case 'code': {
+        const codeSnippet = question.fill_blank_template || '';
+        const lang = question.hint?.startsWith('lang:')
+          ? question.hint.slice(5)
+          : '';
 
-                return (
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground px-1">Sütun A</p>
-                                {Object.keys(pairs).map((leftKey, i) => (
-                                    <Button
-                                        key={i}
-                                        variant={matchingSelection.left === leftKey ? "default" : "outline"}
-                                        className={cn(
-                                            "w-full justify-start text-xs h-auto py-3 px-3 whitespace-normal text-left rounded-xl transition-all",
-                                            currentMatches.some(m => m.startsWith(leftKey + ':')) && "opacity-50 border-success/50 bg-success/5"
-                                        )}
-                                        onClick={() => handleMatch('left', leftKey)}
-                                        disabled={disabled || showFeedback}
-                                    >
-                                        {leftKey}
-                                    </Button>
-                                ))}
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground px-1">Sütun B</p>
-                                {Object.values(pairs).map((rightVal, i) => (
-                                    <Button
-                                        key={i}
-                                        variant={matchingSelection.right === rightVal ? "default" : "outline"}
-                                        className={cn(
-                                            "w-full justify-start text-xs h-auto py-3 px-3 whitespace-normal text-left rounded-xl transition-all",
-                                            currentMatches.some(m => m.endsWith(':' + rightVal)) && "opacity-50 border-success/50 bg-success/5"
-                                        )}
-                                        onClick={() => handleMatch('right', rightVal)}
-                                        disabled={disabled || showFeedback}
-                                    >
-                                        {rightVal}
-                                    </Button>
-                                ))}
-                            </div>
-                        </div>
-                        {currentMatches.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {currentMatches.map((m, idx) => (
-                                    <Badge key={idx} variant="secondary" className="px-2 py-1 text-[10px]">
-                                        {m.replace(':', ' ↔ ')}
-                                    </Badge>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                );
-            }
-            default:
-                return (
-                    <Textarea
-                        className="min-h-[120px] rounded-xl border-2 border-primary/5 focus:border-primary"
-                        disabled={disabled || showFeedback}
-                        placeholder="Cavabınız..."
-                        value={value}
-                        onChange={(e) => handleSelect(e.target.value)}
-                    />
-                );
-        }
-    };
+        return (
+          <div className="space-y-3">
+            {codeSnippet && (
+              <div className="rounded-xl overflow-hidden border border-neutral-700 shadow-sm">
+                {lang && (
+                  <div className="flex items-center gap-2 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-400 border-b border-neutral-700">
+                    <Code2 className="h-3 w-3" />
+                    <span className="font-mono">{lang}</span>
+                  </div>
+                )}
+                <pre className="bg-neutral-950 text-green-400 font-mono text-sm p-4 overflow-x-auto whitespace-pre-wrap leading-relaxed m-0">
+                  <code>{codeSnippet}</code>
+                </pre>
+              </div>
+            )}
+            <Input
+              disabled={disabled || showFeedback}
+              placeholder="Kodun çıxışını / cavabını yazın..."
+              value={value}
+              onChange={e => handleSelect(e.target.value)}
+              className="font-mono h-12 border-2 border-primary/10 focus:border-primary rounded-xl"
+            />
+          </div>
+        );
+      }
 
-    return (
-        <div className="space-y-4">
-            {renderMedia()}
-            {renderContent()}
+      // ── Ordering — yuxarı/aşağı düymələri ───────────────────────────────────
+      case 'ordering': {
+        const handleMove = (from: number, direction: -1 | 1) => {
+          if (disabled || showFeedback) return;
+          const to = from + direction;
+          if (to < 0 || to >= orderingSequence.length) return;
+          const newSeq = [...orderingSequence];
+          [newSeq[from], newSeq[to]] = [newSeq[to], newSeq[from]];
+          setOrderingSequence(newSeq);
+          onChange(newSeq.join('|||'));
+        };
 
-            {showFeedback && (
-                <div className={cn(
-                    "p-4 mt-4 rounded-xl border transition-all duration-300 animate-scale-in",
-                    value === question.correct_answer
-                        ? "bg-success/10 border-success/30 text-success"
-                        : "bg-destructive/10 border-destructive/30 text-destructive"
-                )}>
-                    <h4 className="font-black mb-2 flex items-center gap-2">
-                        {value === question.correct_answer ? (
-                            <><span>✅</span> Doğru!</>
-                        ) : (
-                            <><span>❌</span> Yanlış!</>
-                        )}
-                    </h4>
-
-                    {question.explanation && (
-                        <div className="text-sm mt-2 opacity-90 leading-relaxed bg-background/40 p-3 rounded-lg border border-border/20">
-                            <strong className="block mb-1 uppercase text-[10px] font-black tracking-widest opacity-70">Açıqlama</strong>
-                            {question.explanation}
-                        </div>
-                    )}
-
-                    {question.per_option_explanations && value && Array.isArray(question.options) && (
-                        <div className="text-sm mt-3 p-3 rounded-lg bg-background/20 font-medium">
-                            {question.per_option_explanations[question.options.indexOf(value)?.toString()]}
-                        </div>
-                    )}
+        return (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground italic mb-1">
+              ↕ Elementləri düzgün ardıcıllıqla düzün
+            </p>
+            <div className="space-y-1.5">
+              {orderingSequence.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/60 shadow-sm"
+                >
+                  <div className="flex flex-col gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleMove(idx, -1)}
+                      disabled={disabled || showFeedback || idx === 0}
+                      className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-25 transition-colors"
+                      aria-label="Yuxarı"
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMove(idx, 1)}
+                      disabled={
+                        disabled ||
+                        showFeedback ||
+                        idx === orderingSequence.length - 1
+                      }
+                      className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-25 transition-colors"
+                      aria-label="Aşağı"
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <div className="h-7 w-7 flex items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-sm shrink-0">
+                    {idx + 1}
+                  </div>
+                  <span className="flex-1 text-sm leading-snug">{item}</span>
                 </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      // ── Matching — Select dropdown ────────────────────────────────────────────
+      case 'matching': {
+        const pairsRecord = normalizePairs(question.matching_pairs ?? null);
+        const leftItems = Object.keys(pairsRecord);
+        const currentMatches = parseMatchingValue(value);
+
+        const handleMatchSelect = (leftKey: string, rightVal: string) => {
+          if (disabled || showFeedback) return;
+          const newMatches = { ...currentMatches, [leftKey]: rightVal };
+          onChange(
+            Object.entries(newMatches)
+              .map(([l, r]) => `${l}:${r}`)
+              .join('|||'),
+          );
+        };
+
+        return (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground italic">
+              Sol tərəfdəki hər element üçün uyğun seçimi tapın
+            </p>
+            {leftItems.map((leftKey, i) => {
+              const selectedRight = currentMatches[leftKey];
+              const isCorrectMatch =
+                showFeedback && pairsRecord[leftKey] === selectedRight;
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <div
+                    className={cn(
+                      'flex-1 min-w-0 text-sm py-2 px-3 rounded-xl border font-medium',
+                      showFeedback && selectedRight
+                        ? isCorrectMatch
+                          ? 'bg-green-50/60 border-green-300 dark:bg-green-950/20 dark:border-green-700'
+                          : 'bg-red-50/60 border-red-300 dark:bg-red-950/20 dark:border-red-700'
+                        : 'bg-muted/40 border-border/50',
+                    )}
+                  >
+                    {leftKey}
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Select
+                    value={selectedRight || ''}
+                    onValueChange={val => handleMatchSelect(leftKey, val)}
+                    disabled={disabled || showFeedback}
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        'flex-1 min-w-0',
+                        showFeedback && selectedRight
+                          ? isCorrectMatch
+                            ? 'border-green-400'
+                            : 'border-red-400'
+                          : '',
+                      )}
+                    >
+                      <SelectValue placeholder="Seçin..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {shuffledRightItems.map((rVal, ri) => (
+                        <SelectItem key={ri} value={rVal}>
+                          {rVal}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // ── Video / 3D model — text input ────────────────────────────────────────
+      case 'video':
+      case 'model_3d':
+        return (
+          <Input
+            disabled={disabled || showFeedback}
+            placeholder={
+              question.question_type === 'model_3d'
+                ? '3D əsasında cavabınız...'
+                : 'Sizin cavabınız...'
+            }
+            value={value}
+            onChange={e => handleSelect(e.target.value)}
+          />
+        );
+
+      // ── Default ───────────────────────────────────────────────────────────────
+      default:
+        return (
+          <Textarea
+            className="min-h-[120px] rounded-xl border-2 border-primary/5 focus:border-primary"
+            disabled={disabled || showFeedback}
+            placeholder="Cavabınız..."
+            value={value}
+            onChange={e => handleSelect(e.target.value)}
+          />
+        );
+    }
+  };
+
+  // ─── Feedback bölməsi ─────────────────────────────────────────────────────────
+  const correct = showFeedback ? isAnswerCorrect(question, value) : false;
+
+  return (
+    <div className="space-y-4">
+      {renderMedia()}
+      {renderContent()}
+
+      {showFeedback && (
+        <div
+          className={cn(
+            'p-4 mt-4 rounded-xl border transition-all duration-300 animate-scale-in',
+            correct
+              ? 'bg-success/10 border-success/30 text-success'
+              : 'bg-destructive/10 border-destructive/30 text-destructive',
+          )}
+        >
+          <h4 className="font-black mb-2 flex items-center gap-2">
+            {correct ? (
+              <>
+                <span>✅</span> Doğru!
+              </>
+            ) : (
+              <>
+                <span>❌</span> Yanlış!
+              </>
+            )}
+          </h4>
+
+          {/* Düzgün cavab göstər (fill_blank, ordering, matching, numerical üçün) */}
+          {!correct && (
+            <div className="text-sm mt-1 opacity-80 font-medium">
+              {question.question_type === 'fill_blank' && (
+                <span>
+                  Düzgün cavab:{' '}
+                  <span className="font-mono">
+                    {question.correct_answer.split('|').join(' / ')}
+                  </span>
+                </span>
+              )}
+              {question.question_type === 'numerical' && (
+                <span>
+                  Düzgün cavab:{' '}
+                  <span className="font-mono">
+                    {question.numerical_answer ?? question.correct_answer}
+                    {(question.numerical_tolerance ?? 0) > 0 &&
+                      ` (±${question.numerical_tolerance})`}
+                  </span>
+                </span>
+              )}
+              {question.question_type === 'ordering' && (
+                <div className="mt-1">
+                  <span className="text-xs uppercase tracking-wide opacity-60 block mb-1">
+                    Düzgün ardıcıllıq:
+                  </span>
+                  {(question.sequence_items ?? []).map((item, i) => (
+                    <div key={i} className="text-xs font-mono">
+                      {i + 1}. {item}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {question.explanation && (
+            <div className="text-sm mt-2 opacity-90 leading-relaxed bg-background/40 p-3 rounded-lg border border-border/20">
+              <strong className="block mb-1 uppercase text-[10px] font-black tracking-widest opacity-70">
+                Açıqlama
+              </strong>
+              {question.explanation}
+            </div>
+          )}
+
+          {question.per_option_explanations &&
+            value &&
+            Array.isArray(question.options) && (
+              <div className="text-sm mt-3 p-3 rounded-lg bg-background/20 font-medium">
+                {
+                  question.per_option_explanations[
+                    question.options.indexOf(value)?.toString()
+                  ]
+                }
+              </div>
             )}
         </div>
-    );
+      )}
+    </div>
+  );
 }
