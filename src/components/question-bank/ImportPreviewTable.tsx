@@ -332,7 +332,10 @@ export function ImportPreviewTable({
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <AlertTriangle className="inline h-3 w-3 mr-1 mb-0.5 cursor-help" />
+                                    <AlertTriangle 
+                                      className="inline h-3 w-3 mr-1 mb-0.5 cursor-help" 
+                                      data-testid={`warning-icon-${globalIdx}`}
+                                    />
                                   </TooltipTrigger>
                                   <TooltipContent className="max-w-xs text-xs">
                                     {warnings
@@ -354,7 +357,9 @@ export function ImportPreviewTable({
                               </TooltipProvider>
                             )}
                             {q.question_text ? (
-                              <MathRenderer text={q.question_text} />
+                              <span data-testid={`question-text-${globalIdx}`}>
+                                <MathRenderer text={q.question_text} />
+                              </span>
                             ) : (
                               <span className="italic text-muted-foreground">
                                 Sual mətni yoxdur
