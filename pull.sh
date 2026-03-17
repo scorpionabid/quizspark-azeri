@@ -50,11 +50,13 @@ git pull origin main 2>&1 || fail "git pull uğursuz oldu"
 AFTER=$(git rev-parse HEAD)
 
 if [ "$BEFORE" = "$AFTER" ]; then
-  ok "Heç bir dəyişiklik yoxdur. Deploy atlanır."
-  exit 0
+  ok "Git: Yeni dəyişiklik yoxdur."
+  SKIP_BUILD=true
+else
+  ok "Yeni commit: $AFTER"
+  git log --oneline "$BEFORE..$AFTER"
+  SKIP_BUILD=false
 fi
-ok "Yeni commit: $AFTER"
-git log --oneline "$BEFORE..$AFTER"
 
 # ═══════════════════════════════════════════
 # 3. YENİ MİGRASİYALAR
@@ -87,10 +89,14 @@ fi
 # ═══════════════════════════════════════════
 # 4. QUIZ APP BUILD & DEPLOY
 # ═══════════════════════════════════════════
-info "Quiz App build edilir..."
-docker compose -f docker-compose.prod.yml up -d --build \
-  || fail "Docker build uğursuz oldu"
-ok "Quiz App deploy edildi."
+if [ "$SKIP_BUILD" = true ]; then
+  info "Quiz App build atlanır (yeni kod yoxdur)."
+else
+  info "Quiz App build edilir..."
+  docker compose -f docker-compose.prod.yml up -d --build \
+    || fail "Docker build uğursuz oldu"
+  ok "Quiz App deploy edildi."
+fi
 
 # ═══════════════════════════════════════════
 # 5. HEALTHCHECKLƏRz
