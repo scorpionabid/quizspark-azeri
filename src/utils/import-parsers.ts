@@ -14,6 +14,71 @@ export interface ParseResult {
   warnings: ParseWarning[];
 }
 
+// ─── ENCODING-AWARE FILE READER ──────────────────────────────────────────────
+/**
+ * Faylı oxuyarkən BOM marker-ə görə encoding aşkar edir.
+ * UTF-8, UTF-16, windows-1254 (Türk/Azərbaycan legacy) dəstəklənir.
+ */
+export async function readFileWithEncoding(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  // UTF-8 BOM: EF BB BF
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(buffer.slice(3));
+  }
+  // UTF-16 LE BOM: FF FE
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(buffer.slice(2));
+  }
+  // UTF-16 BE BOM: FE FF
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(buffer.slice(2));
+  }
+
+  // UTF-8 cəhdi — replacement character yoxdursa uğurludur
+  const utf8Text = new TextDecoder('utf-8').decode(buffer);
+  if (!utf8Text.includes('\uFFFD')) return utf8Text;
+
+  // Legacy fallback: windows-1254 (Türk/Azərb. köhnə fayllar)
+  try {
+    return new TextDecoder('windows-1254').decode(buffer);
+  } catch {
+    return utf8Text;
+  }
+}
+
+// ─── FORMAT AUTO-DETECTION ───────────────────────────────────────────────────
+/**
+ * Məzmuna görə formatı avtomatik aşkar edir.
+ * Dəqiqlik sıralaması: JSON > CSV > GIFT > Aiken > Markdown
+ */
+export function detectFormat(
+  content: string,
+): 'json' | 'csv' | 'aiken' | 'gift' | 'markdown' {
+  const trimmed = content.trim();
+
+  // JSON: [ { } ]
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) return 'json';
+
+  // CSV: birinci sətirdə question_text sütunu
+  const firstLine = trimmed.split('\n')[0].toLowerCase().replace(/"/g, '');
+  if (
+    (firstLine.includes('question_text') || firstLine.includes('question')) &&
+    (firstLine.includes(',') || firstLine.includes(';'))
+  )
+    return 'csv';
+
+  // GIFT: :: name :: { = correct ~wrong } pattern
+  if (/::.*?::/.test(trimmed) && /\{[^}]{1,500}\}/s.test(trimmed)) return 'gift';
+
+  // Aiken: ANSWER: X + A) variant pattern
+  if (/^ANSWER:\s+[A-Z]$/m.test(content) && /^[A-Z]\)\s+/m.test(content))
+    return 'aiken';
+
+  return 'markdown';
+}
+
 // ─── AIKEN ───────────────────────────────────────────────────────────────────
 export const parseAiken = (content: string): ParsedQuestion[] => {
   const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
@@ -152,42 +217,50 @@ export const parseGIFT = (content: string): ParsedQuestion[] => {
   return questions;
 };
 
-// ─── MARKDOWN — çox-format ───────────────────────────────────────────────────
+// ─── MARKDOWN — yardımçı funksiyalar ────────────────────────────────────────
 
 /**
- * Metadata satırlarını (İzahat, Kateqoriya, Çətinlik, Bloom, Taqlar)
- * ayrı-ayrı satırlardan oxuyur.
+ * Metadata satırlarını oxuyur.
+ * Dəstəklənən açarlar: İzahat, Kateqoriya, Çətinlik, Bloom, Taqlar, ANSWER.
+ * Həm Azərbaycanca, həm ingilis dilini qəbul edir.
  */
-function extractMetadata(
-  lines: string[],
-  target: Partial<ParsedQuestion>,
-) {
+function extractMetadata(lines: string[], target: Partial<ParsedQuestion>) {
   for (const line of lines) {
     const clean = line.trim();
     const metaMatch = clean.match(
-      /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER):\s*(.+)$/i,
+      /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[-:]?\s*(.+)$/i,
     );
     if (!metaMatch) continue;
     const key = metaMatch[1].toLowerCase();
     const value = metaMatch[2].trim();
 
-    if (['izahat', 'açıqlama', 'explanation'].some(k => key.startsWith(k))) {
+    if (['izahat', 'açıqlama', 'explanation'].includes(key)) {
       target.explanation = value;
-    } else if (['kateqoriya', 'category'].some(k => key.startsWith(k))) {
+    } else if (['kateqoriya', 'category'].includes(key)) {
       target.category = value;
-    } else if (['çətinlik', 'difficulty'].some(k => key.startsWith(k))) {
+    } else if (['çətinlik', 'difficulty'].includes(key)) {
       target.difficulty = value.toLowerCase();
     } else if (key === 'bloom') {
       target.bloom_level = value.toLowerCase();
-    } else if (['taqlar', 'tags'].some(k => key.startsWith(k))) {
-      target.tags = value.split(',').map(t => t.trim()).filter(Boolean);
-    } else if (key === 'answer') {
-      // Aiken-stilli ANSWER: A → indeks ilə variant mətni
+    } else if (['taqlar', 'tags'].includes(key)) {
+      target.tags = value
+        .split(/[,;]/)
+        .map(t => t.trim())
+        .filter(Boolean);
+    } else if (['answer', 'düzgün', 'cavab', 'doğru', 'doğru cavab', 'düzgün cavab'].includes(key)) {
       const letter = value.trim().toUpperCase();
-      const idx = letter.charCodeAt(0) - 65;
+      // Əgər variant mətni birbaşa verilibsə (Format 3 kimi)
       const opts = target.options as string[] | null;
-      if (Array.isArray(opts) && opts[idx]) {
-        target.correct_answer = opts[idx];
+      if (Array.isArray(opts)) {
+        if (opts.includes(value.trim())) {
+          target.correct_answer = value.trim();
+        } else {
+          // Aiken-stilli ANSWER: A → indeks ilə variant mətni
+          const idx = letter.charCodeAt(0) - 65;
+          if (opts[idx]) {
+            target.correct_answer = opts[idx];
+          }
+        }
       }
     }
   }
@@ -227,10 +300,18 @@ function parseMarkdownFormat1(content: string): ParseResult {
     extractMetadata(rest.join('\n').split('\n'), result);
 
     if (questionText && result.options && (result.options as string[]).length === 0) {
-      warnings.push({ line: lineOffset, type: 'no_options', message: `"${questionText.slice(0, 40)}..." sualında variant tapılmadı` });
+      warnings.push({
+        line: lineOffset,
+        type: 'no_options',
+        message: `"${questionText.slice(0, 40)}..." sualında variant tapılmadı`,
+      });
     }
     if (!result.correct_answer) {
-      warnings.push({ line: lineOffset, type: 'missing_answer', message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab işarələnməyib` });
+      warnings.push({
+        line: lineOffset,
+        type: 'missing_answer',
+        message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab işarələnməyib`,
+      });
     }
     if (questionText) questions.push(result as ParsedQuestion);
   }
@@ -238,14 +319,13 @@ function parseMarkdownFormat1(content: string): ParseResult {
 }
 
 /**
- * Format 2: `1. Sual mətni\n* A) Variant\n* B) Variant`
- * İstəğe bağlı: `Düzgün cavab: A` və ya `ANSWER: A`
+ * Format 2: `1. Sual mətni\nA) Variant\nB) Variant\nANSWER: A`
+ * Həmçinin `Düzgün cavab: B` formasını da qəbul edir.
  */
 function parseMarkdownFormat2(content: string): ParseResult {
   const questions: ParsedQuestion[] = [];
   const warnings: ParseWarning[] = [];
 
-  // Sualları `N. ` ilə bölürük (nömrəli siyahı)
   const blocks = content
     .split(/(?=^\d+[.)]\s)/m)
     .map(b => b.trim())
@@ -255,7 +335,6 @@ function parseMarkdownFormat2(content: string): ParseResult {
     const lines = block.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     if (!lines.length) continue;
 
-    // Birinci sətir: `1. Sual mətni` ya `1) Sual mətni`
     const headerMatch = lines[0].match(/^\d+[.)]\s+(.+)/);
     if (!headerMatch) continue;
     const questionText = headerMatch[1].trim();
@@ -273,7 +352,7 @@ function parseMarkdownFormat2(content: string): ParseResult {
 
     for (let i = 1; i < lines.length; i++) {
       const l = lines[i];
-      // Variant sətirləri: `* A) ...` | `- A) ...` | `A) ...` | `A. ...`
+      // Variant sətirləri: `A) ...` | `A. ...` | `* A) ...` | `- A) ...`
       const optMatch = l.match(/^[-*•]?\s*([A-Ea-e])[).]\s+(.+)/);
       if (optMatch) {
         optLines.push(optMatch[2].trim());
@@ -283,24 +362,21 @@ function parseMarkdownFormat2(content: string): ParseResult {
     }
 
     result.options = optLines;
-
-    // Düzgün cavabı metadata-dan tap
     extractMetadata(metaLines, result);
 
-    // `Düzgün: A` / `Cavab: B` forma
-    for (const ml of metaLines) {
-      const ansMatch = ml.match(/^(?:Düzgün|Cavab|Doğru cavab)\s*[-:]?\s*([A-Ea-e])/i);
-      if (ansMatch) {
-        const idx = ansMatch[1].toUpperCase().charCodeAt(0) - 65;
-        if (optLines[idx]) result.correct_answer = optLines[idx];
-      }
-    }
-
     if (optLines.length === 0) {
-      warnings.push({ line: firstLineNum, type: 'no_options', message: `"${questionText.slice(0, 40)}..." sualında variant tapılmadı` });
+      warnings.push({
+        line: firstLineNum,
+        type: 'no_options',
+        message: `"${questionText.slice(0, 40)}..." sualında variant tapılmadı`,
+      });
     }
     if (!result.correct_answer) {
-      warnings.push({ line: firstLineNum, type: 'missing_answer', message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib — preview-da əlavə edin` });
+      warnings.push({
+        line: firstLineNum,
+        type: 'missing_answer',
+        message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib — preview-da əlavə edin`,
+      });
     }
 
     if (questionText) questions.push(result as ParsedQuestion);
@@ -316,7 +392,6 @@ function parseMarkdownFormat3(content: string): ParseResult {
   const questions: ParsedQuestion[] = [];
   const warnings: ParseWarning[] = [];
 
-  // Sualları rəqəmli bölücü ilə ayır: `\n1\n` / `\n2\n`
   const blocks = content
     .split(/(?=^(?:\d+)\s*$)/m)
     .map(b => b.trim())
@@ -326,7 +401,6 @@ function parseMarkdownFormat3(content: string): ParseResult {
     const lines = block.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     if (lines.length < 2) continue;
 
-    // Birinci sətir rəqəm ola bilər — atlayırıq
     let startIdx = 0;
     if (/^\d+$/.test(lines[0])) startIdx = 1;
 
@@ -345,7 +419,6 @@ function parseMarkdownFormat3(content: string): ParseResult {
 
     for (let i = startIdx + 1; i < lines.length; i++) {
       const l = lines[i];
-      // Bullet formatları: `•`, `\t•\t`, `-`, `*`
       const bulletMatch = l.match(/^[\t\s]*[-•*]\s*(?:\t\s*)?(.+)$/u);
       if (bulletMatch) {
         (result.options as string[]).push(bulletMatch[1].trim());
@@ -356,16 +429,13 @@ function parseMarkdownFormat3(content: string): ParseResult {
 
     extractMetadata(metaLines, result);
 
-    // Düzgün cavabı məlumatdan tap
     for (const ml of metaLines) {
       const ansMatch = ml.match(/^(?:Düzgün|Cavab|Doğru cavab)\s*[:-]?\s*(.+)/i);
       if (ansMatch) {
         const val = ansMatch[1].trim();
-        // Əgər variant mətni olaraq verilmişsə
         if ((result.options as string[]).includes(val)) {
           result.correct_answer = val;
         } else {
-          // Hərfli göstəriş: A, B, C
           const idx = val.toUpperCase().charCodeAt(0) - 65;
           if ((result.options as string[])[idx]) {
             result.correct_answer = (result.options as string[])[idx];
@@ -375,10 +445,18 @@ function parseMarkdownFormat3(content: string): ParseResult {
     }
 
     if ((result.options as string[]).length === 0) {
-      warnings.push({ line: firstLineNum, type: 'no_options', message: `"${questionText.slice(0, 40)}..." sualında variant tapılmadı` });
+      warnings.push({
+        line: firstLineNum,
+        type: 'no_options',
+        message: `"${questionText.slice(0, 40)}..." sualında variant tapılmadı`,
+      });
     }
     if (!result.correct_answer) {
-      warnings.push({ line: firstLineNum, type: 'missing_answer', message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib — preview-da əlavə edin` });
+      warnings.push({
+        line: firstLineNum,
+        type: 'missing_answer',
+        message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib — preview-da əlavə edin`,
+      });
     }
 
     if (questionText) questions.push(result as ParsedQuestion);
@@ -386,23 +464,187 @@ function parseMarkdownFormat3(content: string): ParseResult {
   return { questions, warnings };
 }
 
+// ─── MARKDOWN FORMAT 4: --- AYRICI İLƏ BLOKLAR ──────────────────────────────
+
 /**
- * Əsas Markdown parser — formatı avtomatik aşkar edir.
- * Həmişə structurlu ParseResult qaytarır.
+ * Tək sual blokunu parse edir. Hər format növünü tanıyır:
+ * - Checklist: `- [x] ...`
+ * - Aiken: `A) ...` + `ANSWER: A`
+ * - Bullet: `- Variant`
+ * - Plain: sual mətni + Düzgün cavab: ...
+ */
+function parseSingleBlock(
+  block: string,
+  lineOffset: number,
+): { questions: ParsedQuestion[]; warnings: ParseWarning[] } {
+  const lines = block.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return { questions: [], warnings: [] };
+
+  // Checklist formatı: `- [x] Düzgün` varsa format1-ə yönləndir
+  if (/^[-*]\s*\[[ xX]\]/.test(block)) {
+    // Birinci sətiri başlıq kimi işlət
+    const wrapped = '# ' + lines[0] + '\n' + lines.slice(1).join('\n');
+    return parseMarkdownFormat1(wrapped);
+  }
+
+  const questionLines: string[] = [];
+  const options: string[] = [];
+  let correctAnswer: string | undefined;
+  const metaLines: string[] = [];
+
+  // Metadata açarları (həm AZ həm EN)
+  const META_RE =
+    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün|Cavab|Doğru cavab)\s*[:-]/iu;
+
+  let parsingOptions = false;
+
+  for (const line of lines) {
+    const aikenOpt = line.match(/^([A-Ea-e])[).]\s+(.+)/);
+    const bulletOpt = line.match(/^[-•*]\s+(?!\[)(.+)/);
+    const isMeta = META_RE.test(line);
+
+    if (isMeta) {
+      parsingOptions = false;
+      metaLines.push(line);
+    } else if (aikenOpt) {
+      parsingOptions = true;
+      options.push(aikenOpt[2].trim());
+    } else if (bulletOpt && parsingOptions) {
+      options.push(bulletOpt[1].trim());
+    } else if (!parsingOptions) {
+      questionLines.push(line);
+    } else {
+      metaLines.push(line);
+    }
+  }
+
+  if (!questionLines.length) return { questions: [], warnings: [] };
+
+  const questionText = questionLines.join('\n');
+  const result: Partial<ParsedQuestion> = {
+    question_text: questionText,
+    question_type: options.length > 0 ? 'multiple_choice' : 'short_answer',
+    difficulty: 'orta',
+    options: options.length > 0 ? options : null,
+  };
+
+  extractMetadata(metaLines, result);
+
+  // Cavabı metadata-dan tap
+  if (!correctAnswer) {
+    for (const ml of metaLines) {
+      const ansLetterMatch = ml.match(/^ANSWER:\s+([A-Ea-e])$/i);
+      const duzgunMatch = ml.match(
+        /^(?:Düzgün|Cavab|Doğru cavab)\s*[-:]?\s*(.+)/i,
+      );
+
+      if (ansLetterMatch) {
+        const idx = ansLetterMatch[1].toUpperCase().charCodeAt(0) - 65;
+        if (options[idx]) correctAnswer = options[idx];
+      } else if (duzgunMatch) {
+        const val = duzgunMatch[1].trim();
+        if (options.includes(val)) {
+          correctAnswer = val;
+        } else {
+          const idx = val.toUpperCase().charCodeAt(0) - 65;
+          if (options[idx]) correctAnswer = options[idx];
+          else if (!options.length) correctAnswer = val;
+        }
+      }
+    }
+  }
+
+  if (correctAnswer) result.correct_answer = correctAnswer;
+  // Əgər extractMetadata ANSWER: tapıbsa
+  if (!result.correct_answer && options.length > 0) {
+    // result.correct_answer might have been set by extractMetadata
+  }
+
+  const warnings: ParseWarning[] = [];
+  if (options.length === 0 && !result.correct_answer) {
+    warnings.push({
+      line: lineOffset,
+      type: 'missing_answer',
+      message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib`,
+    });
+  } else if (options.length > 0 && !result.correct_answer) {
+    warnings.push({
+      line: lineOffset,
+      type: 'missing_answer',
+      message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib`,
+    });
+  }
+
+  return { questions: [result as ParsedQuestion], warnings };
+}
+
+/**
+ * Format 4: `---`-ayrıcılı sual blokları.
+ * Hər blok müstəqil sual kimi parse edilir.
+ * Hansı MD alt-formatı olduğundan asılı olmayaraq işləyir.
+ */
+export function parseMarkdownSeparated(content: string): ParseResult {
+  const allQuestions: ParsedQuestion[] = [];
+  const allWarnings: ParseWarning[] = [];
+
+  const blocks = content.split(/^(?:---+|===+)\s*$/m);
+  let lineOffset = 0;
+
+  for (const block of blocks) {
+    const trimmed = block.trim();
+    lineOffset += block.split('\n').length;
+    if (!trimmed) continue;
+
+    // Blok içində `# ` başlığı varsa format1 ilə parse et
+    if (/^#\s+/m.test(trimmed)) {
+      const r = parseMarkdownFormat1(trimmed);
+      allQuestions.push(...r.questions);
+      allWarnings.push(...r.warnings);
+      continue;
+    }
+
+    // Nömrəli siyahı `1. ...` varsa format2 ilə parse et
+    if (/^\d+[.)]\s/m.test(trimmed)) {
+      const r = parseMarkdownFormat2(trimmed);
+      allQuestions.push(...r.questions);
+      allWarnings.push(...r.warnings);
+      continue;
+    }
+
+    // Tək blok — müstəqil sual kimi parse et
+    const r = parseSingleBlock(trimmed, lineOffset);
+    allQuestions.push(...r.questions);
+    allWarnings.push(...r.warnings);
+  }
+
+  return { questions: allQuestions, warnings: allWarnings };
+}
+
+// ─── ƏSAS MARKDOWN PARSER ────────────────────────────────────────────────────
+/**
+ * Markdown-ı avtomatik format aşkar edərək parse edir.
+ * Priority: `---` ayrıcı → Format 1 → Format 2 → Format 3
+ * Həmişə strukturlu ParseResult qaytarır.
  */
 export const parseMarkdownFull = (content: string): ParseResult => {
-  // Format 1: ən azı bir `# ` başlığı var
+  // Format 4: `---` ayrıcı ilə bloklar (ən geniş format)
+  if (/^(?:---+|===+)\s*$/m.test(content)) {
+    const result = parseMarkdownSeparated(content);
+    if (result.questions.length > 0) return result;
+  }
+
+  // Format 1: `# ` başlıqlı bloklar
   if (/^#\s+.+/m.test(content)) {
     return parseMarkdownFormat1(content);
   }
 
-  // Format 2: nömrəli sual siyahısı `1. ...` / `1) ...`
+  // Format 2: nömrəli siyahı `1. ...` / `1) ...`
   if (/^\d+[.)]\s+/m.test(content)) {
     const result = parseMarkdownFormat2(content);
     if (result.questions.length > 0) return result;
   }
 
-  // Format 3: bullet siyahısı `•` / `\t•` ilə
+  // Format 3: bullet siyahısı `•` / `\t•`
   if (/[\t\s]*[•]\s*/m.test(content) || /^\d+\s*$/m.test(content)) {
     const result = parseMarkdownFormat3(content);
     if (result.questions.length > 0) return result;
@@ -413,7 +655,6 @@ export const parseMarkdownFull = (content: string): ParseResult => {
 
 /**
  * Legacy wrapper — köhnə kodla uyğunluq üçün.
- * Yalnız sualları (warnings olmadan) qaytarır.
  */
 export const parseMarkdown = (content: string): ParsedQuestion[] => {
   return parseMarkdownFull(content).questions;

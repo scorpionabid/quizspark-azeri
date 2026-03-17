@@ -18,20 +18,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  X,
-  Search,
   Trash2,
-  Save,
-  Plus,
-  AlertCircle,
   Image as ImageIcon,
   Loader2,
-  AlertTriangle,
   Sparkles,
-  Wand2,
   ClipboardPaste,
   Type,
-  FileText
+  FileText,
+  Crosshair,
+  AlertCircle,
 } from 'lucide-react';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, useCreateQuestionCategory } from '@/hooks/useQuestionCategories';
@@ -39,13 +34,13 @@ import { useQuestionImageUpload } from '@/hooks/useQuestionImageUpload';
 import { useQuestion3DUpload } from '@/hooks/useQuestion3DUpload';
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { QUESTION_TYPES, QuestionType } from '@/types/question';
+import { QuestionType } from '@/types/question';
 import { useEnhanceQuestion } from '@/hooks/useEnhanceQuestion';
 import { toast } from 'sonner';
+import { MathRenderer } from '@/components/question-bank/MathRenderer';
 
 // Refactored Components
 import { QuestionTypeSelector } from '@/components/teacher/question-edit/QuestionTypeSelector';
@@ -130,6 +125,7 @@ export function QuestionEditDialog({
   const [pasteMode, setPasteMode] = useState(false);
   const [pastedText, setPastedText] = useState('');
   const [isParsing, setIsParsing] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const handlePasteParse = async () => {
     if (!pastedText.trim()) {
@@ -316,7 +312,53 @@ export function QuestionEditDialog({
     reader.readAsText(file);
   };
 
+  /** Tip-spesifik validasiya — uğursuzluqda errors qaytarır */
+  const validateForm = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    const qt = formData.question_type;
+
+    if (!formData.question_text.trim()) {
+      errors.question_text = 'Sual mətni boş ola bilməz';
+    }
+
+    if (qt === 'multiple_choice' || qt === 'video') {
+      const filled = (formData.options as string[]).filter((o: string) => o.trim() !== '');
+      if (filled.length < 2) errors.options = 'Ən azı 2 variant daxil edilməlidir';
+      if (!formData.correct_answer) errors.correct_answer = 'Düzgün cavab seçilməlidir';
+    } else if (qt === 'true_false') {
+      if (!formData.correct_answer) errors.correct_answer = 'Doğru/Yanlış seçilməlidir';
+    } else if (qt === 'fill_blank') {
+      if (!formData.correct_answer.trim()) errors.correct_answer = 'Ən azı bir boşluq cavabı daxil edilməlidir';
+    } else if (qt === 'matching') {
+      const pairs = formData.matching_pairs as Array<{ left: string; right: string }>;
+      if (!pairs || pairs.length < 2) errors.matching_pairs = 'Ən azı 2 cüt daxil edilməlidir';
+      else if (pairs.some(p => !p.left.trim() || !p.right.trim())) errors.matching_pairs = 'Bütün cütlər doldurulmalıdır';
+    } else if (qt === 'ordering') {
+      const items = formData.sequence_items as string[];
+      if (!items || items.length < 2) errors.sequence_items = 'Ən azı 2 element daxil edilməlidir';
+      else if (items.some((it: string) => !it.trim())) errors.sequence_items = 'Bütün elementlər doldurulmalıdır';
+    } else if (qt === 'numerical') {
+      if (formData.numerical_answer === '' || isNaN(Number(formData.numerical_answer))) {
+        errors.numerical_answer = 'Rəqəmsal cavab daxil edilməlidir';
+      }
+    } else if (qt === 'code') {
+      if (!formData.correct_answer.trim()) errors.correct_answer = 'Gözlənilən çıxış/cavab boş ola bilməz';
+    } else {
+      if (!formData.correct_answer.trim()) errors.correct_answer = 'Düzgün cavab boş ola bilməz';
+    }
+
+    return errors;
+  };
+
   const handleSubmit = () => {
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      toast.error('Zəhmət olmasa xətaları düzəldin');
+      return;
+    }
+    setValidationErrors({});
+
     const data: Partial<QuestionBankItem> = {
       title: formData.title || null,
       question_text: formData.question_text,
@@ -343,9 +385,9 @@ export function QuestionEditDialog({
       numerical_tolerance: Number(formData.numerical_tolerance) || 0,
     };
 
-    // Include options if it's MCQ, TF or Video (as video can now be MCQ)
+    // Include options if it's MCQ, TF or Video
     if (formData.question_type === 'multiple_choice' || formData.question_type === 'true_false' || formData.question_type === 'video') {
-      data.options = formData.options.filter((o) => o.trim() !== '');
+      data.options = formData.options.filter((o: string) => o.trim() !== '');
     } else {
       data.options = null;
     }
@@ -409,13 +451,12 @@ export function QuestionEditDialog({
                   >
                     <label htmlFor="md-import">
                       <FileText className="h-3 w-3 mr-1" />
-                      MD/TXT Yüklə
+                      Fayl Import
                     </label>
                   </Button>
                 </div>
               </div>
               <div className="space-y-2">
-                <span className="text-sm font-medium text-muted-foreground">Test Mətnini Yapışdırın</span>
                 <Textarea
                   id="paste_area"
                   value={pastedText}
@@ -534,6 +575,13 @@ export function QuestionEditDialog({
                     isEnhancing={isEnhancing}
                     disabled={!formData.question_text}
                   />
+                  {/* Canlı riyazi önizləmə */}
+                  {formData.question_text.includes('$') && (
+                    <div className="mt-2 p-2 rounded-md border border-dashed bg-muted/30">
+                      <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wide">Önizləmə</p>
+                      <MathRenderer text={formData.question_text} className="text-sm" />
+                    </div>
+                  )}
                 </div>
 
                 {formData.question_image_url && (
@@ -556,9 +604,23 @@ export function QuestionEditDialog({
                 )}
               </div>
 
+              {/* Hotspot placeholder */}
+              {formData.question_type === 'hotspot' && (
+                <div className="flex items-start gap-3 p-4 rounded-md border border-dashed border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 text-sm text-amber-700 dark:text-amber-400">
+                  <Crosshair className="h-5 w-5 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-medium">Hotspot Editoru</p>
+                    <p className="text-xs">
+                      Hotspot sualları üçün interaktiv redaktor hazırlanır. Hal-hazırda koordinatları JSON formatında əl ilə daxil edə bilərsiniz: <code className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 rounded">{"[{\"x\":50,\"y\":30,\"label\":\"A\"}]"}</code>
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <QuestionAnswerEditor
                 formData={formData}
                 setFormData={setFormData}
+                validationErrors={validationErrors}
               />
 
               <QuestionMediaInputs
@@ -590,14 +652,22 @@ export function QuestionEditDialog({
         </div>
 
         <DialogFooter>
+          {Object.keys(validationErrors).length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-destructive mr-auto">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>Formdakı xətaları düzəldin</span>
+            </div>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Ləğv et
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!formData.question_text || !formData.correct_answer || isLoading}
+            disabled={!formData.question_text || isLoading || isUploading || is3DUploading}
           >
-            {isLoading ? 'Yüklənir...' : mode === 'create' ? 'Yarat' : 'Yadda saxla'}
+            {isLoading ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Yüklənir...</>
+            ) : mode === 'create' ? 'Yarat' : 'Yadda saxla'}
           </Button>
         </DialogFooter>
       </DialogContent >

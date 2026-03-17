@@ -4,6 +4,8 @@ import { MultipleChoiceEditor } from './MultipleChoiceEditor';
 import { MatchingEditor } from './MatchingEditor';
 import { OrderingEditor } from './OrderingEditor';
 import { NumericalEditor } from './NumericalEditor';
+import { FillBlankEditor } from './FillBlankEditor';
+import { CodeQuestionEditor } from './CodeQuestionEditor';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface QuestionAnswerEditorProps {
@@ -11,21 +13,41 @@ interface QuestionAnswerEditorProps {
     formData: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setFormData: (data: any) => void;
+    /** Validasiya xətaları — boş olarsa heç nə göstərilmir */
+    validationErrors?: Record<string, string>;
 }
 
-export function QuestionAnswerEditor({ formData, setFormData }: QuestionAnswerEditorProps) {
+/**
+ * Sual tipinə görə uyğun cavab editorunu render edir.
+ * Yeni tiplər: fill_blank, code
+ */
+export function QuestionAnswerEditor({ formData, setFormData, validationErrors = {} }: QuestionAnswerEditorProps) {
     const { question_type } = formData;
-    // Show appropriate editor based on type. 
-    // For 'video' type, we default to Multiple Choice but allow others if data exists
-    const showOptions = question_type === 'multiple_choice' || question_type === 'true_false' || question_type === 'video';
-    const isMatching = question_type === 'matching' || (question_type === 'video' && formData.matching_pairs?.length > 0);
-    const isOrdering = question_type === 'ordering' || (question_type === 'video' && formData.sequence_items?.length > 0);
-    const isNumerical = question_type === 'numerical' || (question_type === 'video' && formData.numerical_answer !== '');
+
+    const isMCQ = question_type === 'multiple_choice' || question_type === 'video';
+    const isTF = question_type === 'true_false';
+    const isMatching = question_type === 'matching';
+    const isOrdering = question_type === 'ordering';
+    const isNumerical = question_type === 'numerical';
+    const isFillBlank = question_type === 'fill_blank';
+    const isCode = question_type === 'code';
+
+    // fill_blank: correct_answer çoxlu boşluq üçün | ilə ayrılır
+    const fillBlankAnswers = isFillBlank
+        ? (formData.correct_answer || '').split('|').map((a: string) => a.trim()).filter(Boolean)
+        : [];
+
+    // code: dil hint sahəsindən oxunur — "lang:python" formatı
+    const codeLang = isCode
+        ? (formData.hint || '').startsWith('lang:')
+            ? formData.hint.slice(5)
+            : 'python'
+        : 'python';
 
     return (
         <div className="space-y-4">
-            {/* Options for MC and TF */}
-            {(question_type === 'multiple_choice' || question_type === 'video') && (
+            {/* MCQ */}
+            {isMCQ && (
                 <MultipleChoiceEditor
                     options={formData.options}
                     onChange={(options) => setFormData({ ...formData, options })}
@@ -34,8 +56,8 @@ export function QuestionAnswerEditor({ formData, setFormData }: QuestionAnswerEd
                 />
             )}
 
-            {/* True/False Toggle UX */}
-            {question_type === 'true_false' && (
+            {/* True/False */}
+            {isTF && (
                 <div className="space-y-3">
                     <Label className="text-base px-1">Düzgün Cavab *</Label>
                     <RadioGroup
@@ -57,26 +79,35 @@ export function QuestionAnswerEditor({ formData, setFormData }: QuestionAnswerEd
                         </div>
                     </RadioGroup>
                     <p className="text-[10px] text-muted-foreground px-1 italic">Məlumat: A = Doğru · B = Yanlış</p>
+                    {validationErrors.correct_answer && (
+                        <p className="text-xs text-destructive px-1">{validationErrors.correct_answer}</p>
+                    )}
                 </div>
             )}
 
-            {/* Matching Editor */}
+            {/* Matching */}
             {isMatching && (
                 <MatchingEditor
                     pairs={formData.matching_pairs || []}
                     onChange={(pairs) => setFormData({ ...formData, matching_pairs: pairs })}
                 />
             )}
+            {isMatching && validationErrors.matching_pairs && (
+                <p className="text-xs text-destructive">{validationErrors.matching_pairs}</p>
+            )}
 
-            {/* Ordering Editor */}
+            {/* Ordering */}
             {isOrdering && (
                 <OrderingEditor
                     items={formData.sequence_items || []}
                     onChange={(items) => setFormData({ ...formData, sequence_items: items })}
                 />
             )}
+            {isOrdering && validationErrors.sequence_items && (
+                <p className="text-xs text-destructive">{validationErrors.sequence_items}</p>
+            )}
 
-            {/* Numerical Editor */}
+            {/* Numerical */}
             {isNumerical && (
                 <NumericalEditor
                     value={formData.numerical_answer}
@@ -84,33 +115,77 @@ export function QuestionAnswerEditor({ formData, setFormData }: QuestionAnswerEd
                     onChange={(val, tol) => setFormData({ ...formData, numerical_answer: val, numerical_tolerance: tol })}
                 />
             )}
+            {isNumerical && validationErrors.numerical_answer && (
+                <p className="text-xs text-destructive">{validationErrors.numerical_answer}</p>
+            )}
 
-            {/* Correct Answer - Hidden or shown depending on type */}
-            {!isMatching && !isOrdering && !isNumerical &&
-                question_type !== 'multiple_choice' &&
-                question_type !== 'true_false' &&
-                question_type !== 'video' && (
-                    <div className="space-y-2">
-                        <Label htmlFor="correct_answer">Düzgün Cavab *</Label>
-                        <Input
-                            id="correct_answer"
-                            value={formData.correct_answer}
-                            onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
-                            placeholder="Düzgün cavabı daxil edin"
-                        />
-                    </div>
-                )}
-
-            {/* Hint */}
-            <div className="space-y-2">
-                <Label htmlFor="hint">İpucu (Hint)</Label>
-                <Input
-                    id="hint"
-                    value={formData.hint}
-                    onChange={(e) => setFormData({ ...formData, hint: e.target.value })}
-                    placeholder="Tələbə üçün ipucu..."
+            {/* Fill Blank */}
+            {isFillBlank && (
+                <FillBlankEditor
+                    questionText={formData.question_text || ''}
+                    correctAnswers={fillBlankAnswers}
+                    onCorrectAnswersChange={(answers) =>
+                        setFormData({
+                            ...formData,
+                            correct_answer: answers.join('|'),
+                            fill_blank_template: formData.question_text || '',
+                        })
+                    }
                 />
-            </div>
+            )}
+            {isFillBlank && validationErrors.correct_answer && (
+                <p className="text-xs text-destructive">{validationErrors.correct_answer}</p>
+            )}
+
+            {/* Code */}
+            {isCode && (
+                <CodeQuestionEditor
+                    codeLanguage={codeLang}
+                    onLanguageChange={(lang) =>
+                        setFormData({ ...formData, hint: `lang:${lang}` })
+                    }
+                    codeSnippet={formData.fill_blank_template || ''}
+                    onCodeSnippetChange={(code) =>
+                        setFormData({ ...formData, fill_blank_template: code })
+                    }
+                    correctAnswer={formData.correct_answer}
+                    onCorrectAnswerChange={(answer) =>
+                        setFormData({ ...formData, correct_answer: answer })
+                    }
+                />
+            )}
+            {isCode && validationErrors.correct_answer && (
+                <p className="text-xs text-destructive">{validationErrors.correct_answer}</p>
+            )}
+
+            {/* Plain text answer for other types (short_answer, essay, hotspot) */}
+            {!isMCQ && !isTF && !isMatching && !isOrdering && !isNumerical && !isFillBlank && !isCode && (
+                <div className="space-y-2">
+                    <Label htmlFor="correct_answer">Düzgün Cavab *</Label>
+                    <Input
+                        id="correct_answer"
+                        value={formData.correct_answer}
+                        onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
+                        placeholder="Düzgün cavabı daxil edin"
+                    />
+                    {validationErrors.correct_answer && (
+                        <p className="text-xs text-destructive">{validationErrors.correct_answer}</p>
+                    )}
+                </div>
+            )}
+
+            {/* Hint — kod tipindən başqa (kod tipi hint-i dil üçün istifadə edir) */}
+            {!isCode && (
+                <div className="space-y-2">
+                    <Label htmlFor="hint">İpucu (Hint)</Label>
+                    <Input
+                        id="hint"
+                        value={formData.hint}
+                        onChange={(e) => setFormData({ ...formData, hint: e.target.value })}
+                        placeholder="Tələbə üçün ipucu..."
+                    />
+                </div>
+            )}
 
             {/* Explanation */}
             <div className="space-y-2">

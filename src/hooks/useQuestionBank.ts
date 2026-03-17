@@ -377,13 +377,19 @@ export function useBulkCreateQuestionBank() {
         user_id: userData.user?.id || null,
       }));
 
-      const { data, error } = await supabase
-        .from('question_bank')
-        .insert(questionsWithUser)
-        .select();
-
-      if (error) throw error;
-      return data as unknown as QuestionBankItem[];
+      // 100+ sual üçün 50-lik chunk-larla insert (timeout riskini azaldır)
+      const CHUNK_SIZE = 50;
+      const results: QuestionBankItem[] = [];
+      for (let i = 0; i < questionsWithUser.length; i += CHUNK_SIZE) {
+        const chunk = questionsWithUser.slice(i, i + CHUNK_SIZE);
+        const { data, error } = await supabase
+          .from('question_bank')
+          .insert(chunk)
+          .select();
+        if (error) throw error;
+        results.push(...(data as unknown as QuestionBankItem[]));
+      }
+      return results;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });

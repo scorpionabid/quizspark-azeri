@@ -21,7 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { parseAiken, parseGIFT, parseMarkdownFull, ParseWarning } from '@/utils/import-parsers';
+import {
+  parseAiken,
+  parseGIFT,
+  parseMarkdownFull,
+  ParseWarning,
+  readFileWithEncoding,
+  detectFormat,
+} from '@/utils/import-parsers';
 import {
   Tooltip,
   TooltipContent,
@@ -105,7 +112,7 @@ export function ImportExportDialog({
   isImporting,
 }: ImportExportDialogProps) {
   const [activeTab, setActiveTab] = useState<'import' | 'export' | 'ai_import'>('import');
-  const [importFormat, setImportFormat] = useState<'json' | 'csv' | 'aiken' | 'gift' | 'markdown'>('json');
+  const [importFormat, setImportFormat] = useState<'json' | 'csv' | 'aiken' | 'gift' | 'markdown'>('markdown');
   const [importError, setImportError] = useState<string | null>(null);
   const [importPreview, setImportPreview] = useState<PreviewQuestion[]>([]);
   const [importWarnings, setImportWarnings] = useState<ParseWarning[]>([]);
@@ -127,19 +134,26 @@ export function ImportExportDialog({
   const processFile = useCallback(async (file: File) => {
     resetImportState();
     try {
-      const content = await file.text();
+      // Encoding-aware oxuma (UTF-8, UTF-16, windows-1254 dəstəyi)
+      const content = await readFileWithEncoding(file);
+
+      // Format auto-detect — yalnız 'markdown' seçilmişsə da digər formatları yoxla
+      const detected = detectFormat(content);
+      if (detected !== importFormat) {
+        setImportFormat(detected);
+      }
+
       let parsed: PreviewQuestion[] = [];
 
-      if (importFormat === 'json') parsed = parseJsonImport(content);
-      else if (importFormat === 'csv') parsed = parseCsvImport(content);
-      else if (importFormat === 'aiken') parsed = parseAiken(content) as PreviewQuestion[];
-      else if (importFormat === 'gift') parsed = parseGIFT(content) as PreviewQuestion[];
-      else if (importFormat === 'markdown') {
+      if (detected === 'json') parsed = parseJsonImport(content);
+      else if (detected === 'csv') parsed = parseCsvImport(content);
+      else if (detected === 'aiken') parsed = parseAiken(content) as PreviewQuestion[];
+      else if (detected === 'gift') parsed = parseGIFT(content) as PreviewQuestion[];
+      else {
         const result = parseMarkdownFull(content);
         parsed = result.questions as PreviewQuestion[];
         setImportWarnings(result.warnings);
       }
-      else throw new Error('Seçilmiş format üçün parser tapılmadı.');
 
       if (parsed.length === 0) throw new Error('Faylda heç bir sual tapılmadı. Zəhmət olmasa formatın düzgün olmasına əmin olun.');
       setImportPreview(parsed);
