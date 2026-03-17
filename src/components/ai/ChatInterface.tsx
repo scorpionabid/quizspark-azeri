@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { Send, Loader2, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,9 +11,10 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 interface ChatInterfaceProps {
   agent: Agent;
+  onGenerateFromChat?: (topic: string) => void;
 }
 
-export function ChatInterface({ agent }: ChatInterfaceProps) {
+export function ChatInterface({ agent, onGenerateFromChat }: ChatInterfaceProps) {
   const storageKey = `chat_messages_${agent.id}`;
 
   const getInitialMessages = (): Message[] => {
@@ -195,7 +196,27 @@ export function ChatInterface({ agent }: ChatInterfaceProps) {
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="space-y-4">
           {messages.map(message => (
-            <ChatMessage key={message.id} message={message} />
+            <div key={message.id}>
+              <ChatMessage message={message} />
+              {/* Generate from AI message button */}
+              {onGenerateFromChat && message.role === "assistant" && message.id !== "welcome" && message.content.length > 20 && (
+                <div className="mt-1 ml-11">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 gap-1 text-[11px] text-muted-foreground hover:text-primary px-2"
+                    onClick={() => {
+                      const topic = message.content.slice(0, 80).replace(/[#*`\n]/g, " ").trim();
+                      onGenerateFromChat(topic);
+                      toast.success("Mövzu \"Sual Yarat\" tabına köçürüldü");
+                    }}
+                  >
+                    <Wand2 className="h-3 w-3" />
+                    Bu mövzudan sual yarat
+                  </Button>
+                </div>
+              )}
+            </div>
           ))}
           {isLoading && messages[messages.length - 1]?.role === "user" && (
             <div className="flex gap-3">

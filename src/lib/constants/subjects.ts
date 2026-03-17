@@ -24,4 +24,7 @@ export const QUESTION_TYPES = [
   { value: "multiple_choice", label: "Çoxseçimli" },
   { value: "true_false", label: "Doğru/Yanlış" },
   { value: "short_answer", label: "Qısa Cavab" },
+  { value: "fill_blank", label: "Boşluq Doldur" },
+  { value: "matching", label: "Uyğunlaşdırma" },
+  { value: "numerical", label: "Rəqəmsal Cavab" },
 ] as const;

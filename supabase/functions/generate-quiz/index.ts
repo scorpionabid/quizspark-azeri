@@ -65,6 +65,104 @@ function getToolSchemaForType(questionType: string) {
     };
   }
 
+  if (questionType === 'fill_blank') {
+    return {
+      type: 'object',
+      properties: {
+        questions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              question: { type: 'string', description: 'Short instruction text in Azerbaijani, e.g. "Boşluğu doldurun"' },
+              fill_blank_template: { type: 'string', description: 'Sentence with ___ for each blank, e.g. "Su ___ dərəcədə qaynar"' },
+              correct_answer: { type: 'string', description: 'The word or phrase that fills the blank' },
+              explanation: { type: 'string', description: 'Explanation in Azerbaijani' },
+              bloomLevel: {
+                type: 'string',
+                enum: ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'],
+              },
+              questionType: { type: 'string', enum: ['fill_blank'] },
+            },
+            required: ['question', 'fill_blank_template', 'correct_answer', 'explanation', 'bloomLevel', 'questionType'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['questions'],
+      additionalProperties: false,
+    };
+  }
+
+  if (questionType === 'matching') {
+    return {
+      type: 'object',
+      properties: {
+        questions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              question: { type: 'string', description: 'Instruction for matching task in Azerbaijani, e.g. "Sol sütunu sağ sütunla uyğunlaşdırın"' },
+              matching_pairs: {
+                type: 'array',
+                description: 'List of left-right pairs to match',
+                items: {
+                  type: 'object',
+                  properties: {
+                    left: { type: 'string', description: 'Left column item' },
+                    right: { type: 'string', description: 'Matching right column item' },
+                  },
+                  required: ['left', 'right'],
+                  additionalProperties: false,
+                },
+              },
+              explanation: { type: 'string', description: 'Explanation in Azerbaijani' },
+              bloomLevel: {
+                type: 'string',
+                enum: ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'],
+              },
+              questionType: { type: 'string', enum: ['matching'] },
+            },
+            required: ['question', 'matching_pairs', 'explanation', 'bloomLevel', 'questionType'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['questions'],
+      additionalProperties: false,
+    };
+  }
+
+  if (questionType === 'numerical') {
+    return {
+      type: 'object',
+      properties: {
+        questions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              question: { type: 'string', description: 'Question text requiring a numerical answer in Azerbaijani' },
+              numerical_answer: { type: 'number', description: 'The exact correct numerical answer' },
+              numerical_tolerance: { type: 'number', description: 'Acceptable margin of error (e.g. 0.5 means ±0.5 is accepted). Use 0 for exact match.' },
+              explanation: { type: 'string', description: 'Explanation in Azerbaijani' },
+              bloomLevel: {
+                type: 'string',
+                enum: ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'],
+              },
+              questionType: { type: 'string', enum: ['numerical'] },
+            },
+            required: ['question', 'numerical_answer', 'numerical_tolerance', 'explanation', 'bloomLevel', 'questionType'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['questions'],
+      additionalProperties: false,
+    };
+  }
+
   // Default: multiple_choice
   return {
     type: 'object',
@@ -111,6 +209,33 @@ Sual tipi: QISA CAVAB (açıq sual)
 - options massivində yalnız bir element olmalıdır: düzgün cavab mətni
 - correctAnswer həmişə 0 olmalıdır
 - questionType: "short_answer" olmalıdır`;
+  }
+
+  if (questionType === 'fill_blank') {
+    return `
+Sual tipi: BOŞLUQ DOLDUR
+- fill_blank_template: boşluğu göstərmək üçün ___ istifadə et (məs: "Su ___ dərəcədə qaynar")
+- correct_answer: boşluğa gələn söz və ya ifadə (məs: "100")
+- question: qısa təlimat mətni (məs: "Boşluğu doldurun")
+- questionType: "fill_blank" olmalıdır`;
+  }
+
+  if (questionType === 'matching') {
+    return `
+Sual tipi: UYĞUNLAŞDIRMA
+- matching_pairs: ən azı 4, maksimum 6 cüt {left, right} olmalıdır
+- Sol sütun anlayışlar/terminlər, sağ sütun onların izahları/uyğunları
+- question: "Sol sütundakıları sağ sütunla uyğunlaşdırın" kimi bir təlimat
+- questionType: "matching" olmalıdır`;
+  }
+
+  if (questionType === 'numerical') {
+    return `
+Sual tipi: RƏQƏMİ CAVAB
+- Sual rəqəmsal cavab tələb etməlidir (riyaziyyat, fizika, kimya məsələləri)
+- numerical_answer: dəqiq rəqəmsal cavab
+- numerical_tolerance: qəbul edilən sapma (məs: hesablama məsələlərində 0.01; tam dəqiq olmalı isə 0)
+- questionType: "numerical" olmalıdır`;
   }
 
   return `
@@ -309,18 +434,65 @@ Bu mövzu üzrə ${questionCount} ədəd test sualı yarat.`;
 
     interface AIQuestion {
       question: string;
-      options: string[];
-      correctAnswer: number;
+      options?: string[];
+      correctAnswer?: number;
       explanation: string;
       bloomLevel: string;
       questionType: string;
+      // fill_blank fields
+      fill_blank_template?: string;
+      correct_answer?: string;
+      // matching fields
+      matching_pairs?: { left: string; right: string }[];
+      // numerical fields
+      numerical_answer?: number;
+      numerical_tolerance?: number;
     }
 
-    const questions = questionsData.questions.map((q: AIQuestion, index: number) => ({
-      ...q,
-      id: `ai-${Date.now()}-${index}`,
-      questionType: q.questionType || questionType,
-    }));
+    const questions = questionsData.questions.map((q: AIQuestion, index: number) => {
+      const qType = q.questionType || questionType;
+      const base = {
+        id: `ai-${Date.now()}-${index}`,
+        question: q.question,
+        explanation: q.explanation,
+        bloomLevel: q.bloomLevel,
+        questionType: qType,
+      };
+
+      if (qType === 'fill_blank') {
+        return {
+          ...base,
+          fillBlankTemplate: q.fill_blank_template ?? '',
+          options: [q.correct_answer ?? ''],
+          correctAnswer: 0,
+        };
+      }
+
+      if (qType === 'matching') {
+        return {
+          ...base,
+          matchingPairs: q.matching_pairs ?? [],
+          options: (q.matching_pairs ?? []).map(p => p.left),
+          correctAnswer: 0,
+        };
+      }
+
+      if (qType === 'numerical') {
+        return {
+          ...base,
+          numericalAnswer: q.numerical_answer ?? 0,
+          numericalTolerance: q.numerical_tolerance ?? 0,
+          options: [String(q.numerical_answer ?? 0)],
+          correctAnswer: 0,
+        };
+      }
+
+      return {
+        ...base,
+        options: q.options ?? [],
+        correctAnswer: q.correctAnswer ?? 0,
+      };
+    });
 
     console.log(`Successfully generated ${questions.length} ${questionType} questions`);
 

@@ -18,6 +18,13 @@ export interface GeneratedQuestion {
   bloomLevel?: string;
   questionType?: string;
   questionImageUrl?: string;
+  // fill_blank
+  fillBlankTemplate?: string;
+  // matching
+  matchingPairs?: { left: string; right: string }[];
+  // numerical
+  numericalAnswer?: number;
+  numericalTolerance?: number;
 }
 
 interface EditableQuestionCardProps {
@@ -33,6 +40,9 @@ const TYPE_LABELS: Record<string, string> = {
   multiple_choice: "Çoxseçimli",
   true_false: "Doğru/Yanlış",
   short_answer: "Qısa Cavab",
+  fill_blank: "Boşluq Doldur",
+  matching: "Uyğunlaşdırma",
+  numerical: "Rəqəmsal Cavab",
 };
 
 export function EditableQuestionCard({ 
@@ -350,6 +360,42 @@ export function EditableQuestionCard({
         <div className="mb-4 rounded-lg border-2 border-success bg-success/10 p-3">
           <span className="text-sm font-medium text-success">
             Cavab: {question.options[0] || question.options[question.correctAnswer]}
+          </span>
+        </div>
+      )}
+
+      {qType === "fill_blank" && (
+        <div className="mb-4 space-y-2">
+          <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-3">
+            <p className="text-sm font-medium text-foreground">
+              {question.fillBlankTemplate?.replace(/_+/g, '___') ?? question.question}
+            </p>
+          </div>
+          <div className="rounded-lg border-2 border-success bg-success/10 p-3">
+            <span className="text-sm font-medium text-success">Cavab: {question.options[0]}</span>
+          </div>
+        </div>
+      )}
+
+      {qType === "matching" && question.matchingPairs && question.matchingPairs.length > 0 && (
+        <div className="mb-4 rounded-lg border border-border/50 overflow-hidden">
+          {question.matchingPairs.map((pair, i) => (
+            <div key={i} className={cn("flex items-center gap-2 px-3 py-2 text-sm", i % 2 === 0 ? "bg-muted/30" : "bg-background")}>
+              <span className="flex-1 font-medium">{pair.left}</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="flex-1 text-success">{pair.right}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {qType === "numerical" && (
+        <div className="mb-4 rounded-lg border-2 border-success bg-success/10 p-3">
+          <span className="text-sm font-medium text-success">
+            Cavab: {question.numericalAnswer}
+            {(question.numericalTolerance ?? 0) > 0 && (
+              <span className="ml-1 text-muted-foreground">(±{question.numericalTolerance})</span>
+            )}
           </span>
         </div>
       )}

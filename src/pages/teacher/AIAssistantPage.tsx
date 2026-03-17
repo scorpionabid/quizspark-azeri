@@ -141,8 +141,8 @@ export default function AIAssistantPage() {
         title: question.question.slice(0, 100),
         question_text: question.question,
         question_type: qType,
-        options: qType === "multiple_choice" ? question.options : (qType === "true_false" ? ["Doğru", "Yanlış"] : question.options),
-        correct_answer: question.options[question.correctAnswer] || question.options[0],
+        options: qType === "multiple_choice" ? question.options : (qType === "true_false" ? ["Doğru", "Yanlış"] : (qType === "matching" ? [] : question.options)),
+        correct_answer: qType === "matching" ? "" : (qType === "numerical" ? String(question.numericalAnswer ?? 0) : (question.options[question.correctAnswer] || question.options[0] || "")),
         explanation: question.explanation || null,
         category: getEffectiveSubject() || null,
         difficulty: difficultyMap[difficulty] || "orta",
@@ -164,11 +164,13 @@ export default function AIAssistantPage() {
         model_3d_url: null,
         model_3d_type: null,
         hotspot_data: null,
-        matching_pairs: null,
+        matching_pairs: qType === "matching" && question.matchingPairs
+          ? Object.fromEntries(question.matchingPairs.map(p => [p.left, p.right]))
+          : null,
         sequence_items: null,
-        fill_blank_template: null,
-        numerical_answer: null,
-        numerical_tolerance: null,
+        fill_blank_template: qType === "fill_blank" ? (question.fillBlankTemplate || null) : null,
+        numerical_answer: qType === "numerical" ? (question.numericalAnswer ?? null) : null,
+        numerical_tolerance: qType === "numerical" ? (question.numericalTolerance ?? null) : null,
         feedback_enabled: true,
         quality_score: null,
         usage_count: 0,
@@ -392,6 +394,34 @@ export default function AIAssistantPage() {
     setGeneratedQuestions((prev) => [...prev, newQuestion]);
   };
 
+  const handleRegenerateQuestion = async (question: GeneratedQuestion) => {
+    const effectiveSubject = getEffectiveSubject();
+    if (!topic.trim() || !effectiveSubject) {
+      toast.error("Aktiv mövzu/fənn yoxdur");
+      return;
+    }
+    const { data, error: fnError } = await supabase.functions.invoke("generate-quiz", {
+      body: {
+        topic,
+        subject: effectiveSubject,
+        difficulty,
+        questionCount: 1,
+        agentId: selectedAgent.id,
+        model: aiParameters.model,
+        temperature: Math.min(aiParameters.temperature + 0.1, 1.2),
+        bloomLevel: question.bloomLevel || undefined,
+        questionType: question.questionType || questionType,
+      },
+    });
+    if (fnError || !data?.questions?.[0]) {
+      toast.error("Sual yenilənə bilmədi");
+      return;
+    }
+    const newQ: GeneratedQuestion = { ...data.questions[0], id: question.id };
+    setGeneratedQuestions((prev) => prev.map((q) => (q.id === question.id ? newQ : q)));
+    toast.success("Sual yeniləndi");
+  };
+
   const useAllQuestions = () => {
     if (generatedQuestions.length === 0) return;
     navigate("/teacher/create", { state: { importedQuestions: generatedQuestions } });
@@ -510,7 +540,13 @@ export default function AIAssistantPage() {
             </TabsContent>
 
             <TabsContent value="chat" className="space-y-4">
-              <ChatInterface agent={selectedAgent} />
+              <ChatInterface
+                agent={selectedAgent}
+                onGenerateFromChat={(topic) => {
+                  setTopic(topic);
+                  setActiveTab("generate");
+                }}
+              />
             </TabsContent>
 
             <TabsContent value="history">
@@ -549,27 +585,46 @@ export default function AIAssistantPage() {
                 ) : (
                   <div className="space-y-3">
                     {historySessions.map(session => (
-                      <div key={session.id} className="flex items-center justify-between rounded-xl border border-border/50 bg-background/50 p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                            <span className="text-sm font-bold text-primary">{session.questionCount}</span>
+                      <div key={session.id} className="rounded-xl border border-border/50 bg-background/50">
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                              <span className="text-sm font-bold text-primary">{session.questionCount}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm text-foreground truncate">{session.topic}</p>
+                              <p className="text-xs text-muted-foreground">{session.subject} · {new Date(session.createdAt).toLocaleDateString('az-AZ', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-sm text-foreground">{session.topic}</p>
-                            <p className="text-xs text-muted-foreground">{session.subject} · {new Date(session.createdAt).toLocaleDateString('az-AZ', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setGeneratedQuestions(session.questions);
+                                setTopic(session.topic);
+                                setActiveTab("generate");
+                                toast.success(`"${session.topic}" sessiyası yükləndi`);
+                              }}
+                            >
+                              Yüklə
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setHistorySessions(prev => {
+                                  const updated = prev.filter(s => s.id !== session.id);
+                                  localStorage.setItem(HISTORY_SESSIONS_KEY, JSON.stringify(updated));
+                                  return updated;
+                                });
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setGeneratedQuestions(session.questions);
-                            setActiveTab("generate");
-                            toast.success(`"${session.topic}" sessiyası yükləndi`);
-                          }}
-                        >
-                          Yüklə
-                        </Button>
                       </div>
                     ))}
                   </div>
@@ -584,6 +639,7 @@ export default function AIAssistantPage() {
               onUpdateQuestion={handleUpdateQuestion}
               onDeleteQuestion={handleDeleteQuestion}
               onSimilarCreated={handleSimilarCreated}
+              onRegenerateQuestion={handleRegenerateQuestion}
               onBulkAddToBank={handleBulkAddToBank}
               onUseAllQuestions={useAllQuestions}
               onClearHistory={handleClearHistory}

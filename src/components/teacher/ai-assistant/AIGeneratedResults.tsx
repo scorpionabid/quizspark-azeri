@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Database, ArrowRight, Loader2, X } from "lucide-react";
+import { Lightbulb, Database, ArrowRight, Loader2, X, RefreshCw } from "lucide-react";
 import { EditableQuestionCard, GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
 import {
     Select,
@@ -17,6 +18,7 @@ interface AIGeneratedResultsProps {
     onUpdateQuestion: (q: GeneratedQuestion) => void;
     onDeleteQuestion: (id: string) => void;
     onSimilarCreated: (q: GeneratedQuestion) => void;
+    onRegenerateQuestion: (q: GeneratedQuestion) => Promise<void>;
     onBulkAddToBank: () => void;
     onUseAllQuestions: () => void;
     onClearHistory: () => void;
@@ -32,6 +34,7 @@ export function AIGeneratedResults({
     onUpdateQuestion,
     onDeleteQuestion,
     onSimilarCreated,
+    onRegenerateQuestion,
     onBulkAddToBank,
     onUseAllQuestions,
     onClearHistory,
@@ -41,6 +44,7 @@ export function AIGeneratedResults({
     filterDifficulty,
     setFilterDifficulty
 }: AIGeneratedResultsProps) {
+    const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
     const filteredQuestions = questions.filter((q) => {
         const typeMatch = filterType === "all" || (q.questionType ?? "multiple_choice") === filterType;
         const bloomMatch = filterDifficulty === "all" || q.bloomLevel === filterDifficulty;
@@ -109,14 +113,37 @@ export function AIGeneratedResults({
 
             <div className="space-y-4">
                 {filteredQuestions.map((q, index) => (
-                    <EditableQuestionCard
-                        key={q.id}
-                        question={q}
-                        index={index}
-                        onUpdate={onUpdateQuestion}
-                        onDelete={onDeleteQuestion}
-                        onSimilarCreated={onSimilarCreated}
-                    />
+                    <div key={q.id} className="relative group/regen">
+                        <EditableQuestionCard
+                            question={q}
+                            index={index}
+                            onUpdate={onUpdateQuestion}
+                            onDelete={onDeleteQuestion}
+                            onSimilarCreated={onSimilarCreated}
+                        />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={regeneratingId === q.id}
+                            onClick={async () => {
+                                setRegeneratingId(q.id);
+                                try {
+                                    await onRegenerateQuestion(q);
+                                } finally {
+                                    setRegeneratingId(null);
+                                }
+                            }}
+                            className="absolute top-3 right-3 h-7 gap-1 text-xs opacity-0 group-hover/regen:opacity-100 transition-opacity bg-background"
+                            title="Bu sualı yenidən yarat"
+                        >
+                            {regeneratingId === q.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                                <RefreshCw className="h-3 w-3" />
+                            )}
+                            Yenilə
+                        </Button>
+                    </div>
                 ))}
             </div>
         </div>
