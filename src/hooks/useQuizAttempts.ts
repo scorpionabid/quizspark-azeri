@@ -26,6 +26,20 @@ export interface QuizResult {
   completed_at: string;
 }
 
+export interface QuizResultWithProfile extends QuizResult {
+  profiles: { full_name: string | null; avatar_url: string | null } | null;
+}
+
+export interface QuizDetailedStats {
+  results: QuizResultWithProfile[];
+  summary: {
+    total: number;
+    avg_score: number;
+    pass_rate: number;
+    avg_time: number | null;
+  };
+}
+
 export function useMyAttempts(quizId?: string) {
   const { user } = useAuth();
 
@@ -313,5 +327,43 @@ export function useClearActiveAttempts() {
     onError: (error: Error) => {
       toast.error(`Xəta: ${error.message}`);
     },
+  });
+}
+
+// ─── Detailed stats for a single quiz (teacher stats sheet) ──────────────────
+export function useQuizDetailedStats(quizId: string | undefined, passPercentage = 60) {
+  return useQuery({
+    queryKey: ['quiz-detailed-stats', quizId],
+    queryFn: async (): Promise<QuizDetailedStats> => {
+      if (!quizId) return { results: [], summary: { total: 0, avg_score: 0, pass_rate: 0, avg_time: null } };
+
+      const { data, error } = await supabase
+        .from('quiz_results')
+        .select(`*, profiles:user_id (full_name, avatar_url)`)
+        .eq('quiz_id', quizId)
+        .order('completed_at', { ascending: false });
+
+      if (error) throw error;
+
+      const results = (data ?? []) as unknown as QuizResultWithProfile[];
+      const total = results.length;
+
+      if (total === 0) {
+        return { results: [], summary: { total: 0, avg_score: 0, pass_rate: 0, avg_time: null } };
+      }
+
+      const avg_score = results.reduce((s, r) => s + r.percentage, 0) / total;
+      const passed = results.filter(r => r.percentage >= passPercentage).length;
+      const pass_rate = (passed / total) * 100;
+      const timed = results.filter(r => r.time_spent != null);
+      const avg_time =
+        timed.length > 0
+          ? timed.reduce((s, r) => s + (r.time_spent ?? 0), 0) / timed.length
+          : null;
+
+      return { results, summary: { total, avg_score, pass_rate, avg_time } };
+    },
+    enabled: !!quizId,
+    staleTime: 60 * 1000,
   });
 }
