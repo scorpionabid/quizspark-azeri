@@ -88,8 +88,18 @@ const actionPrompts: Record<string, string> = {
   check_correctness: `Sualın elmi cəhətdən doğruluğunu və məntiqi dürüstlüyünü yoxla.`,
 };
 
-async function fetchAI(lovableKey: string, geminiKey: string | undefined, body: Record<string, unknown>, targetModelId: string): Promise<Response> {
+async function fetchAI(lovableKey: string | undefined, geminiKey: string | undefined, body: Record<string, unknown>, targetModelId: string): Promise<Response> {
   const model = body.model || targetModelId;
+  const geminiModel = String(model).replace('google/', '');
+
+  if (!lovableKey) {
+    console.log('No LOVABLE_API_KEY, using Gemini API directly');
+    return await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${geminiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, model: geminiModel }),
+    });
+  }
 
   let response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -102,7 +112,7 @@ async function fetchAI(lovableKey: string, geminiKey: string | undefined, body: 
     response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${geminiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...body, model: String(model).replace('google/', '') }),
+      body: JSON.stringify({ ...body, model: geminiModel }),
     });
   }
 
@@ -159,10 +169,10 @@ serve(async (req: Request) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!LOVABLE_API_KEY && !GEMINI_API_KEY) {
+      throw new Error('No AI API key configured (LOVABLE_API_KEY or GEMINI_API_KEY)');
+    }
 
     // Create Supabase client to fetch AI config
     let targetModelId = 'google/gemini-2.5-flash'; // Default fallback

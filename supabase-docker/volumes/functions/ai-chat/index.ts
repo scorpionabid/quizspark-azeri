@@ -39,8 +39,9 @@ serve(async (req: Request) => {
     const { messages, agentId, systemPrompt } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!LOVABLE_API_KEY && !GEMINI_API_KEY) {
+      throw new Error("No AI API key configured (LOVABLE_API_KEY or GEMINI_API_KEY)");
     }
 
     console.log(`AI Chat request - Agent: ${agentId}, Messages: ${messages.length} for user: ${userId}`);
@@ -62,18 +63,17 @@ Lazım gələrsə nümunələr və izahlar ver.`;
       stream: true,
     };
 
-    let response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (response.status === 401 || response.status === 403) {
-      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-      if (GEMINI_API_KEY) {
+    let response: Response;
+    if (LOVABLE_API_KEY) {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+      if ((response.status === 401 || response.status === 403) && GEMINI_API_KEY) {
         console.log('Lovable gateway auth failed, falling back to Gemini API directly');
         response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
           method: 'POST',
@@ -81,6 +81,13 @@ Lazım gələrsə nümunələr və izahlar ver.`;
           body: JSON.stringify({ ...requestBody, model: 'gemini-2.5-flash' }),
         });
       }
+    } else {
+      console.log('No LOVABLE_API_KEY, using Gemini API directly');
+      response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...requestBody, model: 'gemini-2.5-flash' }),
+      });
     }
 
     if (!response.ok) {
