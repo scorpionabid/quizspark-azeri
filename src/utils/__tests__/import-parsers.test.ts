@@ -65,6 +65,33 @@ Cavab: Bakı`;
       expect(result.warnings).toHaveLength(2); // no_options AND missing_answer
       expect(result.warnings.some(w => w.type === 'no_options')).toBe(true);
     });
+
+    it('should parse Format 2 with numbered options and multiple answers', () => {
+      const content = `14. Xalqımızın təntənəli surətdə bəyan etdiyi ülvi niyyətlərə aiddir:
+1. vətəndaş cəmiyyətinin bərqərar edilməsinə nail olmaq
+2. qanunların aliliyini təmin edən hüquqi, dünyəvi dövlət qurmaq
+3. hamı üçün layiqli həyat səviyyəsini təmin etmək
+4. ümumbəşəri dəyərlərə sadiq qalaraq bütün dünya xalqları ilə dostluq, sülh və əmin-amanlıq şəraitində yaşamaq
+5. öz müqəddəratını sərbəst müəyyən etmək
+6. Azərbaycanın suverenliyi və ərazi bütövlüyünü qorumaq
+
+Düzgün cavab: 1, 3, 6`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_type).toBe('multiple_select');
+      expect(result.questions[0].options).toHaveLength(6);
+      expect(result.questions[0].correct_answer).toBe('vətəndaş cəmiyyətinin bərqərar edilməsinə nail olmaq,hamı üçün layiqli həyat səviyyəsini təmin etmək,Azərbaycanın suverenliyi və ərazi bütövlüyünü qorumaq');
+    });
+
+    it('should parse Aiken-style with numbered options', () => {
+      const content = `Test question?
+1) Option 1
+2) Option 2
+ANSWER: 2`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].correct_answer).toBe('Option 2');
+    });
   });
 
   describe('parseAiken', () => {

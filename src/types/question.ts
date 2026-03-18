@@ -1,5 +1,6 @@
 export const QUESTION_TYPES = [
-    { value: 'multiple_choice', label: 'Çoxseçimli', icon: 'list' },
+    { value: 'multiple_choice', label: 'Çoxseçimli (Tək cavab)', icon: 'list' },
+    { value: 'multiple_select', label: 'Çoxseçimli (Çoxlu cavab)', icon: 'list-checks' },
     { value: 'true_false', label: 'Doğru/Yanlış', icon: 'toggle-left' },
     { value: 'short_answer', label: 'Qısa cavab', icon: 'type' },
     { value: 'essay', label: 'Esse', icon: 'file-text' },

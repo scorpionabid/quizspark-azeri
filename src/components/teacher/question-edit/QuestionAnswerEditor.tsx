@@ -25,6 +25,7 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
     const { question_type } = formData;
 
     const isMCQ = question_type === 'multiple_choice' || question_type === 'video';
+    const isMS = question_type === 'multiple_select';
     const isTF = question_type === 'true_false';
     const isMatching = question_type === 'matching';
     const isOrdering = question_type === 'ordering';
@@ -46,13 +47,14 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
 
     return (
         <div className="space-y-4">
-            {/* MCQ */}
-            {isMCQ && (
+            {/* MCQ / Multi-select */}
+            {(isMCQ || isMS) && (
                 <MultipleChoiceEditor
-                    options={formData.options}
+                    options={formData.options || []}
                     onChange={(options) => setFormData({ ...formData, options })}
-                    correctAnswer={formData.correct_answer}
+                    correctAnswer={formData.correct_answer || ''}
                     onCorrectAnswerChange={(answer) => setFormData({ ...formData, correct_answer: answer })}
+                    isMultiple={isMS}
                 />
             )}
 

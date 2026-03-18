@@ -18,7 +18,8 @@ import {
     Hash,
     Code,
     Video,
-    Box
+    Box,
+    ListChecks
 } from 'lucide-react';
 import { QUESTION_TYPES, QuestionType } from '@/types/question';
 
@@ -35,6 +36,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
     'code': Code,
     'video': Video,
     'box': Box,
+    'list-checks': ListChecks,
 };
 
 interface QuestionTypeSelectorProps {

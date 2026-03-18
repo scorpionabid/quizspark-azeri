@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -89,6 +90,13 @@ function isAnswerCorrect(question: Question, value: string): boolean {
     const isCorrectA = ca === 'A' || ca === 'Doğru' || ca.toLowerCase() === 'true';
     if (isCorrectA) return value === 'true' || value === 'A';
     return value === 'false' || value === 'B';
+  }
+
+  if (qt === 'multiple_select') {
+    const studentAnswers = value.split(',').map(a => a.trim()).filter(Boolean).sort();
+    const correctAnswers = question.correct_answer.split(',').map(a => a.trim()).filter(Boolean).sort();
+    if (studentAnswers.length !== correctAnswers.length) return false;
+    return studentAnswers.every((a, i) => a === correctAnswers[i]);
   }
 
   return value.trim() === question.correct_answer.trim();
@@ -225,11 +233,42 @@ export function QuestionRenderer({
             {question.options?.map((opt, i) => (
               <div key={i} className="flex items-center space-x-2">
                 <RadioGroupItem value={opt} id={`opt-${i}`} />
-                <Label htmlFor={`opt-${i}`}>{opt}</Label>
+                <Label htmlFor={`opt-${i}`} className="cursor-pointer">{opt}</Label>
               </div>
             ))}
           </RadioGroup>
         );
+      
+      // ── Multiple Select ──────────────────────────────────────────────────────
+      case 'multiple_select': {
+        const selected = value ? value.split(',').map(s => s.trim()) : [];
+        const handleToggle = (opt: string, checked: boolean) => {
+          if (disabled || showFeedback) return;
+          let next;
+          if (checked) {
+            next = [...selected, opt];
+          } else {
+            next = selected.filter(s => s !== opt);
+          }
+          onChange(next.join(','));
+        };
+
+        return (
+          <div className="space-y-2">
+            {question.options?.map((opt, i) => (
+              <div key={i} className="flex items-center space-x-2">
+                <Checkbox 
+                  id={`ms-opt-${i}`} 
+                  checked={selected.includes(opt)}
+                  onCheckedChange={(checked) => handleToggle(opt, !!checked)}
+                  disabled={disabled || showFeedback}
+                />
+                <Label htmlFor={`ms-opt-${i}`} className="cursor-pointer">{opt}</Label>
+              </div>
+            ))}
+          </div>
+        );
+      }
 
       // ── True / False ─────────────────────────────────────────────────────────
       case 'true_false':

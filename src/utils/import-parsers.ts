@@ -254,22 +254,44 @@ function extractMetadata(lines: string[], target: Partial<ParsedQuestion>) {
     } else if (['dil', 'language'].includes(key)) {
       target.hint = `lang:${value.toLowerCase()}`;
     } else if (['answer', 'düzgün', 'cavab', 'doğru', 'doğru cavab', 'düzgün cavab'].includes(key)) {
-      const letter = value.trim().toUpperCase();
-      // Əgər variant mətni birbaşa verilibsə (Format 3 kimi)
+      const values = value.split(/[,;]/).map(v => v.trim()).filter(Boolean);
       const opts = target.options as string[] | null;
-      if (Array.isArray(opts)) {
-        if (opts.includes(value.trim())) {
-          target.correct_answer = value.trim();
-        } else {
-          // Aiken-stilli ANSWER: A → indeks ilə variant mətni
-          const idx = letter.charCodeAt(0) - 65;
-          if (opts[idx]) {
-            target.correct_answer = opts[idx];
+      
+      if (values.length > 1) {
+        target.question_type = 'multiple_select';
+      }
+
+      const answers: string[] = [];
+
+      for (const val of values) {
+        if (Array.isArray(opts)) {
+          if (opts.includes(val)) {
+            answers.push(val);
+          } else {
+            // Aiken-stilli ANSWER: A və ya 1, 2, 3
+            let idx = -1;
+            if (/^[A-Za-z]$/.test(val)) {
+              idx = val.toUpperCase().charCodeAt(0) - 65;
+            } else if (/^\d+$/.test(val)) {
+              idx = parseInt(val, 10) - 1;
+            }
+
+            if (idx >= 0 && opts[idx]) {
+              answers.push(opts[idx]);
+            } else if (!target.correct_answer) {
+              // Əgər indekslə tapılmadısa, birbaşa mətni əlavə et
+              answers.push(val);
+            }
           }
+        } else {
+          answers.push(val);
         }
-      } else {
-        // Variant yoxdursa cavabı birbaşa saxla (fill_blank, short_answer, numerical, code)
-        if (!target.correct_answer) target.correct_answer = value.trim();
+      }
+
+      if (answers.length > 0) {
+        target.correct_answer = target.question_type === 'multiple_select' 
+          ? answers.join(',') 
+          : answers[0];
       }
     }
   }
@@ -656,7 +678,7 @@ function parseMarkdownFormat2(content: string): ParseResult {
   const warnings: ParseWarning[] = [];
 
   const blocks = content
-    .split(/(?=^\d+[.)]\s)/m)
+    .split(/\n\s*\r?\n(?=\d+[.)]\s)/)
     .map(b => b.trim())
     .filter(Boolean);
 
@@ -679,16 +701,16 @@ function parseMarkdownFormat2(content: string): ParseResult {
     const optLines: string[] = [];
     const metaLines: string[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const l = lines[i];
-      // Variant sətirləri: `A) ...` | `A. ...` | `* A) ...` | `- A) ...`
-      const optMatch = l.match(/^[-*•]?\s*([A-Ea-e])[).]\s+(.+)/);
-      if (optMatch) {
-        optLines.push(optMatch[2].trim());
-      } else {
-        metaLines.push(l);
+      for (let i = 1; i < lines.length; i++) {
+        const l = lines[i];
+        // Variant sətirləri: `A) ...` | `1) ...` | `A. ...` | `1. ...` | `* A) ...` | `- A) ...`
+        const optMatch = l.match(/^[-*•]?\s*([A-Za-z\d]+)[).]\s+(.+)/);
+        if (optMatch) {
+          optLines.push(optMatch[2].trim());
+        } else {
+          metaLines.push(l);
+        }
       }
-    }
 
     result.options = optLines;
     extractMetadata(metaLines, result);
@@ -872,7 +894,7 @@ function parseSingleBlock(
   let parsingOptions = false;
 
   for (const line of lines) {
-    const aikenOpt = line.match(/^([A-Ea-e])[).]\s+(.+)/);
+    const aikenOpt = line.match(/^([A-Za-z\d]+)\s*[).]\s+(.+)/);
     const bulletOpt = line.match(/^[-•*]\s+(?!\[)(.+)/);
     const isMeta = META_RE.test(line);
 
@@ -906,22 +928,49 @@ function parseSingleBlock(
   // Cavabı metadata-dan tap
   if (!correctAnswer) {
     for (const ml of metaLines) {
-      const ansLetterMatch = ml.match(/^ANSWER:\s+([A-Ea-e])$/i);
+      const ansLetterMatch = ml.match(/^ANSWER:\s*([A-Za-z\d]+)\s*$/i);
       const duzgunMatch = ml.match(
         /^(?:Düzgün|Cavab|Doğru cavab)\s*[-:]?\s*(.+)/i,
       );
 
       if (ansLetterMatch) {
-        const idx = ansLetterMatch[1].toUpperCase().charCodeAt(0) - 65;
+        const val = ansLetterMatch[1].toUpperCase();
+        let idx = -1;
+        if (/^[A-Za-z]$/.test(val)) {
+          idx = val.charCodeAt(0) - 65;
+        } else if (/^\d+$/.test(val)) {
+          idx = parseInt(val, 10) - 1;
+        }
         if (options[idx]) correctAnswer = options[idx];
       } else if (duzgunMatch) {
-        const val = duzgunMatch[1].trim();
-        if (options.includes(val)) {
-          correctAnswer = val;
-        } else {
-          const idx = val.toUpperCase().charCodeAt(0) - 65;
-          if (options[idx]) correctAnswer = options[idx];
-          else if (!options.length) correctAnswer = val;
+        const valStr = duzgunMatch[1].trim();
+        const vals = valStr.split(/[,;]/).map(v => v.trim()).filter(Boolean);
+        
+        if (vals.length > 1) result.question_type = 'multiple_select';
+
+        const answers: string[] = [];
+        for (const v of vals) {
+          if (options.includes(v)) {
+            answers.push(v);
+          } else {
+            let idx = -1;
+            if (/^[A-Za-z]$/.test(v.toUpperCase())) {
+              idx = v.toUpperCase().charCodeAt(0) - 65;
+            } else if (/^\d+$/.test(v)) {
+              idx = parseInt(v, 10) - 1;
+            }
+            
+            if (options[idx]) {
+              answers.push(options[idx]);
+            } else if (!options.length) {
+              answers.push(v);
+            }
+          }
+        }
+        if (answers.length > 0) {
+          correctAnswer = result.question_type === 'multiple_select' 
+            ? answers.join(',') 
+            : answers[0];
         }
       }
     }
@@ -1023,8 +1072,12 @@ export const parseMarkdownFull = (content: string): ParseResult => {
     if (result.questions.length > 0) return result;
   }
 
+  // Fallback: Tək blok kimi parse et
+  const singleResult = parseSingleBlock(content, 0);
+  if (singleResult.questions.length > 0) return singleResult;
+
   return { questions: [], warnings: [] };
-};
+}
 
 /**
  * Legacy wrapper — köhnə kodla uyğunluq üçün.
