@@ -15,7 +15,7 @@ Deno.serve(async (req: Request) => {
   const servicePath = `${FUNCTIONS_PATH}/${functionName}`;
 
   try {
-    // @ts-ignore EdgeRuntime is available in Supabase edge runtime
+    // @ts-expect-error EdgeRuntime is available in Supabase edge runtime
     const worker = await EdgeRuntime.userWorkers.create({
       servicePath,
       envVars: Object.entries(Deno.env.toObject()),
