@@ -1,7 +1,7 @@
 import React from 'react';
 import { Question } from '@/hooks/useQuestions';
-import { QuestionVideoPlayer } from '../question-bank/QuestionVideoPlayer';
-import { Question3DViewer } from '../question-bank/Question3DViewer';
+import { QuestionVideoPlayer } from '@/components/question-bank/QuestionVideoPlayer';
+import { Question3DViewer } from '@/components/question-bank/Question3DViewer';
 import { MonitorPlay, Box, Music } from 'lucide-react';
 
 interface MediaRendererProps {
