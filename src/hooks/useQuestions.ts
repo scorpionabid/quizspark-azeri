@@ -37,8 +37,9 @@ export interface Question {
 }
 
 export function computeWeightedScore(answers: QuestionAnswer[], questions: Question[]) {
+  // pointsEarned is already 0 for wrong answers; || 1 fallback was incorrect
   const weightedScore = answers.reduce((sum, answer) => {
-    return sum + (answer.isCorrect ? (answer.pointsEarned || 1) : 0);
+    return sum + (answer.isCorrect ? (answer.pointsEarned ?? (questions.find(q => q.id === answer.questionId)?.weight ?? 1)) : 0);
   }, 0);
   const maxPossibleScore = questions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
   const percentage = maxPossibleScore > 0 ? (weightedScore / maxPossibleScore) * 100 : 0;

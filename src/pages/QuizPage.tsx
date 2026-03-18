@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useQuiz } from "@/hooks/useQuizzes";
 import { useQuestions } from "@/hooks/useQuestions";
-import { useStartAttempt, useCompleteAttempt } from "@/hooks/useQuizAttempts";
+import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt } from "@/hooks/useQuizAttempts";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageLoader } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -36,7 +36,11 @@ export default function QuizPage() {
   const { data: quiz, isLoading: quizLoading } = useQuiz(id);
   const { data: questions = [], isLoading: questionsLoading } = useQuestions(id);
   const startAttempt = useStartAttempt();
+  const updateAttempt = useUpdateAttempt();
   const completeAttempt = useCompleteAttempt();
+
+  const { data: myAttempts } = useMyAttempts(id);
+  const [displayQuestions, setDisplayQuestions] = useState<typeof questions>([]);
 
   const [quizState, setQuizState] = useState<QuizState>('intro');
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -45,9 +49,13 @@ export default function QuizPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [totalTimeLeft, setTotalTimeLeft] = useState(0);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const timeLeftRef = useRef(timeLeft);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const questionStartTimeRef = useRef<number>(Date.now());
+  const timeUpTriggeredRef = useRef(false);
   const [showHint, setShowHint] = useState(false);
   const [earnedXP, setEarnedXP] = useState(0);
   const { updateXPAsync } = useGamification();
@@ -55,9 +63,9 @@ export default function QuizPage() {
   const isLoading = quizLoading || questionsLoading;
 
   const handleAnswer = useCallback(async (val: string | null) => {
-    if (showFeedback || questions.length === 0) return;
+    if (showFeedback || displayQuestions.length === 0) return;
 
-    const currentQ = questions[currentQuestion];
+    const currentQ = displayQuestions[currentQuestion];
     if (!currentQ) return;
 
     const finalVal = val || '';
@@ -65,11 +73,39 @@ export default function QuizPage() {
 
     // Advanced evaluation logic
     if (currentQ.question_type === 'ordering') {
-      isCorrect = finalVal === currentQ.correct_answer;
+      const studentSeq = finalVal.split('|||').map(s => s.trim());
+      const correctSeq = (
+        currentQ.sequence_items?.length
+          ? currentQ.sequence_items
+          : currentQ.correct_answer.split('|||')
+      ).map(s => s.trim());
+      isCorrect = studentSeq.length === correctSeq.length && studentSeq.every((item, i) => item === correctSeq[i]);
     } else if (currentQ.question_type === 'matching') {
-      const studentMatches = finalVal.split('|||').sort();
-      const correctMatches = currentQ.correct_answer.split('|||').sort();
-      isCorrect = JSON.stringify(studentMatches) === JSON.stringify(correctMatches);
+      const rawPairs = currentQ.matching_pairs;
+      if (rawPairs) {
+        const pairsRecord: Record<string, string> = Array.isArray(rawPairs)
+          ? Object.fromEntries((rawPairs as unknown as Array<{ left: string; right: string }>).map(p => [p.left, p.right]))
+          : rawPairs as Record<string, string>;
+        const studentPairs: Record<string, string> = {};
+        finalVal.split('|||').forEach(m => {
+          const colonIdx = m.indexOf(':');
+          if (colonIdx > -1) studentPairs[m.slice(0, colonIdx)] = m.slice(colonIdx + 1);
+        });
+        isCorrect = Object.entries(pairsRecord).every(([l, r]) => studentPairs[l] === r);
+      } else {
+        const studentMatches = finalVal.split('|||').sort();
+        const correctMatches = currentQ.correct_answer.split('|||').sort();
+        isCorrect = JSON.stringify(studentMatches) === JSON.stringify(correctMatches);
+      }
+    } else if (currentQ.question_type === 'hotspot') {
+      const parts = currentQ.correct_answer.split(':');
+      const cx = parseFloat(parts[0]);
+      const cy = parseFloat(parts[1]);
+      const tolerance = parts[2] ? parseFloat(parts[2]) : 10;
+      const sParts = finalVal.split(':');
+      const sx = parseFloat(sParts[0]);
+      const sy = parseFloat(sParts[1]);
+      isCorrect = !isNaN(cx) && !isNaN(sx) && Math.abs(sx - cx) <= tolerance && Math.abs(sy - cy) <= tolerance;
     } else {
       isCorrect = finalVal.trim().toLowerCase() === currentQ.correct_answer.trim().toLowerCase();
     }
@@ -101,32 +137,51 @@ export default function QuizPage() {
     const updatedAnswers = [...answers, answer];
     setAnswers(updatedAnswers);
 
-    setTimeout(async () => {
-      if (currentQuestion < questions.length - 1) {
+    // Auto-save answers to DB (fire and forget — protects against page refresh)
+    if (attemptId && !isPreview) {
+      updateAttempt.mutate({
+        attemptId,
+        answers: updatedAnswers as unknown as Record<string, string>[],
+      });
+    }
+
+    // Clear any existing transition timeout
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current);
+    }
+
+    transitionTimeoutRef.current = setTimeout(async () => {
+      if (currentQuestion < displayQuestions.length - 1) {
         setCurrentQuestion(prev => prev + 1);
         setSelectedOption(null);
         setLocalAnswer('');
         setShowFeedback(false);
         setShowHint(false);
+        transitionTimeoutRef.current = null;
       } else {
         // Quiz completed
         if (attemptId && startTime && user && quiz) {
-          const correctCount = updatedAnswers.filter(a => a.isCorrect).length;
           const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+
+          // Weighted score: honours per-question weights
+          const earnedPoints = updatedAnswers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
+          const maxPoints = displayQuestions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
+          const weightedScore = maxPoints > 0 ? Math.round((earnedPoints / maxPoints) * 100) : 0;
 
           try {
             await completeAttempt.mutateAsync({
               attemptId,
               quizId: quiz.id,
-              score: Math.round((correctCount / questions.length) * 100), // Use score percentage
-              totalQuestions: questions.length,
+              score: weightedScore,
+              totalQuestions: displayQuestions.length,
               timeSpent,
               answers: updatedAnswers as unknown as Record<string, string>[],
             });
 
             localStorage.removeItem(`quiz_start_${quiz.id}`);
 
-            const xpGain = (correctCount * 10) + (correctCount === questions.length ? 50 : 0);
+            // XP scaled by weighted performance
+            const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
             setEarnedXP(prev => prev + xpGain);
             if (xpGain > 0 && !isPreview) {
               await updateXPAsync(xpGain);
@@ -136,9 +191,10 @@ export default function QuizPage() {
           }
         }
         setQuizState('result');
+        transitionTimeoutRef.current = null;
       }
     }, 1500 + (isCorrect && currentQ.explanation ? 1500 : 0));
-  }, [showFeedback, questions, currentQuestion, answers, attemptId, startTime, user, quiz, completeAttempt, isPreview, updateXPAsync]);
+  }, [showFeedback, displayQuestions, currentQuestion, answers, attemptId, startTime, user, quiz, updateAttempt, completeAttempt, isPreview, updateXPAsync]);
 
   const startQuiz = async () => {
     if (!quiz || !user) {
@@ -150,10 +206,26 @@ export default function QuizPage() {
       return;
     }
 
+    // Check attempts limit
+    const attemptsLimit = quiz.attempts_limit ?? 0;
+    if (attemptsLimit > 0) {
+      const completedCount = (myAttempts || []).filter(a => a.completed_at !== null).length;
+      if (completedCount >= attemptsLimit) {
+        toast.error(`Bu quiz üçün cəhd limitiniz dolub (${completedCount}/${attemptsLimit})`);
+        return;
+      }
+    }
+
+    // Shuffle questions if enabled
+    const orderedQuestions = quiz.shuffle_questions
+      ? [...questions].sort(() => Math.random() - 0.5)
+      : [...questions];
+    setDisplayQuestions(orderedQuestions);
+
     try {
       const attempt = await startAttempt.mutateAsync({
         quizId: quiz.id,
-        totalQuestions: questions.length,
+        totalQuestions: orderedQuestions.length,
       });
       setAttemptId(attempt.id);
       const now = new Date();
@@ -167,7 +239,9 @@ export default function QuizPage() {
       setQuizState('playing');
       setCurrentQuestion(0);
       setAnswers([]);
-      setTimeLeft(questions[0]?.time_limit || (quiz.duration || 20) * 60);
+      const totalDurationSecs = (quiz.duration || 20) * 60;
+      setTotalTimeLeft(totalDurationSecs);
+      setTimeLeft(orderedQuestions[0]?.time_limit || totalDurationSecs);
     } catch (error) {
       console.error("Error starting quiz:", error);
       toast.error("Quiz başladılarkən xəta baş verdi");
@@ -175,21 +249,23 @@ export default function QuizPage() {
   };
 
   const handleTimeUp = useCallback(() => {
-    if (selectedOption === null && questions.length > 0) {
+    if (selectedOption === null && displayQuestions.length > 0) {
       handleAnswer(null); // passing null implies timeout/no answer
     }
-  }, [selectedOption, questions.length, handleAnswer]);
+  }, [selectedOption, displayQuestions.length, handleAnswer]);
 
-  // Handle per-question timer
+  // Handle per-question timer reset when question changes
   useEffect(() => {
-    if (quizState === 'playing' && !showFeedback && questions[currentQuestion]) {
-      const qTimeLimit = questions[currentQuestion].time_limit;
-      if (qTimeLimit) {
-        // Reset timer when question changes
-        setTimeLeft(qTimeLimit);
-      }
+    if (quizState !== 'playing' || showFeedback) return;
+    if (!displayQuestions[currentQuestion]) return;
+    questionStartTimeRef.current = Date.now();
+    timeUpTriggeredRef.current = false;
+    const qTimeLimit = displayQuestions[currentQuestion].time_limit;
+    if (qTimeLimit) {
+      setTimeLeft(qTimeLimit);
     }
-  }, [currentQuestion, quizState, showFeedback, questions]);
+    // If no per-question limit, timeLeft mirrors totalTimeLeft (set in main timer)
+  }, [currentQuestion, quizState, showFeedback, displayQuestions]);
 
   // Persistence: Recover timer on refresh
   useEffect(() => {
@@ -213,19 +289,40 @@ export default function QuizPage() {
   }, [quizState, quiz, startTime]);
 
   useEffect(() => {
-    if (quizState === 'playing' && timeLeft > 0 && !showFeedback) {
-      const timer = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            handleTimeUp();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [quizState, timeLeft, handleTimeUp, showFeedback]);
+    if (quizState !== 'playing' || showFeedback || !startTime || !quiz) return;
+
+    const totalDuration = (quiz.duration || 20) * 60;
+
+    const timer = setInterval(() => {
+      const now = Date.now();
+
+      // Total timer: drift-proof via Date.now()
+      const elapsed = (now - startTime.getTime()) / 1000;
+      const totalRemaining = Math.max(0, Math.floor(totalDuration - elapsed));
+      setTotalTimeLeft(totalRemaining);
+      if (totalRemaining <= 0) {
+        setQuizState('result');
+        return;
+      }
+
+      // Per-question timer
+      const qTimeLimit = displayQuestions[currentQuestion]?.time_limit;
+      if (qTimeLimit) {
+        const qElapsed = (now - questionStartTimeRef.current) / 1000;
+        const qRemaining = Math.max(0, Math.floor(qTimeLimit - qElapsed));
+        setTimeLeft(qRemaining);
+        if (qRemaining <= 0 && !timeUpTriggeredRef.current) {
+          timeUpTriggeredRef.current = true;
+          handleTimeUp();
+        }
+      } else {
+        // No per-question limit: mirror total time
+        setTimeLeft(totalRemaining);
+      }
+    }, 500);
+
+    return () => clearInterval(timer);
+  }, [quizState, showFeedback, startTime, quiz, displayQuestions, currentQuestion, handleTimeUp]);
 
   useEffect(() => {
     timeLeftRef.current = timeLeft;
@@ -238,8 +335,9 @@ export default function QuizPage() {
   };
 
   // Weighted Scoring Calculation
+  const activeQuestions = displayQuestions.length > 0 ? displayQuestions : questions;
   const totalEarnedPoints = answers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
-  const maxPossibleScore = questions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
+  const maxPossibleScore = activeQuestions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
   const score = maxPossibleScore > 0 ? Math.round((totalEarnedPoints / maxPossibleScore) * 100) : 0;
   const correctAnswers = answers.filter(a => a.isCorrect).length;
 
@@ -317,6 +415,39 @@ export default function QuizPage() {
                 <div className="text-xs text-muted-foreground">Reytinq</div>
               </div>
             </div>
+
+            {/* Pass percentage + Attempts info */}
+            {(quiz.pass_percentage || quiz.attempts_limit) && (
+              <div className="mb-6 flex flex-wrap gap-3 justify-center">
+                {quiz.pass_percentage && (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-sm font-semibold text-primary">
+                    <Trophy className="h-4 w-4" />
+                    Keçid balı: {quiz.pass_percentage}%
+                  </div>
+                )}
+                {quiz.attempts_limit && quiz.attempts_limit > 0 && user && (
+                  <div className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold",
+                    (() => {
+                      const used = (myAttempts || []).filter(a => a.completed_at !== null).length;
+                      const remaining = quiz.attempts_limit! - used;
+                      return remaining > 0
+                        ? "bg-muted/50 border-border/40 text-muted-foreground"
+                        : "bg-destructive/10 border-destructive/30 text-destructive";
+                    })()
+                  )}>
+                    <RotateCcw className="h-4 w-4" />
+                    {(() => {
+                      const used = (myAttempts || []).filter(a => a.completed_at !== null).length;
+                      const remaining = quiz.attempts_limit! - used;
+                      return remaining > 0
+                        ? `Qalan cəhd: ${remaining}/${quiz.attempts_limit}`
+                        : 'Cəhd limiti dolub';
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Availability Check */}
             {(() => {
@@ -432,11 +563,9 @@ export default function QuizPage() {
   }
 
   // Playing Screen
-  if (quizState === 'playing' && questions.length > 0) {
-    const question = questions[currentQuestion];
-    const options = (question.options as string[]) || [];
-    const progress = ((currentQuestion + 1) / questions.length) * 100;
-    const correctOptionIndex = options.findIndex(opt => opt === question.correct_answer);
+  if (quizState === 'playing' && displayQuestions.length > 0) {
+    const question = displayQuestions[currentQuestion];
+    const progress = ((currentQuestion + 1) / displayQuestions.length) * 100;
 
     return (
       <div className="flex-1 bg-gradient-hero p-3 sm:p-8 pb-32 sm:pb-8">
@@ -457,18 +586,32 @@ export default function QuizPage() {
               <span className="hidden sm:inline">Çıx</span>
             </Button>
 
-            <VisualTimer
-              timeLeft={timeLeft}
-              totalTime={questions[currentQuestion]?.time_limit || (quiz.duration || 20) * 60}
-              size={40}
-              className="sm:w-auto"
-            />
+            <div className="flex flex-col items-end gap-1">
+              {displayQuestions[currentQuestion]?.time_limit ? (
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Sual Vaxtı</span>
+                  <VisualTimer
+                    timeLeft={timeLeft}
+                    totalTime={displayQuestions[currentQuestion].time_limit!}
+                    size={36}
+                  />
+                </div>
+              ) : null}
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Ümumi Vaxt</span>
+                <VisualTimer
+                  timeLeft={totalTimeLeft}
+                  totalTime={(quiz.duration || 20) * 60}
+                  size={36}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Progress */}
           <div className="mb-6 sm:mb-8">
             <div className="mb-2 flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-              <span>Sual {currentQuestion + 1} / {questions.length}</span>
+              <span>Sual {currentQuestion + 1} / {displayQuestions.length}</span>
               <span className="font-bold text-primary">{Math.round(progress)}%</span>
             </div>
             <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-muted/50 border border-border/30">
@@ -545,11 +688,16 @@ export default function QuizPage() {
                   size="xl"
                   className="flex-1 sm:flex-none sm:min-w-[200px] h-12 sm:h-auto shadow-game active:translate-y-1 transition-all rounded-xl"
                   onClick={() => {
-                    if (currentQuestion < questions.length - 1) {
+                    if (transitionTimeoutRef.current) {
+                      clearTimeout(transitionTimeoutRef.current);
+                      transitionTimeoutRef.current = null;
+                    }
+                    if (currentQuestion < displayQuestions.length - 1) {
                       setCurrentQuestion(prev => prev + 1);
                       setShowFeedback(false);
                       setShowHint(false);
                       setSelectedOption(null);
+                      setLocalAnswer('');
                     } else {
                       setQuizState('result');
                     }
@@ -566,6 +714,9 @@ export default function QuizPage() {
   }
 
   // Result Screen
+  const passThreshold = quiz?.pass_percentage ?? 60;
+  const hasPassed = score >= passThreshold;
+
   return (
     <div className="flex-1 bg-gradient-hero p-4 sm:p-8 pb-32 sm:pb-8">
       <div className="mx-auto max-w-2xl">
@@ -574,24 +725,32 @@ export default function QuizPage() {
           <div className="relative mx-auto mb-6 inline-block">
             <div className={cn(
               "flex h-24 w-24 items-center justify-center rounded-full",
-              score >= 80 ? "bg-success/20" : score >= 50 ? "bg-warning/20" : "bg-destructive/20"
+              hasPassed ? "bg-success/20" : score >= 40 ? "bg-warning/20" : "bg-destructive/20"
             )}>
               <Trophy className={cn(
                 "h-12 w-12",
-                score >= 80 ? "text-success" : score >= 50 ? "text-warning" : "text-destructive"
+                hasPassed ? "text-success" : score >= 40 ? "text-warning" : "text-destructive"
               )} />
             </div>
-            {score >= 80 && (
+            {hasPassed && (
               <div className="absolute -right-2 -top-2 text-3xl animate-float">🎉</div>
             )}
           </div>
 
-          <h1 className="mb-2 font-display text-3xl font-bold text-foreground">
-            {score >= 80 ? 'Əla Nəticə!' : score >= 50 ? 'Yaxşı Cəhd!' : 'Davam Et!'}
+          <h1 className="mb-1 font-display text-3xl font-bold text-foreground">
+            {hasPassed ? 'Əla Nəticə!' : score >= 40 ? 'Yaxşı Cəhd!' : 'Davam Et!'}
           </h1>
+
+          {/* Pass / Fail badge */}
+          <div className="mb-4 flex justify-center">
+            <Badge variant={hasPassed ? 'success' : 'destructive'} className="text-sm px-4 py-1">
+              {hasPassed ? '✓ Keçdiniz' : `✗ Keçid balı: ${passThreshold}%`}
+            </Badge>
+          </div>
+
           <p className="mb-8 text-muted-foreground">
-            {score >= 80 ? 'Möhtəşəm! Sən bu mövzunu çox yaxşı bilirsən.' :
-              score >= 50 ? 'Yaxşı iş! Bir az daha təcrübə ilə daha yaxşı olacaq.' :
+            {hasPassed ? 'Möhtəşəm! Sən bu mövzunu çox yaxşı bilirsən.' :
+              score >= 40 ? 'Yaxşı iş! Bir az daha təcrübə ilə daha yaxşı olacaq.' :
                 'Narahat olma, hər uğursuzluq öyrənmək üçün bir şansdır.'}
           </p>
 
@@ -621,11 +780,11 @@ export default function QuizPage() {
               <div className="text-xs text-muted-foreground">Düzgün</div>
             </div>
             <div className="rounded-xl bg-destructive/10 p-4">
-              <div className="text-2xl font-bold text-destructive">{questions.length - correctAnswers}</div>
+              <div className="text-2xl font-bold text-destructive">{activeQuestions.length - correctAnswers}</div>
               <div className="text-xs text-muted-foreground">Yanlış</div>
             </div>
             <div className="rounded-xl bg-muted/50 p-4">
-              <div className="text-2xl font-bold text-foreground">{questions.length}</div>
+              <div className="text-2xl font-bold text-foreground">{activeQuestions.length}</div>
               <div className="text-xs text-muted-foreground">Ümumi</div>
             </div>
           </div>

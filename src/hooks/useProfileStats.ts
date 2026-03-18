@@ -25,11 +25,15 @@ export function useProfileStats() {
 
             if (attemptsError) throw attemptsError;
 
-            const totalQuizzesTaken = attempts?.length || 0;
-            const totalScore = attempts?.reduce((acc, curr) => acc + (curr.score || 0), 0) || 0;
-            const totalQuestionsTaken = attempts?.reduce((acc, curr) => acc + (curr.total_questions || 0), 0) || 0;
-            const averageScore = totalQuestionsTaken > 0 ? Math.round((totalScore / totalQuestionsTaken) * 100) : 0;
-            const totalPoints = totalScore * 10;
+            // Only count completed attempts for stats
+            const completedAttempts = attempts?.filter(a => a.completed_at !== null && a.score !== null) || [];
+            const totalQuizzesTaken = completedAttempts.length;
+            // score is already 0-100 percentage; average across completed attempts
+            const averageScore = totalQuizzesTaken > 0
+              ? Math.round(completedAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0) / totalQuizzesTaken)
+              : 0;
+            // XP-style points: each percentage point = 1 point, scaled by quiz count
+            const totalPoints = completedAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0);
 
             // Role-specific stats for Teachers
             let teacherStats = null;

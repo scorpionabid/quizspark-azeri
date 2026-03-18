@@ -154,7 +154,8 @@ export function useCompleteAttempt() {
       if (attemptError) throw attemptError;
 
       // Create result for leaderboard
-      const percentage = (score / totalQuestions) * 100;
+      // score is already a percentage (0-100), not a raw count
+      const percentage = score;
       const { data: resultData, error: resultError } = await supabase
         .from('quiz_results')
         .insert({
@@ -219,7 +220,7 @@ export function useQuizLeaderboard(quizId: string | undefined) {
         `)
         .eq('quiz_id', quizId)
         .order('percentage', { ascending: false })
-        .order('time_spent', { ascending: true })
+        .order('time_spent', { ascending: true, nullsFirst: false })
         .limit(50);
 
       if (error) throw error;

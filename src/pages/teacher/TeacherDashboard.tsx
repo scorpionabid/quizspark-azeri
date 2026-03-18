@@ -1,79 +1,93 @@
-import { 
-  BookOpen, 
-  Users, 
-  TrendingUp, 
-  Clock, 
+import {
+  BookOpen,
+  Users,
+  TrendingUp,
+  PlayCircle,
   PlusCircle,
   FileText,
   BarChart3,
-  Trophy
+  Trophy,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useMyQuizzes, useQuizzesMeta } from "@/hooks/useQuizzes";
+import { supabase } from "@/integrations/supabase/client";
 
-interface StatCard {
-  title: string;
-  value: string;
-  change: string;
-  changeType: 'positive' | 'negative' | 'neutral';
-  icon: React.ComponentType<{ className?: string }>;
-  color: string;
+function useTeacherTopStudents(quizIds: string[]) {
+  return useQuery({
+    queryKey: ["teacher-top-students", quizIds],
+    queryFn: async () => {
+      if (!quizIds.length) return [];
+      const { data } = await supabase
+        .from("quiz_results")
+        .select("user_id, percentage, profiles:user_id(full_name)")
+        .in("quiz_id", quizIds);
+
+      const userMap = new Map<
+        string,
+        { name: string; scores: number[]; count: number }
+      >();
+      for (const r of data || []) {
+        if (!userMap.has(r.user_id)) {
+          userMap.set(r.user_id, {
+            name:
+              (r.profiles as { full_name: string | null } | null)?.full_name ||
+              "İsimsiz",
+            scores: [],
+            count: 0,
+          });
+        }
+        const u = userMap.get(r.user_id)!;
+        u.scores.push(r.percentage);
+        u.count++;
+      }
+
+      return Array.from(userMap.values())
+        .map((u) => ({
+          name: u.name,
+          quizzes: u.count,
+          score: Math.round(
+            u.scores.reduce((a, b) => a + b, 0) / u.scores.length
+          ),
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 4);
+    },
+    enabled: quizIds.length > 0,
+    staleTime: 2 * 60 * 1000,
+  });
 }
-
-const stats: StatCard[] = [
-  {
-    title: "Ümumi Quizlər",
-    value: "24",
-    change: "+3 bu ay",
-    changeType: "positive",
-    icon: BookOpen,
-    color: "text-primary",
-  },
-  {
-    title: "Aktiv Tələbələr",
-    value: "156",
-    change: "+12 bu həftə",
-    changeType: "positive",
-    icon: Users,
-    color: "text-secondary",
-  },
-  {
-    title: "Orta Nəticə",
-    value: "78%",
-    change: "+5% artım",
-    changeType: "positive",
-    icon: TrendingUp,
-    color: "text-success",
-  },
-  {
-    title: "Gözləyən Yoxlamalar",
-    value: "8",
-    change: "3 yeni",
-    changeType: "neutral",
-    icon: Clock,
-    color: "text-warning",
-  },
-];
-
-const recentQuizzes = [
-  { id: 1, title: "Cəbr Əsasları", plays: 45, avgScore: 82, status: "active" },
-  { id: 2, title: "Həndəsə: Üçbucaqlar", plays: 38, avgScore: 75, status: "active" },
-  { id: 3, title: "Tənliklər Sistemi", plays: 52, avgScore: 68, status: "draft" },
-  { id: 4, title: "Faiz Hesablamaları", plays: 29, avgScore: 85, status: "active" },
-];
-
-const topStudents = [
-  { name: "Əli Həsənov", score: 95, quizzes: 12 },
-  { name: "Leyla Məmmədova", score: 92, quizzes: 10 },
-  { name: "Tural Quliyev", score: 88, quizzes: 11 },
-  { name: "Nigar Əliyeva", score: 85, quizzes: 9 },
-];
 
 export default function TeacherDashboard() {
   const navigate = useNavigate();
+  const { data: myQuizzes = [], isLoading: quizzesLoading } = useMyQuizzes();
+  const quizIds = myQuizzes.map((q) => q.id);
+  const { data: meta = {}, isLoading: metaLoading } = useQuizzesMeta(quizIds);
+  const { data: topStudents = [], isLoading: studentsLoading } =
+    useTeacherTopStudents(quizIds);
+
+  const isLoading = quizzesLoading || metaLoading;
+
+  // Derived stats
+  const totalQuizzes = myQuizzes.length;
+  const totalPlays = Object.values(meta).reduce(
+    (sum, m) => sum + m.attempt_count,
+    0
+  );
+  const avgScores = Object.values(meta)
+    .filter((m) => m.avg_score !== null)
+    .map((m) => m.avg_score!);
+  const overallAvg =
+    avgScores.length > 0
+      ? Math.round(avgScores.reduce((a, b) => a + b, 0) / avgScores.length)
+      : 0;
+
+  const recentQuizzes = myQuizzes.slice(0, 4);
 
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
@@ -81,10 +95,14 @@ export default function TeacherDashboard() {
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">Müəllim Paneli</h1>
-            <p className="text-muted-foreground">Quizlərinizi və tələbə nəticələrini idarə edin</p>
+            <h1 className="font-display text-3xl font-bold text-foreground">
+              Müəllim Paneli
+            </h1>
+            <p className="text-muted-foreground">
+              Quizlərinizi və tələbə nəticələrini idarə edin
+            </p>
           </div>
-          <Button variant="game" onClick={() => navigate('/teacher/create')}>
+          <Button variant="game" onClick={() => navigate("/teacher/create")}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Yeni Quiz Yarat
           </Button>
@@ -92,23 +110,53 @@ export default function TeacherDashboard() {
 
         {/* Stats Grid */}
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
+          {[
+            {
+              title: "Ümumi Quizlər",
+              value: isLoading ? null : String(totalQuizzes),
+              icon: BookOpen,
+              color: "text-primary",
+            },
+            {
+              title: "Ümumi Oynanma",
+              value: isLoading ? null : String(totalPlays),
+              icon: PlayCircle,
+              color: "text-secondary",
+            },
+            {
+              title: "Orta Nəticə",
+              value: isLoading ? null : avgScores.length ? `${overallAvg}%` : "—",
+              icon: TrendingUp,
+              color: "text-success",
+            },
+            {
+              title: "Unikal Tələbələr",
+              value: studentsLoading ? null : String(topStudents.length > 0 ? "—" : "0"),
+              icon: Users,
+              color: "text-warning",
+            },
+          ].map((stat) => (
             <div
               key={stat.title}
               className="rounded-2xl bg-gradient-card border border-border/50 p-5 card-hover"
             >
               <div className="mb-4 flex items-center justify-between">
-                <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl bg-muted", stat.color)}>
+                <div
+                  className={cn(
+                    "flex h-12 w-12 items-center justify-center rounded-xl bg-muted",
+                    stat.color
+                  )}
+                >
                   <stat.icon className="h-6 w-6" />
                 </div>
-                <Badge 
-                  variant={stat.changeType === 'positive' ? 'success' : stat.changeType === 'negative' ? 'destructive' : 'muted'}
-                  className="text-xs"
-                >
-                  {stat.change}
-                </Badge>
               </div>
-              <div className="text-3xl font-bold text-foreground">{stat.value}</div>
+              {stat.value === null ? (
+                <Skeleton className="h-8 w-16 mb-1" />
+              ) : (
+                <div className="text-3xl font-bold text-foreground">
+                  {stat.value}
+                </div>
+              )}
               <div className="text-sm text-muted-foreground">{stat.title}</div>
             </div>
           ))}
@@ -122,40 +170,82 @@ export default function TeacherDashboard() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
-                <h2 className="font-display text-xl font-bold text-foreground">Son Quizlər</h2>
+                <h2 className="font-display text-xl font-bold text-foreground">
+                  Son Quizlər
+                </h2>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/teacher/my-quizzes')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/teacher/my-quizzes")}
+              >
                 Hamısına Bax
               </Button>
             </div>
 
             <div className="space-y-4">
-              {recentQuizzes.map((quiz) => (
-                <div
-                  key={quiz.id}
-                  className="flex items-center gap-4 rounded-xl bg-muted/30 p-4 transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex-1">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="font-medium text-foreground">{quiz.title}</span>
-                      <Badge variant={quiz.status === 'active' ? 'success' : 'muted'}>
-                        {quiz.status === 'active' ? 'Aktiv' : 'Qaralama'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>{quiz.plays} oyun</span>
-                      <span>•</span>
-                      <span>Orta: {quiz.avgScore}%</span>
-                    </div>
-                  </div>
-                  <div className="w-24">
-                    <Progress value={quiz.avgScore} className="h-2" />
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    Redaktə
-                  </Button>
-                </div>
-              ))}
+              {isLoading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                  ))
+                : recentQuizzes.length === 0
+                ? (
+                    <p className="text-center text-sm text-muted-foreground py-8">
+                      Hələ quiz yoxdur.{" "}
+                      <button
+                        className="text-primary underline"
+                        onClick={() => navigate("/teacher/create")}
+                      >
+                        İlk quizinizi yaradın
+                      </button>
+                    </p>
+                  )
+                : recentQuizzes.map((quiz) => {
+                    const quizMeta = meta[quiz.id];
+                    const avgScore = quizMeta?.avg_score
+                      ? Math.round(quizMeta.avg_score)
+                      : null;
+                    return (
+                      <div
+                        key={quiz.id}
+                        className="flex items-center gap-4 rounded-xl bg-muted/30 p-4 transition-colors hover:bg-muted/50 cursor-pointer"
+                        onClick={() =>
+                          navigate(`/teacher/create?edit=${quiz.id}`)
+                        }
+                      >
+                        <div className="flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="font-medium text-foreground">
+                              {quiz.title}
+                            </span>
+                            <Badge
+                              variant={
+                                quiz.status === "published" ? "success" : "muted"
+                              }
+                            >
+                              {quiz.status === "published"
+                                ? "Aktiv"
+                                : "Qaralama"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span>{quizMeta?.attempt_count ?? 0} oyun</span>
+                            {avgScore !== null && (
+                              <>
+                                <span>•</span>
+                                <span>Orta: {avgScore}%</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {avgScore !== null && (
+                          <div className="w-24">
+                            <Progress value={avgScore} className="h-2" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
             </div>
           </div>
 
@@ -165,70 +255,91 @@ export default function TeacherDashboard() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/20">
                 <Trophy className="h-5 w-5 text-secondary" />
               </div>
-              <h2 className="font-display text-xl font-bold text-foreground">Ən Yaxşı Tələbələr</h2>
+              <h2 className="font-display text-xl font-bold text-foreground">
+                Ən Yaxşı Tələbələr
+              </h2>
             </div>
 
             <div className="space-y-4">
-              {topStudents.map((student, index) => (
-                <div
-                  key={student.name}
-                  className="flex items-center gap-4"
-                >
-                  <div className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold",
-                    index === 0 ? "bg-warning/20 text-warning" :
-                    index === 1 ? "bg-muted text-muted-foreground" :
-                    index === 2 ? "bg-secondary/20 text-secondary" :
-                    "bg-muted text-muted-foreground"
-                  )}>
-                    {index + 1}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-foreground">{student.name}</div>
-                    <div className="text-xs text-muted-foreground">{student.quizzes} quiz tamamladı</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-primary">{student.score}%</div>
-                    <div className="text-xs text-muted-foreground">orta</div>
-                  </div>
-                </div>
-              ))}
+              {studentsLoading
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                  ))
+                : topStudents.length === 0
+                ? (
+                    <p className="text-center text-sm text-muted-foreground py-8">
+                      Hələ nəticə yoxdur.
+                    </p>
+                  )
+                : topStudents.map((student, index) => (
+                    <div key={student.name} className="flex items-center gap-4">
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold shrink-0",
+                          index === 0
+                            ? "bg-warning/20 text-warning"
+                            : index === 1
+                            ? "bg-muted text-muted-foreground"
+                            : index === 2
+                            ? "bg-secondary/20 text-secondary"
+                            : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-foreground truncate">
+                          {student.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {student.quizzes} quiz tamamladı
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-bold text-primary">
+                          {student.score}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">orta</div>
+                      </div>
+                    </div>
+                  ))}
             </div>
           </div>
         </div>
 
         {/* Quick Actions */}
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="h-auto flex-col gap-2 p-6"
-            onClick={() => navigate('/teacher/create')}
+            onClick={() => navigate("/teacher/create")}
           >
             <PlusCircle className="h-6 w-6 text-primary" />
             <span>Quiz Yarat</span>
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="h-auto flex-col gap-2 p-6"
-            onClick={() => navigate('/teacher/my-quizzes')}
+            onClick={() => navigate("/teacher/my-quizzes")}
           >
             <FileText className="h-6 w-6 text-secondary" />
             <span>Quizlərim</span>
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="h-auto flex-col gap-2 p-6"
-            onClick={() => navigate('/teacher/ai-assistant')}
+            onClick={() => navigate("/teacher/ai-assistant")}
           >
             <BarChart3 className="h-6 w-6 text-accent" />
             <span>AI Köməkçi</span>
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="h-auto flex-col gap-2 p-6"
+            onClick={() => navigate("/teacher/question-bank")}
           >
             <Users className="h-6 w-6 text-success" />
-            <span>Tələbələr</span>
+            <span>Sual Bankı</span>
           </Button>
         </div>
       </div>
