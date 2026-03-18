@@ -1,0 +1,135 @@
+import { ParsedQuestion } from './types';
+
+/**
+ * Faylı oxuyarkən BOM marker-ə görə encoding aşkar edir.
+ */
+export async function readFileWithEncoding(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  // UTF-8 BOM: EF BB BF
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(buffer.slice(3));
+  }
+  // UTF-16 LE BOM: FF FE
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(buffer.slice(2));
+  }
+  // UTF-16 BE BOM: FE FF
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(buffer.slice(2));
+  }
+
+  // UTF-8 cəhdi
+  const utf8Text = new TextDecoder('utf-8').decode(buffer);
+  if (!utf8Text.includes('\uFFFD')) return utf8Text;
+
+  // Legacy fallback: windows-1254 (Türk/Azərb. köhnə fayllar)
+  try {
+    return new TextDecoder('windows-1254').decode(buffer);
+  } catch {
+    return utf8Text;
+  }
+}
+
+/**
+ * Məzmuna görə formatı avtomatik aşkar edir.
+ */
+export function detectFormat(
+  content: string,
+): 'json' | 'csv' | 'aiken' | 'gift' | 'markdown' {
+  const trimmed = content.trim();
+
+  // JSON
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) return 'json';
+
+  // CSV
+  const firstLine = trimmed.split('\n')[0].toLowerCase().replace(/"/g, '');
+  if (
+    (firstLine.includes('question_text') || firstLine.includes('question')) &&
+    (firstLine.includes(',') || firstLine.includes(';'))
+  )
+    return 'csv';
+
+  // GIFT
+  if (/::.*?::/.test(trimmed) && /\{[^}]{1,500}\}/s.test(trimmed)) return 'gift';
+
+  // Aiken
+  if (/^ANSWER:\s+[A-Za-z\d]+$/m.test(content) && /^[A-Za-z\d][).]\s+/m.test(content))
+    return 'aiken';
+
+  return 'markdown';
+}
+
+/**
+ * Metadata satırlarını oxuyur.
+ */
+export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>) {
+  for (const line of lines) {
+    const clean = line.trim();
+    const metaMatch = clean.match(
+      /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language)\s*[-:]?\s*(.+)$/i,
+    );
+    if (!metaMatch) continue;
+    const key = metaMatch[1].toLowerCase();
+    const value = metaMatch[2].trim();
+
+    if (['izahat', 'açıqlama', 'explanation'].includes(key)) {
+      target.explanation = value;
+    } else if (['kateqoriya', 'category'].includes(key)) {
+      target.category = value;
+    } else if (['çətinlik', 'difficulty'].includes(key)) {
+      target.difficulty = value.toLowerCase();
+    } else if (key === 'bloom') {
+      target.bloom_level = value.toLowerCase();
+    } else if (['taqlar', 'tags'].includes(key)) {
+      target.tags = value
+        .split(/[,;]/)
+        .map(t => t.trim())
+        .filter(Boolean);
+    } else if (['tolerans', 'tolerance'].includes(key)) {
+      const tol = parseFloat(value);
+      if (!isNaN(tol)) target.numerical_tolerance = tol;
+    } else if (['dil', 'language'].includes(key)) {
+      target.hint = `lang:${value.toLowerCase()}`;
+    } else if (['answer', 'düzgün', 'cavab', 'doğru', 'doğru cavab', 'düzgün cavab'].includes(key)) {
+      const values = value.split(/[,;]/).map(v => v.trim()).filter(Boolean);
+      const opts = target.options as string[] | null;
+      
+      if (values.length > 1) {
+        target.question_type = 'multiple_select';
+      }
+
+      const answers: string[] = [];
+
+      for (const val of values) {
+        if (Array.isArray(opts)) {
+          if (opts.includes(val)) {
+            answers.push(val);
+          } else {
+            let idx = -1;
+            if (/^[A-Za-z]$/.test(val)) {
+              idx = val.toUpperCase().charCodeAt(0) - 65;
+            } else if (/^\d+$/.test(val)) {
+              idx = parseInt(val, 10) - 1;
+            }
+
+            if (idx >= 0 && opts[idx]) {
+              answers.push(opts[idx]);
+            } else if (!target.correct_answer) {
+              answers.push(val);
+            }
+          }
+        } else {
+          answers.push(val);
+        }
+      }
+
+      if (answers.length > 0) {
+        target.correct_answer = target.question_type === 'multiple_select' 
+          ? answers.join(',') 
+          : answers[0];
+      }
+    }
+  }
+}
