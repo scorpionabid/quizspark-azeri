@@ -45,6 +45,7 @@ import { CategoryManagementDialog } from '@/components/question-bank/CategoryMan
 import { QuestionEnhanceDialog } from '@/components/question-bank/QuestionEnhanceDialog';
 import { Badge } from '@/components/ui/badge';
 import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
+import { BloomAnalytics } from '@/components/question-bank/BloomAnalytics';
 
 const PAGE_SIZE = 50;
 
@@ -359,27 +360,10 @@ export default function QuestionBankPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Bloom Paylanması</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-1">
-              {['xatırlama', 'anlama', 'tətbiq', 'analiz', 'qiymətləndirmə', 'yaratma'].map((level) => (
-                stats?.bloomLevelCounts?.[level] ? (
-                  <Badge key={level} variant="secondary" className="text-[10px] px-1 py-0 h-4">
-                    {level}: {stats.bloomLevelCounts[level]}
-                  </Badge>
-                ) : null
-              ))}
-              {(!stats?.bloomLevelCounts || Object.keys(stats.bloomLevelCounts).length === 0) && (
-                <span className="text-xs text-muted-foreground">Məlumat yoxdur</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Bloom Analytics Section */}
+      <BloomAnalytics stats={stats?.bloomLevelCounts || {}} />
 
       {/* Filters */}
       <QuestionFilters
