@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DragEndEvent } from '@dnd-kit/core';
@@ -9,7 +8,7 @@ import { toast } from 'sonner';
 
 // Hooks
 import { useCreateQuiz, useQuiz, useUpdateQuiz } from '@/hooks/useQuizzes';
-import { useBulkCreateQuestions, useQuestions } from '@/hooks/useQuestions';
+import { useBulkCreateQuestions, useReplaceQuestions, useQuestions } from '@/hooks/useQuestions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveQuizAttempts, useClearActiveAttempts } from '@/hooks/useQuizAttempts';
 
@@ -31,6 +30,7 @@ import { QuizQuestionList } from '@/components/teacher/quiz-creation/QuizQuestio
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
 import { QuestionType } from '@/types/question';
 import { quizMetadataSchema, QuizMetadataFormData } from '@/lib/validations/quiz';
+import { validateDraftQuestion } from '@/lib/validations/question';
 import { GeneratedQuestion } from '@/components/quiz/EditableQuestionCard';
 import { DraftQuestion } from '@/components/teacher/quiz-creation/SortableQuestionCard';
 
@@ -145,6 +145,8 @@ function draftToDbInsert(q: DraftQuestion, quizId: string, index: number) {
   };
 }
 
+const DRAFT_KEY = 'quiz_draft__new';
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function CreateQuizPage() {
   const { id } = useParams();
@@ -154,6 +156,7 @@ export default function CreateQuizPage() {
   const createQuiz = useCreateQuiz();
   const updateQuiz = useUpdateQuiz();
   const createQuestions = useBulkCreateQuestions();
+  const replaceQuestions = useReplaceQuestions();
   const { data: existingQuiz, isLoading: quizLoading } = useQuiz(id);
   const { data: existingQuestions, isLoading: questionsLoading } = useQuestions(id);
   const { data: activeAttempts = 0 } = useActiveQuizAttempts(id);
@@ -274,19 +277,29 @@ export default function CreateQuizPage() {
   // ── Auto-save ────────────────────────────────────────────────────────────────
   const formValues = form.watch();
 
+  const saveDraftNow = useCallback(() => {
+    if (id) return;
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ metadata: form.getValues(), questions, savedAt: Date.now() })
+    );
+  }, [id, questions, form]);
+
   useEffect(() => {
+    if (id) return; // Edit mode: data lives in DB, no need to auto-save locally
     const timeout = setTimeout(() => {
       localStorage.setItem(
-        'quiz_draft',
+        DRAFT_KEY,
         JSON.stringify({ metadata: formValues, questions, savedAt: Date.now() })
       );
     }, 1500);
     return () => clearTimeout(timeout);
-  }, [questions, formValues]);
+  }, [questions, formValues, id]);
 
   // Draft recovery
   useEffect(() => {
-    const raw = localStorage.getItem('quiz_draft');
+    if (id) return; // Never offer draft recovery when editing an existing quiz
+    const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return;
     try {
       const draft = JSON.parse(raw);
@@ -298,7 +311,7 @@ export default function CreateQuizPage() {
             onClick: () => {
               form.reset(draft.metadata);
               setQuestions(draft.questions ?? []);
-              localStorage.removeItem('quiz_draft');
+              localStorage.removeItem(DRAFT_KEY);
             },
           },
         });
@@ -390,6 +403,20 @@ export default function CreateQuizPage() {
     [questions.length]
   );
 
+  const handleDuplicateQuestion = useCallback((localId: string) => {
+    setQuestions((prev) => {
+      const source = prev.find((q) => q.localId === localId);
+      if (!source) return prev;
+      const clone: typeof source = {
+        ...source,
+        localId: crypto.randomUUID(),
+        order_index: prev.length,
+      };
+      return [...prev, clone];
+    });
+    toast.success('Sual kopyalandı');
+  }, []);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
@@ -427,64 +454,49 @@ export default function CreateQuizPage() {
       return;
     }
 
+    const answerErrors = questions.map(validateDraftQuestion).filter(Boolean);
+    if (answerErrors.length > 0) {
+      toast.error(answerErrors[0] as string);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const metadata = form.getValues();
       let quizId = id;
 
+      const quizPayload = {
+        title: metadata.title.trim(),
+        description: metadata.description?.trim() || null,
+        subject: metadata.subject,
+        grade: metadata.grade || null,
+        difficulty: (metadata.difficulty ?? null) as 'easy' | 'medium' | 'hard' | null,
+        duration: metadata.duration,
+        is_public: metadata.is_public,
+        is_published: publish,
+        shuffle_questions: metadata.shuffle_questions,
+        show_feedback: metadata.show_feedback,
+        pass_percentage: metadata.pass_percentage,
+        attempts_limit: metadata.attempts_limit,
+        available_from: metadata.available_from || null,
+        available_to: metadata.available_to || null,
+        time_bonus_enabled: metadata.time_bonus_enabled,
+        time_penalty_enabled: metadata.time_penalty_enabled,
+      };
+
       if (id) {
-        await updateQuiz.mutateAsync({
-          id,
-          title: metadata.title.trim(),
-          description: metadata.description?.trim() || null,
-          subject: metadata.subject,
-          grade: metadata.grade || null,
-          difficulty: (metadata.difficulty ?? null) as 'easy' | 'medium' | 'hard' | null,
-          duration: metadata.duration,
-          is_public: metadata.is_public,
-          is_published: publish,
-          shuffle_questions: metadata.shuffle_questions,
-          show_feedback: metadata.show_feedback,
-          pass_percentage: metadata.pass_percentage,
-          attempts_limit: metadata.attempts_limit,
-          available_from: metadata.available_from || null,
-          available_to: metadata.available_to || null,
-          time_bonus_enabled: metadata.time_bonus_enabled,
-          time_penalty_enabled: metadata.time_penalty_enabled,
-        });
-
-        const { error: deleteError } = await supabase
-          .from('questions')
-          .delete()
-          .eq('quiz_id', id);
-
-        if (deleteError) throw deleteError;
+        await updateQuiz.mutateAsync({ id, ...quizPayload });
+        const newQuestions = questions.map((q, i) => draftToDbInsert(q, id, i));
+        const oldQuestionIds = (existingQuestions ?? []).map((q) => q.id);
+        await replaceQuestions.mutateAsync({ quizId: id, oldQuestionIds, newQuestions });
       } else {
-        const quiz = await createQuiz.mutateAsync({
-          title: metadata.title.trim(),
-          description: metadata.description?.trim() || null,
-          subject: metadata.subject,
-          grade: metadata.grade || null,
-          difficulty: (metadata.difficulty ?? null) as 'easy' | 'medium' | 'hard' | null,
-          duration: metadata.duration,
-          is_public: metadata.is_public,
-          is_published: publish,
-          shuffle_questions: metadata.shuffle_questions,
-          show_feedback: metadata.show_feedback,
-          pass_percentage: metadata.pass_percentage,
-          attempts_limit: metadata.attempts_limit,
-          available_from: metadata.available_from || null,
-          available_to: metadata.available_to || null,
-          time_bonus_enabled: metadata.time_bonus_enabled,
-          time_penalty_enabled: metadata.time_penalty_enabled,
-        });
+        const quiz = await createQuiz.mutateAsync(quizPayload);
         quizId = quiz.id;
+        const questionsToCreate = questions.map((q, i) => draftToDbInsert(q, quizId!, i));
+        await createQuestions.mutateAsync(questionsToCreate);
       }
 
-      const questionsToCreate = questions.map((q, i) => draftToDbInsert(q, quizId!, i));
-      await createQuestions.mutateAsync(questionsToCreate);
-
-      localStorage.removeItem('quiz_draft');
+      localStorage.removeItem(DRAFT_KEY);
       toast.success(id
         ? 'Quiz uğurla yeniləndi'
         : (publish ? 'Quiz uğurla dərc edildi!' : 'Quiz qaralama olaraq saxlanıldı')
@@ -510,7 +522,7 @@ export default function CreateQuizPage() {
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-4xl">
         <QuizActionHeader
-          onBack={() => navigate('/teacher/dashboard')}
+          onBack={() => navigate('/teacher/my-quizzes')}
           onSave={handleSave}
           isSubmitting={isSubmitting || isLocked}
           questionCount={questions.length}
@@ -546,7 +558,7 @@ export default function CreateQuizPage() {
         <QuizQuickActions
           onAddQuestion={addQuestion}
           onOpenPicker={() => setPickerOpen(true)}
-          onAiAssistant={() => navigate('/teacher/ai-assistant')}
+          onAiAssistant={() => { saveDraftNow(); navigate('/teacher/ai-assistant'); }}
         />
 
         <QuizQuestionList
@@ -554,6 +566,7 @@ export default function CreateQuizPage() {
           onDragEnd={handleDragEnd}
           onEdit={handleEditQuestion}
           onRemove={handleRemoveQuestion}
+          onDuplicate={handleDuplicateQuestion}
           onAddQuestion={addQuestion}
         />
       </div>
@@ -571,6 +584,7 @@ export default function CreateQuizPage() {
         categories={[]}
         onSave={handleQuestionSave}
         mode={isCreatingNew ? 'create' : 'edit'}
+        showSaveToBank={isCreatingNew}
       />
 
       <QuestionPickerDialog

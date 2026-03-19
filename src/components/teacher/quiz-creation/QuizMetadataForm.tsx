@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
     Form,
     FormControl,
@@ -12,7 +13,9 @@ import { Textarea } from '@/components/ui/textarea';
 import {
     Select,
     SelectContent,
+    SelectGroup,
     SelectItem,
+    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
@@ -20,7 +23,17 @@ import { Switch } from '@/components/ui/switch';
 import { UseFormReturn } from 'react-hook-form';
 import { QuizMetadataFormData } from '@/lib/validations/quiz';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Info, Layout, Image as ImageIcon, Calendar, Zap, AlertCircle } from 'lucide-react';
+import { Settings, Layout, Calendar, Zap } from 'lucide-react';
+
+const SUBJECTS = [
+    'Riyaziyyat', 'Fizika', 'Kimya', 'Biologiya', 'Tarix',
+    'Coğrafiya', 'Ədəbiyyat', 'İngilis dili', 'Rus dili',
+    'İnformatika', 'Musiqi', 'Təsviri incəsənət', 'Bədən tərbiyəsi',
+    'Digər',
+];
+
+const SCHOOL_GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const UNI_GRADES = ['1-ci kurs', '2-ci kurs', '3-cü kurs', '4-cü kurs', 'Magistratura'];
 
 interface QuizMetadataFormProps {
     form: UseFormReturn<QuizMetadataFormData>;
@@ -28,6 +41,8 @@ interface QuizMetadataFormProps {
 }
 
 export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
+    const [isCustomSubject, setIsCustomSubject] = useState(false);
+
     return (
         <Form {...form}>
             <div className="mb-8 rounded-2xl bg-gradient-card border border-border/50 p-1 overflow-hidden">
@@ -89,18 +104,39 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Fənn *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                                            <Select
+                                                onValueChange={(v) => {
+                                                    if (v === 'Digər') {
+                                                        setIsCustomSubject(true);
+                                                        field.onChange('');
+                                                    } else {
+                                                        setIsCustomSubject(false);
+                                                        field.onChange(v);
+                                                    }
+                                                }}
+                                                value={isCustomSubject ? 'Digər' : field.value}
+                                            >
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Seçin" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {['Riyaziyyat', 'Fizika', 'Kimya', 'Biologiya', 'Tarix', 'Coğrafiya', 'Ədəbiyyat', 'İngilis dili', 'İnformatika'].map((s) => (
+                                                    {SUBJECTS.map((s) => (
                                                         <SelectItem key={s} value={s}>{s}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
+                                            {isCustomSubject && (
+                                                <FormControl>
+                                                    <Input
+                                                        placeholder="Fənn adını yazın..."
+                                                        value={field.value}
+                                                        onChange={(e) => field.onChange(e.target.value)}
+                                                        autoFocus
+                                                    />
+                                                </FormControl>
+                                            )}
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -111,7 +147,7 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                     name="grade"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Sinif</FormLabel>
+                                            <FormLabel>Sinif / Kurs</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value ?? ''}>
                                                 <FormControl>
                                                     <SelectTrigger>
@@ -119,9 +155,18 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {[5, 6, 7, 8, 9, 10, 11].map((g) => (
-                                                        <SelectItem key={g} value={`${g}-ci sinif`}>{g}-ci sinif</SelectItem>
-                                                    ))}
+                                                    <SelectGroup>
+                                                        <SelectLabel>Ümumi təhsil</SelectLabel>
+                                                        {SCHOOL_GRADES.map((g) => (
+                                                            <SelectItem key={g} value={`${g}-ci sinif`}>{g}-ci sinif</SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                    <SelectGroup>
+                                                        <SelectLabel>Ali təhsil</SelectLabel>
+                                                        {UNI_GRADES.map((k) => (
+                                                            <SelectItem key={k} value={`Ali məktəb (${k})`}>Ali məktəb ({k})</SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />

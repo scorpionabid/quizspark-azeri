@@ -18,8 +18,10 @@ import {
   Type,
   Crosshair,
   AlertCircle,
+  BookMarked,
 } from 'lucide-react';
-import { QuestionBankItem } from '@/hooks/useQuestionBank';
+import { Checkbox } from '@/components/ui/checkbox';
+import { QuestionBankItem, useCreateQuestionBank } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, useCreateQuestionCategory } from '@/hooks/useQuestionCategories';
 import {
   Tabs,
@@ -49,6 +51,7 @@ interface QuestionEditDialogProps {
   onSave: (question: Partial<QuestionBankItem>) => void;
   isLoading?: boolean;
   mode: 'create' | 'edit';
+  showSaveToBank?: boolean;
 }
 
 export function QuestionEditDialog({
@@ -59,11 +62,14 @@ export function QuestionEditDialog({
   onSave,
   isLoading: savingLoading,
   mode,
+  showSaveToBank = false,
 }: QuestionEditDialogProps) {
   const { data: dbCategories = [] } = useQuestionCategories();
   const createCategory = useCreateQuestionCategory();
+  const createQuestionBank = useCreateQuestionBank();
   const [newCategory, setNewCategory] = useState('');
   const [pasteMode, setPasteMode] = useState(false);
+  const [saveToBank, setSaveToBank] = useState(false);
 
   const {
     formData,
@@ -318,6 +324,16 @@ export function QuestionEditDialog({
         </div>
 
         <DialogFooter>
+          {showSaveToBank && mode === 'create' && (
+            <label className="flex items-center gap-2 text-sm mr-auto cursor-pointer select-none">
+              <Checkbox
+                checked={saveToBank}
+                onCheckedChange={(v) => setSaveToBank(!!v)}
+              />
+              <BookMarked className="h-3.5 w-3.5 text-muted-foreground" />
+              Sual bankına da əlavə et
+            </label>
+          )}
           {Object.keys(validationErrors).length > 0 && (
             <div className="flex items-center gap-1.5 text-xs text-destructive mr-auto">
               <AlertCircle className="h-3.5 w-3.5" />
@@ -325,8 +341,50 @@ export function QuestionEditDialog({
             </div>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Ləğv et</Button>
-          <Button onClick={handleSubmit} disabled={!formData.question_text || savingLoading || isUploading || is3DUploading}>
-            {savingLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Yüklənir...</> : mode === 'create' ? 'Yarat' : 'Yadda saxla'}
+          <Button
+            onClick={async () => {
+              if (saveToBank && showSaveToBank && mode === 'create') {
+                await createQuestionBank.mutateAsync({
+                  question_text: formData.question_text,
+                  question_type: formData.question_type,
+                  options: formData.options ?? null,
+                  correct_answer: formData.correct_answer ?? '',
+                  explanation: formData.explanation ?? null,
+                  title: formData.title ?? null,
+                  weight: formData.weight ?? null,
+                  hint: formData.hint ?? null,
+                  time_limit: formData.time_limit ?? null,
+                  difficulty: formData.difficulty ?? null,
+                  category: formData.category ?? null,
+                  bloom_level: formData.bloom_level ?? null,
+                  tags: formData.tags ?? null,
+                  per_option_explanations: formData.per_option_explanations ?? null,
+                  question_image_url: formData.question_image_url ?? null,
+                  option_images: formData.option_images ?? null,
+                  media_type: formData.media_type ?? null,
+                  media_url: formData.media_url ?? null,
+                  video_url: formData.video_url ?? null,
+                  video_start_time: formData.video_start_time ?? null,
+                  video_end_time: formData.video_end_time ?? null,
+                  model_3d_url: formData.model_3d_url ?? null,
+                  model_3d_type: formData.model_3d_type ?? null,
+                  hotspot_data: formData.hotspot_data ?? null,
+                  matching_pairs: formData.matching_pairs ?? null,
+                  sequence_items: formData.sequence_items ?? null,
+                  fill_blank_template: formData.fill_blank_template ?? null,
+                  numerical_answer: formData.numerical_answer ?? null,
+                  numerical_tolerance: formData.numerical_tolerance ?? null,
+                  source_document_id: null,
+                  quality_score: null,
+                  usage_count: null,
+                  feedback_enabled: null,
+                });
+              }
+              handleSubmit();
+            }}
+            disabled={!formData.question_text || savingLoading || isUploading || is3DUploading || createQuestionBank.isPending}
+          >
+            {(savingLoading || createQuestionBank.isPending) ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Yüklənir...</> : mode === 'create' ? 'Yarat' : 'Yadda saxla'}
           </Button>
         </DialogFooter>
       </DialogContent>

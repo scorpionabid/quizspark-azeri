@@ -1,4 +1,4 @@
-import { GripVertical, Pencil, Trash2, Lightbulb } from 'lucide-react';
+import { GripVertical, Pencil, Trash2, Lightbulb, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useSortable } from '@dnd-kit/sortable';
@@ -63,9 +63,10 @@ interface SortableQuestionCardProps {
     index: number;
     onEdit: (q: DraftQuestion) => void;
     onRemove: (localId: string) => void;
+    onDuplicate: (localId: string) => void;
 }
 
-export function SortableQuestionCard({ question, index, onEdit, onRemove }: SortableQuestionCardProps) {
+export function SortableQuestionCard({ question, index, onEdit, onRemove, onDuplicate }: SortableQuestionCardProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({ id: question.localId });
 
@@ -143,14 +144,25 @@ export function SortableQuestionCard({ question, index, onEdit, onRemove }: Sort
                         size="icon"
                         onClick={() => onEdit(question)}
                         className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        title="Redaktə et"
                     >
                         <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => onDuplicate(question.localId)}
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        title="Kopyala"
+                    >
+                        <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => onRemove(question.localId)}
                         className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        title="Sil"
                     >
                         <Trash2 className="h-3.5 w-3.5" />
                     </Button>

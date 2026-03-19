@@ -136,6 +136,54 @@ export function useDeleteQuestion() {
   });
 }
 
+/**
+ * Atomically replaces quiz questions in edit mode.
+ * Insert-first strategy: new questions are inserted before old ones are deleted.
+ * If delete fails, duplicates exist but no data is lost (recoverable).
+ * If insert fails, old questions are untouched (safe).
+ */
+export function useReplaceQuestions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      quizId,
+      oldQuestionIds,
+      newQuestions,
+    }: {
+      quizId: string;
+      oldQuestionIds: string[];
+      newQuestions: Omit<Question, 'id' | 'created_at'>[];
+    }) => {
+      // Step 1: Insert new questions first (safe — old ones still exist)
+      const { data: inserted, error: insertError } = await supabase
+        .from('questions')
+        .insert(newQuestions)
+        .select();
+
+      if (insertError) throw insertError;
+
+      // Step 2: Delete old questions only after successful insert
+      if (oldQuestionIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('questions')
+          .delete()
+          .in('id', oldQuestionIds);
+
+        if (deleteError) throw deleteError;
+      }
+
+      return inserted as Question[];
+    },
+    onSuccess: (_data, { quizId }) => {
+      queryClient.invalidateQueries({ queryKey: ['questions', quizId] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Suallar yadda saxlanılarkən xəta: ${error.message}`);
+    },
+  });
+}
+
 export function useBulkCreateQuestions() {
   const queryClient = useQueryClient();
 

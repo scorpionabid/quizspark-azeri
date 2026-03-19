@@ -22,6 +22,7 @@ interface QuizQuestionListProps {
     onDragEnd: (event: DragEndEvent) => void;
     onEdit: (q: DraftQuestion) => void;
     onRemove: (localId: string) => void;
+    onDuplicate: (localId: string) => void;
     onAddQuestion: (type: QuestionType) => void;
 }
 
@@ -30,6 +31,7 @@ export function QuizQuestionList({
     onDragEnd,
     onEdit,
     onRemove,
+    onDuplicate,
     onAddQuestion,
 }: QuizQuestionListProps) {
     const sensors = useSensors(
@@ -59,6 +61,7 @@ export function QuizQuestionList({
                                     index={index}
                                     onEdit={onEdit}
                                     onRemove={onRemove}
+                                    onDuplicate={onDuplicate}
                                 />
                             ))}
                         </div>
