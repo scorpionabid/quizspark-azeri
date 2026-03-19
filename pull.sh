@@ -8,6 +8,8 @@ SUPA_DIR="$PROJECT_DIR/supabase-docker"
 BACKUP_DIR="$PROJECT_DIR/database-backups"
 MIGRATIONS_DIR="$PROJECT_DIR/supabase/migrations"
 APPLIED_LOG="$PROJECT_DIR/.applied_migrations"
+FUNCTIONS_SRC="$PROJECT_DIR/supabase/functions"
+FUNCTIONS_DEST="$PROJECT_DIR/supabase-docker/volumes/functions"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Rənglər
@@ -21,6 +23,15 @@ fail() { echo -e "${RED}[XƏTA]${NC} $1"; exit 1; }
 info() { echo -e "${YELLOW}[...]${NC} $1"; }
 
 cd "$PROJECT_DIR"
+
+# ═══════════════════════════════════════════
+# 0. DOCKER NETWORK
+# ═══════════════════════════════════════════
+if ! docker network ls --format '{{.Name}}' | grep -q "^quizspark_network$"; then
+  info "quizspark_network yaradılır..."
+  docker network create quizspark_network
+  ok "quizspark_network yaradıldı."
+fi
 
 # ═══════════════════════════════════════════
 # 1. DB BACKUP
@@ -87,6 +98,32 @@ else
 fi
 
 # ═══════════════════════════════════════════
+# 3b. EDGE FUNCTIONS SYNC
+# ═══════════════════════════════════════════
+FUNCTIONS_RESTARTED=false
+if [ "$SKIP_BUILD" = false ]; then
+  CHANGED_FUNCS=$(git diff --name-only "$BEFORE" "$AFTER" 2>/dev/null | grep "^supabase/functions/" | awk -F'/' '{print $3}' | sort -u | grep -v "^$" || true)
+  if [ -n "$CHANGED_FUNCS" ]; then
+    info "Edge functions sync edilir..."
+    for func_name in $CHANGED_FUNCS; do
+      src="$FUNCTIONS_SRC/$func_name"
+      dest="$FUNCTIONS_DEST/$func_name"
+      if [ -d "$src" ]; then
+        mkdir -p "$dest"
+        cp -r "$src"/. "$dest/"
+        ok "  ✓ $func_name sync edildi"
+      fi
+    done
+    info "Functions container restart edilir..."
+    docker compose -f "$SUPA_DIR/docker-compose.yml" restart functions
+    FUNCTIONS_RESTARTED=true
+    ok "Edge functions restart edildi."
+  else
+    info "Edge functions dəyişiklik yoxdur, skip."
+  fi
+fi
+
+# ═══════════════════════════════════════════
 # 4. QUIZ APP BUILD & DEPLOY
 # ═══════════════════════════════════════════
 if [ "$SKIP_BUILD" = true ]; then
@@ -99,7 +136,7 @@ else
 fi
 
 # ═══════════════════════════════════════════
-# 5. HEALTHCHECKLƏRz
+# 5. HEALTHCHECKLƏRİ
 # ═══════════════════════════════════════════
 info "Healthcheck edilir..."
 if [ "$SKIP_BUILD" = true ]; then
@@ -135,6 +172,23 @@ for i in 1 2 3; do
   sleep 5
 done
 [ "$SUPA_OK" = true ] || fail "Supabase API cavab vermir: HTTP $SUPA_CODE"
+
+# Edge Functions — yalnız restart edilibsə yoxla
+if [ "$FUNCTIONS_RESTARTED" = true ]; then
+  sleep 5
+  FUNC_OK=false
+  for i in 1 2 3; do
+    FUNC_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8090/functions/v1/ 2>/dev/null || echo 0)
+    if [ "$FUNC_CODE" = "401" ] || [ "$FUNC_CODE" = "200" ]; then
+      ok "Edge Functions: http://localhost:8090/functions/v1/ → $FUNC_CODE"
+      FUNC_OK=true
+      break
+    fi
+    info "  Edge Functions cavab vermədi ($FUNC_CODE), yenidən cəhd $i/3..."
+    sleep 5
+  done
+  [ "$FUNC_OK" = true ] || fail "Edge Functions cavab vermir: HTTP $FUNC_CODE"
+fi
 
 # ═══════════════════════════════════════════
 echo ""
