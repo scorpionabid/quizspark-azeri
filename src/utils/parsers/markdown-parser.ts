@@ -334,9 +334,19 @@ function parseMarkdownFormat1(content: string): ParseResult {
     const optionMatches = [...block.matchAll(/^[-*]\s*\[([ xX])\]\s*(.+)$/gm)];
     for (const match of optionMatches) {
       const isCorrect = match[1].toLowerCase() === 'x';
-      const text = match[2].trim();
+      const rawText = match[2].trim();
+      
+      // Support for inline feedback: "Option Text # Feedback"
+      const [text, feedback] = rawText.split('#').map(s => s.trim());
+      
+      const optionIndex = (result.options as string[]).length;
       (result.options as string[]).push(text);
       if (isCorrect) result.correct_answer = text;
+      
+      if (feedback) {
+        if (!result.per_option_explanations) result.per_option_explanations = {};
+        result.per_option_explanations[optionIndex.toString()] = feedback;
+      }
     }
 
     extractMetadata(rest.join('\n').split('\n'), result);

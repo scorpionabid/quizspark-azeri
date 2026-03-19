@@ -23,6 +23,8 @@ import {
   BarChart2,
   ChevronDown,
   ChevronUp,
+  Loader2,
+  Sparkles,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -59,11 +61,17 @@ export interface PreviewQuestion {
   numerical_answer?: number | null;
   numerical_tolerance?: number | null;
   hint?: string | null;
+  per_option_explanations?: Record<string, string> | null;
+  potential_duplicate?: boolean;
 }
 
 interface ImportPreviewTableProps {
   questions: PreviewQuestion[];
   onChange: (questions: PreviewQuestion[]) => void;
+  onCheckDuplicates?: () => void;
+  isCheckingDuplicates?: boolean;
+  onBulkEnhance?: () => void;
+  isBulkEnhancing?: boolean;
   warnings?: ParseWarning[];
 }
 
@@ -200,6 +208,10 @@ function computeStats(questions: PreviewQuestion[]) {
 export function ImportPreviewTable({
   questions,
   onChange,
+  onCheckDuplicates,
+  isCheckingDuplicates,
+  onBulkEnhance,
+  isBulkEnhancing,
   warnings = [],
 }: ImportPreviewTableProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -264,6 +276,30 @@ export function ImportPreviewTable({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {onBulkEnhance && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onBulkEnhance}
+              disabled={isBulkEnhancing || questions.length === 0}
+              className="h-7 px-2 text-[10px] gap-1.5 bg-amber-500/5 text-amber-600 border-amber-500/20 hover:bg-amber-500/10 transition-all font-bold"
+            >
+              {isBulkEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              Toplu Təkmilləşdir
+            </Button>
+          )}
+          {onCheckDuplicates && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCheckDuplicates}
+              disabled={isCheckingDuplicates || questions.length === 0}
+              className="h-7 px-2 text-[10px] gap-1.5 bg-rose-500/5 text-rose-600 border-rose-500/20 hover:bg-rose-500/10 transition-all font-bold"
+            >
+              {isCheckingDuplicates ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
+              Dublikatları Yoxla
+            </Button>
+          )}
           <span className="text-muted-foreground">{questions.length} sual</span>
           <Button
             variant="ghost"
@@ -412,6 +448,16 @@ export function ImportPreviewTable({
                             placeholder="Kateqoriya (ixtiyari)"
                             className="h-8 text-sm"
                           />
+                          <Input
+                            value={editDraft?.explanation ?? ''}
+                            onChange={e =>
+                              setEditDraft(d =>
+                                d ? { ...d, explanation: e.target.value } : d,
+                              )
+                            }
+                            placeholder="İzahat (ixtiyari)"
+                            className="h-8 text-sm"
+                          />
                         </div>
                       ) : (
                         <div className="space-y-1">
@@ -473,6 +519,11 @@ export function ImportPreviewTable({
                             {q.category && (
                               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                                 {q.category}
+                              </Badge>
+                            )}
+                            {q.potential_duplicate && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 bg-rose-500/10 text-rose-600 border-rose-500/20">
+                                <AlertTriangle className="h-3 w-3 mr-1" /> Dublikat?
                               </Badge>
                             )}
                             {q.tags?.map(t => (

@@ -402,3 +402,21 @@ export function useBulkCreateQuestionBank() {
     },
   });
 }
+
+// Vector and Text search using Edge Function
+export function useQuestionBankSearch(searchQuery: string, enabled: boolean = false) {
+  return useQuery({
+    queryKey: ['question-bank-search', searchQuery],
+    queryFn: async () => {
+      if (!searchQuery.trim()) return [];
+      
+      const { data, error } = await supabase.functions.invoke("question-bank", {
+        body: { action: "search", searchQuery },
+      });
+
+      if (error) throw error;
+      return (data.results || []) as QuestionBankItem[];
+    },
+    enabled: enabled && searchQuery.length > 2,
+  });
+}

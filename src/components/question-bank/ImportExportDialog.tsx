@@ -9,8 +9,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Download, FileJson, FileSpreadsheet, AlertCircle, FileText, HelpCircle, FileDown, Loader2 } from 'lucide-react';
+import { 
+  Upload, Download, FileJson, FileSpreadsheet, AlertCircle, 
+  FileText, HelpCircle, FileDown, Loader2, AlertTriangle, 
+  Sparkles, Image as ImageIcon, X as CloseIcon 
+} from 'lucide-react';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
+import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
@@ -37,7 +42,6 @@ import {
 } from '@/components/ui/tooltip';
 import { useAIImport } from '@/hooks/useAIImport';
 import { Textarea } from '@/components/ui/textarea';
-import { Sparkles, Image as ImageIcon, X as CloseIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ImportPreviewTable, PreviewQuestion } from './ImportPreviewTable';
 
@@ -54,11 +58,11 @@ const TEMPLATES: Record<string, string> = {
   gift: `// Sualın adı vacib deyil\n::Sualın Adı:: Sual mətni bura yazılır {\n  =Düzgün variant #İzah bura yazılır\n  ~Səhv variant 1\n  ~Səhv variant 2\n}`,
   markdown: `### Format 1: Standart (Header + Checklist)
 # Sual mətni bura yazılır
-- [x] Düzgün variant
-- [ ] Səhv variant 1
-- [ ] Səhv variant 2
+- [x] Düzgün variant # Bu variantın izahı
+- [ ] Səhv variant 1 # Bu səhvin izahı
+- [ ] Səhv variant 2 # Digər səhvin izahı
 
-Izahat: Sualın izahı bura yazılır
+Izahat: Sualın ümumi izahı bura yazılır
 Kateqoriya: Riyaziyyat
 Çətinlik: orta
 
@@ -161,6 +165,93 @@ export function ImportExportDialog({
       setImportError(error instanceof Error ? error.message : 'Fayl oxunarkən xəta baş verdi');
     }
   }, [importFormat]);
+
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+
+  const handleCheckDuplicates = async () => {
+    if (importPreview.length === 0) return;
+    setIsCheckingDuplicates(true);
+    
+    try {
+      const updatedPreview = [...importPreview];
+      const checkCount = Math.min(importPreview.length, 20);
+      toast.info(`${checkCount} sual üçün dublikat yoxlanışı aparılır...`);
+
+      for (let i = 0; i < checkCount; i++) {
+        const q = updatedPreview[i];
+        const { data, error } = await supabase.functions.invoke('question-bank', {
+          body: {
+            action: 'search',
+            searchQuery: q.question_text,
+            filters: { type: q.question_type }
+          }
+        });
+
+        if (!error && data.results && data.results.length > 0) {
+          const bestMatch = data.results[0];
+          if (bestMatch.question_text.toLowerCase().trim() === q.question_text.toLowerCase().trim()) {
+             updatedPreview[i] = { ...q, potential_duplicate: true };
+          }
+        }
+      }
+
+      setImportPreview(updatedPreview);
+      toast.success('Dublikat yoxlanışı tamamlandı.');
+    } catch (err) {
+      console.error('Duplicate check error:', err);
+      toast.error('Dublikat yoxlanışı zamanı xəta baş verdi');
+    } finally {
+      setIsCheckingDuplicates(false);
+    }
+  };
+
+  const [isBulkEnhancing, setIsBulkEnhancing] = useState(false);
+
+  const handleBulkEnhance = async () => {
+    if (importPreview.length === 0) return;
+    setIsBulkEnhancing(true);
+    
+    try {
+      const updatedPreview = [...importPreview];
+      const targetCount = Math.min(importPreview.length, 10); // Limit to 10 for now
+      toast.info(`${targetCount} sual üçün AI təkmilləşdirilməsi aparılır...`);
+
+      for (let i = 0; i < targetCount; i++) {
+        const q = updatedPreview[i];
+        
+        // Only enhance if missing explanation or tags
+        if (!q.explanation || !q.tags || q.tags.length === 0) {
+          const result = await supabase.functions.invoke('enhance-question', {
+            body: {
+              questionText: q.question_text,
+              action: 'analyze_full',
+              options: Array.isArray(q.options) ? q.options : undefined,
+              language: 'az'
+            }
+          });
+
+          if (!result.error && result.data) {
+            const data = result.data;
+            updatedPreview[i] = {
+              ...q,
+              explanation: q.explanation || data.explanation,
+              tags: q.tags?.length ? q.tags : data.tags,
+              bloom_level: q.bloom_level || data.bloom_level,
+              difficulty: q.difficulty || data.difficulty
+            };
+          }
+        }
+      }
+
+      setImportPreview(updatedPreview);
+      toast.success('Toplu təkmilləşdirmə tamamlandı.');
+    } catch (err) {
+      console.error('Bulk enhance error:', err);
+      toast.error('Toplu təkmilləşdirmə zamanı xəta baş verdi');
+    } finally {
+      setIsBulkEnhancing(false);
+    }
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -284,7 +375,7 @@ export function ImportExportDialog({
         weight: null,
         hint: null,
         time_limit: null,
-        per_option_explanations: null,
+        per_option_explanations: q.per_option_explanations || null,
         video_url: null,
         video_start_time: null,
         video_end_time: null,
@@ -458,6 +549,10 @@ export function ImportExportDialog({
                   <ImportPreviewTable 
                     questions={importPreview} 
                     onChange={setImportPreview} 
+                    onCheckDuplicates={handleCheckDuplicates}
+                    isCheckingDuplicates={isCheckingDuplicates}
+                    onBulkEnhance={handleBulkEnhance}
+                    isBulkEnhancing={isBulkEnhancing}
                     warnings={importWarnings}
                   />
                   {isImporting && (
@@ -582,7 +677,14 @@ export function ImportExportDialog({
                     exit={{ opacity: 0, y: 12 }}
                     className="space-y-3"
                   >
-                    <ImportPreviewTable questions={importPreview} onChange={setImportPreview} />
+                    <ImportPreviewTable 
+                      questions={importPreview} 
+                      onChange={setImportPreview}
+                      onCheckDuplicates={handleCheckDuplicates}
+                      isCheckingDuplicates={isCheckingDuplicates}
+                      onBulkEnhance={handleBulkEnhance}
+                      isBulkEnhancing={isBulkEnhancing}
+                    />
                     <Button onClick={handleImport} disabled={isImporting} className="w-full">
                       {isImporting ? 'Import edilir...' : `${importPreview.length} Sualı Banka Əlavə Et`}
                     </Button>

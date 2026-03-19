@@ -35,10 +35,15 @@ export const parseGIFT = (content: string): ParsedQuestion[] => {
         const val = valWithFeedback.split('#')[0].trim();
         const feedback = valWithFeedback.split('#')[1]?.trim();
         if (val) {
+          const optionIndex = options.length;
           options.push(val);
           if (marker === '=') {
             correctAnswer = val;
             if (feedback) result.explanation = feedback;
+          }
+          if (feedback) {
+            if (!result.per_option_explanations) result.per_option_explanations = {};
+            result.per_option_explanations[optionIndex.toString()] = feedback;
           }
         }
       }
