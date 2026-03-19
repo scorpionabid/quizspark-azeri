@@ -143,6 +143,8 @@ export function useQuestionEditForm(
       errors.numerical_answer = 'Rəqəmsal cavab daxil edilməlidir';
     } else if (qt === 'code' && !formData.correct_answer.trim()) {
       errors.correct_answer = 'Gözlənilən çıxış/cavab boş ola bilməz';
+    } else if (qt === 'essay') {
+      // Essay üçün model cavab isteğe bağlıdır — boş ola bilər
     } else if (!formData.correct_answer.trim()) {
       errors.correct_answer = 'Düzgün cavab boş ola bilməz';
     }

@@ -23,6 +23,7 @@ interface Props {
   onChange: (val: string) => void;
   showFeedback?: boolean;
   disabled?: boolean;
+  feedbackEnabled?: boolean; // quiz.show_feedback flag — false olduqda FeedbackRenderer gizlənir
 }
 
 export function QuestionRenderer({
@@ -31,6 +32,7 @@ export function QuestionRenderer({
   onChange,
   showFeedback,
   disabled,
+  feedbackEnabled = true,
 }: Props) {
   
   const renderContent = () => {
@@ -102,7 +104,7 @@ export function QuestionRenderer({
     <div className="space-y-4">
       <MediaRenderer question={question} />
       {renderContent()}
-      {showFeedback && <FeedbackRenderer question={question} value={value} />}
+      {showFeedback && feedbackEnabled && <FeedbackRenderer question={question} value={value} />}
     </div>
   );
 }

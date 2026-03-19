@@ -163,17 +163,40 @@ export function QuestionEditDialog({
                 <QuestionTypeSelector
                   value={formData.question_type}
                   onChange={(val) => {
+                    const mcqTypes = ['multiple_choice', 'multiple_select', 'video'];
+                    const isMcqNow = mcqTypes.includes(formData.question_type);
+                    const isMcqNext = mcqTypes.includes(val);
+
                     if (val === 'true_false') {
                       setFormData({
                         ...formData,
                         question_type: val,
                         options: ['Doğru', 'Yanlış'],
-                        correct_answer: formData.correct_answer === 'A' || formData.correct_answer === 'B' ? formData.correct_answer : ''
+                        correct_answer: ['A', 'B'].includes(formData.correct_answer) ? formData.correct_answer : '',
                       });
                     } else if (formData.question_type === 'true_false') {
-                      setFormData({ ...formData, question_type: val, options: ['', '', '', ''] });
+                      setFormData({
+                        ...formData,
+                        question_type: val,
+                        options: isMcqNext ? ['', '', '', ''] : [],
+                        correct_answer: '',
+                      });
+                    } else if (isMcqNow && !isMcqNext) {
+                      setFormData({
+                        ...formData,
+                        question_type: val,
+                        options: [],
+                        correct_answer: '',
+                      });
+                    } else if (!isMcqNow && isMcqNext) {
+                      setFormData({
+                        ...formData,
+                        question_type: val,
+                        options: ['', '', '', ''],
+                        correct_answer: '',
+                      });
                     } else {
-                      setFormData({ ...formData, question_type: val });
+                      setFormData({ ...formData, question_type: val, correct_answer: '' });
                     }
                   }}
                 />

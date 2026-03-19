@@ -11,6 +11,9 @@ interface QuizResultProps {
   totalQuestions: number;
   earnedXP: number;
   passThreshold: number;
+  pendingReviews?: number;
+  earnedPoints?: number;
+  maxPoints?: number;
   onRetry: () => void;
   onHome: () => void;
 }
@@ -21,9 +24,14 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   totalQuestions,
   earnedXP,
   passThreshold,
+  pendingReviews = 0,
+  earnedPoints,
+  maxPoints,
   onRetry,
   onHome,
 }) => {
+  // M2.4: Ağırlıqlı skor göstərilir yalnız bəzi sualların weight-i fərqlidirsə
+  const showWeighted = earnedPoints !== undefined && maxPoints !== undefined && maxPoints !== totalQuestions;
   const hasPassed = score >= passThreshold;
 
   return (
@@ -66,6 +74,12 @@ export const QuizResult: React.FC<QuizResultProps> = ({
               <div className="text-5xl font-black text-primary">{score}%</div>
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nəticə</div>
             </div>
+            {showWeighted && (
+              <div className="text-xs text-muted-foreground font-medium">
+                <span className="text-foreground font-bold">{earnedPoints}</span>
+                <span> / {maxPoints} bal (ağırlıqlı)</span>
+              </div>
+            )}
 
             {earnedXP > 0 && (
               <motion.div
@@ -79,15 +93,21 @@ export const QuizResult: React.FC<QuizResultProps> = ({
             )}
           </div>
 
-          <div className="mb-8 grid grid-cols-3 gap-4">
+          <div className={`mb-8 grid gap-4 ${pendingReviews > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <div className="rounded-xl bg-success/10 p-4">
               <div className="text-2xl font-bold text-success">{correctAnswers}</div>
               <div className="text-xs text-muted-foreground">Düzgün</div>
             </div>
             <div className="rounded-xl bg-destructive/10 p-4">
-              <div className="text-2xl font-bold text-destructive">{totalQuestions - correctAnswers}</div>
+              <div className="text-2xl font-bold text-destructive">{totalQuestions - correctAnswers - pendingReviews}</div>
               <div className="text-xs text-muted-foreground">Yanlış</div>
             </div>
+            {pendingReviews > 0 && (
+              <div className="rounded-xl bg-muted/50 border border-muted-foreground/20 p-4">
+                <div className="text-2xl font-bold text-muted-foreground">{pendingReviews}</div>
+                <div className="text-xs text-muted-foreground">Gözlənilir</div>
+              </div>
+            )}
             <div className="rounded-xl bg-muted/50 p-4">
               <div className="text-2xl font-bold text-foreground">{totalQuestions}</div>
               <div className="text-xs text-muted-foreground">Ümumi</div>

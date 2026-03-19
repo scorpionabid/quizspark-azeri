@@ -27,6 +27,7 @@ interface QuizPlayingProps {
   handleAnswer: (val: string | null) => void;
   handleNext: () => void;
   onExit: () => void;
+  feedbackEnabled?: boolean;
 }
 
 export const QuizPlaying: React.FC<QuizPlayingProps> = ({
@@ -44,6 +45,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   handleAnswer,
   handleNext,
   onExit,
+  feedbackEnabled = true,
 }) => {
   const progress = ((currentQuestion + 1) / totalQuestions) * 100;
 
@@ -124,6 +126,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
             onChange={setLocalAnswer}
             showFeedback={showFeedback}
             disabled={showFeedback}
+            feedbackEnabled={feedbackEnabled}
           />
         </div>
 

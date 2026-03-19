@@ -19,6 +19,7 @@ interface QuizIntroProps {
   myAttempts: QuizAttempt[];
   user: User | null;
   onStart: () => void;
+  onResume?: (attempt: QuizAttempt) => void;
   onBack: () => void;
   isPending: boolean;
   isPreview: boolean;
@@ -30,10 +31,13 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
   myAttempts,
   user,
   onStart,
+  onResume,
   onBack,
   isPending,
   isPreview,
 }) => {
+  // M3.3: Tamamlanmamış aktiv cəhdi tap
+  const incompleteAttempt = !isPreview ? myAttempts.find(a => !a.completed_at) : undefined;
   const now = new Date();
   const fromStr = quiz.available_from?.trim();
   const toStr = quiz.available_to?.trim();
@@ -171,15 +175,40 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
               </Button>
             </div>
           ) : (
-            <Button
-              variant="game"
-              size="xl"
-              className="w-full"
-              onClick={onStart}
-              disabled={isPending || isDisabled}
-            >
-              {isPending ? "Yüklənir..." : (isDisabled ? "Giriş qapalıdır" : "Quizə Başla")}
-            </Button>
+            <div className="space-y-3">
+              {/* M3.3: Yarımçıq cəhd varsa "Davam Et" düyməsi */}
+              {incompleteAttempt && onResume && !isDisabled && (
+                <div className="rounded-xl bg-warning/10 border border-warning/30 p-4 text-center space-y-2">
+                  <p className="text-sm font-semibold text-warning">
+                    Tamamlanmamış cəhdiniz var
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Array(incompleteAttempt.answers).length > 0
+                      ? `${(incompleteAttempt.answers as unknown[]).length} suala cavab verilmişdir`
+                      : 'Başlanmış, lakin cavab verilməmişdir'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full border-warning/50 text-warning hover:bg-warning/10"
+                    onClick={() => onResume(incompleteAttempt)}
+                    disabled={isPending}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Davam Et
+                  </Button>
+                </div>
+              )}
+              <Button
+                variant="game"
+                size="xl"
+                className="w-full"
+                onClick={onStart}
+                disabled={isPending || isDisabled}
+              >
+                {isPending ? "Yüklənir..." : (isDisabled ? "Giriş qapalıdır" : incompleteAttempt ? "Yenidən Başla" : "Quizə Başla")}
+              </Button>
+            </div>
           )}
         </div>
 

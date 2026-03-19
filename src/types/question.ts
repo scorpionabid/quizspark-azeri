@@ -57,4 +57,5 @@ export interface QuestionAnswer {
     hotspotAnswer?: { x: number; y: number }; // hotspot
     isCorrect: boolean;
     pointsEarned: number; // weight * isCorrect
+    needsReview?: boolean; // essay tipli suallar üçün — müəllim yoxlaması tələb olunur
 }

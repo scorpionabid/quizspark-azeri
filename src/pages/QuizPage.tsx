@@ -57,8 +57,47 @@ export default function QuizPage() {
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const questionStartTimeRef = useRef<number>(Date.now());
   const timeUpTriggeredRef = useRef(false);
+  // M1.2: Ümumi timer üçün guard — bir dəfə fire edir
+  const totalTimeUpRef = useRef(false);
+  // M1.2: Stale closure-dan qaçmaq üçün answers-ın ref kopyası
+  const answersRef = useRef<Answer[]>([]);
 
   const isLoading = quizLoading || questionsLoading;
+
+  // answersRef-i sync saxla
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  // M1.2 + M1.3: Quiz tamamlama məntiqini bir yerə cəmləyən funksiya
+  const completeQuizWithAnswers = useCallback(async (latestAnswers: Answer[]) => {
+    if (!isPreview && attemptId && startTime && user && quiz) {
+      const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+      const earnedPoints = latestAnswers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
+      const maxPoints = displayQuestions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
+      const weightedScore = maxPoints > 0 ? Math.round((earnedPoints / maxPoints) * 100) : 0;
+
+      try {
+        await completeAttempt.mutateAsync({
+          attemptId,
+          quizId: quiz.id,
+          score: weightedScore,
+          totalQuestions: displayQuestions.length,
+          timeSpent,
+          answers: latestAnswers as unknown as Record<string, string>[],
+        });
+        localStorage.removeItem(`quiz_start_${quiz.id}`);
+        const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
+        setEarnedXP(prev => prev + xpGain);
+        if (xpGain > 0) {
+          await updateXPAsync(xpGain);
+        }
+      } catch (error) {
+        console.error("Error completing quiz:", error);
+      }
+    }
+    setQuizState('result');
+  }, [isPreview, attemptId, startTime, user, quiz, displayQuestions, completeAttempt, updateXPAsync]);
 
   const handleNextInternal = useCallback(async (latestAnswers: Answer[]) => {
     if (currentQuestion < displayQuestions.length - 1) {
@@ -68,35 +107,10 @@ export default function QuizPage() {
       setShowHint(false);
       transitionTimeoutRef.current = null;
     } else {
-      if (attemptId && startTime && user && quiz) {
-        const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
-        const earnedPoints = latestAnswers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
-        const maxPoints = displayQuestions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
-        const weightedScore = maxPoints > 0 ? Math.round((earnedPoints / maxPoints) * 100) : 0;
-
-        try {
-          await completeAttempt.mutateAsync({
-            attemptId,
-            quizId: quiz.id,
-            score: weightedScore,
-            totalQuestions: displayQuestions.length,
-            timeSpent,
-            answers: latestAnswers as unknown as Record<string, string>[],
-          });
-          localStorage.removeItem(`quiz_start_${quiz.id}`);
-          const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
-          setEarnedXP(prev => prev + xpGain);
-          if (xpGain > 0 && !isPreview) {
-            await updateXPAsync(xpGain);
-          }
-        } catch (error) {
-          console.error("Error completing quiz:", error);
-        }
-      }
-      setQuizState('result');
       transitionTimeoutRef.current = null;
+      await completeQuizWithAnswers(latestAnswers);
     }
-  }, [currentQuestion, displayQuestions, attemptId, startTime, user, quiz, isPreview, completeAttempt, updateXPAsync]);
+  }, [currentQuestion, displayQuestions.length, completeQuizWithAnswers]);
 
   const handleAnswer = useCallback(async (val: string | null) => {
     if (showFeedback || displayQuestions.length === 0) return;
@@ -107,8 +121,10 @@ export default function QuizPage() {
     const finalVal = val || '';
     let isCorrect = false;
 
-    // Advanced evaluation logic
-    if (currentQ.question_type === 'ordering') {
+    // M1.1: Essay sualları avtomatik qiymətləndirilmir
+    if (currentQ.question_type === 'essay') {
+      isCorrect = false;
+    } else if (currentQ.question_type === 'ordering') {
       const studentSeq = finalVal.split('|||').map(s => s.trim());
       const correctSeq = (
         currentQ.sequence_items?.length
@@ -143,7 +159,13 @@ export default function QuizPage() {
       const sy = parseFloat(sParts[1]);
       isCorrect = !isNaN(cx) && !isNaN(sx) && Math.abs(sx - cx) <= tolerance && Math.abs(sy - cy) <= tolerance;
     } else {
-      isCorrect = finalVal.trim().toLowerCase() === currentQ.correct_answer.trim().toLowerCase();
+      // M3.4: Short answer fuzzy matching — boşluq, nöqtəaltı və böyük/kiçik hərfi normallaşdır
+      // Müəllim düzgün cavaba "|" ilə alternativ cavablar əlavə edə bilər: "bakı|baku|Bakı"
+      const normalize = (s: string) =>
+        s.trim().toLowerCase().replace(/[\s\u00a0]+/g, ' ').replace(/[.,!?;:'"]/g, '');
+      const normalizedStudent = normalize(finalVal);
+      const acceptedAnswers = currentQ.correct_answer.split('|').map(normalize);
+      isCorrect = acceptedAnswers.some(accepted => accepted === normalizedStudent);
     }
 
     const answer: Answer = {
@@ -152,9 +174,13 @@ export default function QuizPage() {
       textAnswer: finalVal,
       isCorrect,
       pointsEarned: isCorrect ? (currentQ.weight || 1) : 0,
-      selectedOptionIndex: currentQ.options ? currentQ.options.indexOf(finalVal) : undefined
+      selectedOptionIndex: currentQ.options ? currentQ.options.indexOf(finalVal) : undefined,
+      // M1.1: Essay suallar üçün review bayrağı
+      needsReview: currentQ.question_type === 'essay',
     };
 
+    // showFeedback həmişə true olur (input-u disable etmək üçün),
+    // amma M1.4: FeedbackRenderer yalnız quiz.show_feedback !== false olduqda göstərilir
     setShowFeedback(true);
 
     if (!isPreview && quiz) {
@@ -187,6 +213,41 @@ export default function QuizPage() {
     }, 1500 + (isCorrect && currentQ.explanation ? 1500 : 0));
   }, [showFeedback, displayQuestions, currentQuestion, answers, attemptId, quiz, isPreview, updateAttempt, handleNextInternal]);
 
+  // M3.3: Yarımçıq cəhdi davam etdir
+  const resumeQuiz = useCallback(async (attempt: import('@/hooks/useQuizAttempts').QuizAttempt) => {
+    if (!quiz) return;
+    // Shuffle-sız orijinal sıra (shuffle rejimindən resume düzgün işləmir)
+    const orderedQuestions = [...questions];
+    setDisplayQuestions(orderedQuestions);
+    totalTimeUpRef.current = false;
+
+    const prevAnswers = (attempt.answers || []) as unknown as Answer[];
+    setAnswers(prevAnswers);
+    setAttemptId(attempt.id);
+
+    const startedAt = new Date(attempt.started_at);
+    setStartTime(startedAt);
+
+    const totalDurationSecs = (quiz.duration || 20) * 60;
+    const elapsed = (Date.now() - startedAt.getTime()) / 1000;
+    const remaining = Math.max(0, Math.floor(totalDurationSecs - elapsed));
+
+    if (remaining <= 0) {
+      // Vaxt artıq bitib — quiz-i tamamla
+      await completeQuizWithAnswers(prevAnswers);
+      return;
+    }
+
+    const nextIdx = Math.min(prevAnswers.length, orderedQuestions.length - 1);
+    setCurrentQuestion(nextIdx);
+    setTotalTimeLeft(remaining);
+    setTimeLeft(orderedQuestions[nextIdx]?.time_limit || remaining);
+    setLocalAnswer('');
+    setShowFeedback(false);
+    setShowHint(false);
+    setQuizState('playing');
+  }, [quiz, questions, completeQuizWithAnswers]);
+
   const startQuiz = async () => {
     if (!quiz || !user) {
       if (!user) {
@@ -210,12 +271,23 @@ export default function QuizPage() {
       : [...questions];
     setDisplayQuestions(orderedQuestions);
 
+    // M1.2: guard-ları sıfırla
+    totalTimeUpRef.current = false;
+
     try {
-      const attempt = await startAttempt.mutateAsync({
-        quizId: quiz.id,
-        totalQuestions: orderedQuestions.length,
-      });
-      setAttemptId(attempt.id);
+      // M1.3: Preview rejimdə DB-yə attempt yazılmır
+      let newAttemptId: string;
+      if (isPreview) {
+        newAttemptId = `preview-${Date.now()}`;
+      } else {
+        const attempt = await startAttempt.mutateAsync({
+          quizId: quiz.id,
+          totalQuestions: orderedQuestions.length,
+        });
+        newAttemptId = attempt.id;
+      }
+
+      setAttemptId(newAttemptId);
       const now = new Date();
       setStartTime(now);
       if (!isPreview) {
@@ -256,10 +328,16 @@ export default function QuizPage() {
       const elapsed = (now - startTime.getTime()) / 1000;
       const totalRemaining = Math.max(0, Math.floor(totalDuration - elapsed));
       setTotalTimeLeft(totalRemaining);
+
+      // M1.2: Vaxt bitdikdə quiz düzgün şəkildə tamamlanır
       if (totalRemaining <= 0) {
-        setQuizState('result');
+        if (!totalTimeUpRef.current) {
+          totalTimeUpRef.current = true;
+          void completeQuizWithAnswers(answersRef.current);
+        }
         return;
       }
+
       const qTimeLimit = displayQuestions[currentQuestion]?.time_limit;
       if (qTimeLimit) {
         const qElapsed = (now - questionStartTimeRef.current) / 1000;
@@ -274,7 +352,7 @@ export default function QuizPage() {
       }
     }, 500);
     return () => clearInterval(timer);
-  }, [quizState, showFeedback, startTime, quiz, displayQuestions, currentQuestion, handleTimeUp]);
+  }, [quizState, showFeedback, startTime, quiz, displayQuestions, currentQuestion, handleTimeUp, completeQuizWithAnswers]);
 
   useEffect(() => {
     timeLeftRef.current = timeLeft;
@@ -285,19 +363,24 @@ export default function QuizPage() {
   const maxPoints = activeQuestions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
   const score = maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 0;
   const correctCount = answers.filter(a => a.isCorrect).length;
+  // M1.1: Essay gözlənilən sualların sayı
+  const pendingReviews = answers.filter(a => a.needsReview).length;
+  // M1.4: quiz.show_feedback === false olduqda FeedbackRenderer gizlənir
+  const feedbackEnabled = quiz?.show_feedback !== false;
 
   if (isLoading) return <div className="min-h-screen bg-gradient-hero"><PageLoader text="Quiz yüklənir..." /></div>;
   if (!quiz) return <div className="flex-1 bg-background p-8 flex flex-col items-center justify-center"><EmptyState icon="😕" title="Quiz tapılmadı" description="Bu quiz mövcud deyil və ya silinib." action={{ label: "Ana Səhifəyə Qayıt", onClick: () => navigate('/') }} /></div>;
 
   if (quizState === 'intro') {
     return (
-      <QuizIntro 
-        quiz={quiz} 
-        questions={questions} 
-        myAttempts={myAttempts || []} 
-        user={user} 
-        onStart={startQuiz} 
-        onBack={() => navigate('/')} 
+      <QuizIntro
+        quiz={quiz}
+        questions={questions}
+        myAttempts={myAttempts || []}
+        user={user}
+        onStart={startQuiz}
+        onResume={resumeQuiz}
+        onBack={() => navigate('/')}
         isPending={startAttempt.isPending}
         isPreview={isPreview}
       />
@@ -323,6 +406,7 @@ export default function QuizPage() {
         onExit={() => {
           if (confirm('Quizi tərk etmək istəyirsiniz? İrəliləyişiniz itiriləcək.')) navigate('/');
         }}
+        feedbackEnabled={feedbackEnabled}
       />
     );
   }
@@ -334,12 +418,16 @@ export default function QuizPage() {
       totalQuestions={activeQuestions.length}
       earnedXP={earnedXP}
       passThreshold={quiz.pass_percentage || 60}
+      pendingReviews={pendingReviews}
+      earnedPoints={totalPoints}
+      maxPoints={maxPoints}
       onRetry={() => {
         setQuizState('intro');
         setAttemptId(null);
         setStartTime(null);
         setAnswers([]);
         setCurrentQuestion(0);
+        totalTimeUpRef.current = false;
       }}
       onHome={() => navigate('/')}
     />

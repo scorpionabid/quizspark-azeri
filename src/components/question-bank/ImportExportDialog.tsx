@@ -121,6 +121,8 @@ export function ImportExportDialog({
   const [importPreview, setImportPreview] = useState<PreviewQuestion[]>([]);
   const [importWarnings, setImportWarnings] = useState<ParseWarning[]>([]);
   const [importProgress, setImportProgress] = useState(0);
+  // M2.2: İdxal statistikası — neçəsi valid, neçəsi xətalı süzüldü
+  const [importStats, setImportStats] = useState<{ total: number; invalid: number } | null>(null);
   const [aiPasteText, setAiPasteText] = useState('');
   const [aiImageBase64, setAiImageBase64] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -133,6 +135,7 @@ export function ImportExportDialog({
     setImportPreview([]);
     setImportWarnings([]);
     setImportProgress(0);
+    setImportStats(null);
   };
 
   const processFile = useCallback(async (file: File) => {
@@ -148,22 +151,34 @@ export function ImportExportDialog({
       }
 
       let parsed: PreviewQuestion[] = [];
+      let invalidCount = 0;
 
-      if (detected === 'json') parsed = parseJsonImport(content);
-      else if (detected === 'csv') parsed = parseCsvImport(content);
-      else if (detected === 'aiken') parsed = parseAiken(content) as PreviewQuestion[];
-      else if (detected === 'gift') parsed = parseGIFT(content) as PreviewQuestion[];
-      else {
+      if (detected === 'json') {
+        const r = parseJsonImport(content);
+        parsed = r.questions;
+        invalidCount = r.invalidCount;
+      } else if (detected === 'csv') {
+        const r = parseCsvImport(content);
+        parsed = r.questions;
+        invalidCount = r.invalidCount;
+      } else if (detected === 'aiken') {
+        parsed = parseAiken(content) as PreviewQuestion[];
+      } else if (detected === 'gift') {
+        parsed = parseGIFT(content) as PreviewQuestion[];
+      } else {
         const result = parseMarkdownFull(content);
         parsed = result.questions as PreviewQuestion[];
         setImportWarnings(result.warnings);
+        invalidCount = result.warnings.filter(w => w.type === 'missing_answer' || w.type === 'empty_question').length;
       }
 
       if (parsed.length === 0) throw new Error('Faylda heç bir sual tapılmadı. Zəhmət olmasa formatın düzgün olmasına əmin olun.');
+      setImportStats({ total: parsed.length + invalidCount, invalid: invalidCount });
       setImportPreview(parsed);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Fayl oxunarkən xəta baş verdi');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [importFormat]);
 
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
@@ -292,10 +307,10 @@ export function ImportExportDialog({
     }
   };
 
-  const parseJsonImport = (content: string): PreviewQuestion[] => {
+  const parseJsonImport = (content: string): { questions: PreviewQuestion[]; invalidCount: number } => {
     const data = JSON.parse(content);
     const items = Array.isArray(data) ? data : data.questions || [];
-    return items.map((item: Record<string, unknown>) => ({
+    const all: PreviewQuestion[] = items.map((item: Record<string, unknown>) => ({
       question_text: String(item.question_text || item.question || ''),
       question_type: String(item.question_type || item.type || 'multiple_choice'),
       options: item.options as string[] || null,
@@ -305,14 +320,17 @@ export function ImportExportDialog({
       difficulty: item.difficulty ? String(item.difficulty) : 'orta',
       bloom_level: item.bloom_level ? String(item.bloom_level) : undefined,
       tags: Array.isArray(item.tags) ? item.tags.map(String) : undefined,
-    })).filter((q: PreviewQuestion) => q.question_text && q.correct_answer);
+    }));
+    const questions = all.filter((q) => q.question_text && q.correct_answer);
+    return { questions, invalidCount: all.length - questions.length };
   };
 
-  const parseCsvImport = (content: string): PreviewQuestion[] => {
+  const parseCsvImport = (content: string): { questions: PreviewQuestion[]; invalidCount: number } => {
     const lines = content.split('\n').filter((line) => line.trim());
-    if (lines.length < 2) return [];
+    if (lines.length < 2) return { questions: [], invalidCount: 0 };
     const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-    const questions: PreviewQuestion[] = [];
+    const valid: PreviewQuestion[] = [];
+    let invalidCount = 0;
     for (let i = 1; i < lines.length; i++) {
       const values = parseCsvLine(lines[i]);
       const row: Record<string, string> = {};
@@ -334,9 +352,13 @@ export function ImportExportDialog({
         if (optionValue) options.push(optionValue);
       });
       if (options.length > 0) question.options = options;
-      if (question.question_text && question.correct_answer) questions.push(question);
+      if (question.question_text && question.correct_answer) {
+        valid.push(question);
+      } else {
+        invalidCount++;
+      }
     }
-    return questions;
+    return { questions: valid, invalidCount };
   };
 
   const parseCsvLine = (line: string): string[] => {
@@ -538,6 +560,17 @@ export function ImportExportDialog({
               </Alert>
             )}
 
+            {/* M2.2: İdxal statistikası */}
+            {importStats && importStats.invalid > 0 && (
+              <Alert variant="destructive" className="py-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>{importStats.invalid}</strong> sual xətalı olduğu üçün (boş mətn və ya cavab) süzüldü.{' '}
+                  <strong>{importStats.total - importStats.invalid}</strong> sual idxal üçün hazırdır.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <AnimatePresence>
               {importPreview.length > 0 && (
                 <motion.div
@@ -546,9 +579,9 @@ export function ImportExportDialog({
                   exit={{ opacity: 0, y: 12 }}
                   className="space-y-3"
                 >
-                  <ImportPreviewTable 
-                    questions={importPreview} 
-                    onChange={setImportPreview} 
+                  <ImportPreviewTable
+                    questions={importPreview}
+                    onChange={setImportPreview}
                     onCheckDuplicates={handleCheckDuplicates}
                     isCheckingDuplicates={isCheckingDuplicates}
                     onBulkEnhance={handleBulkEnhance}

@@ -378,16 +378,29 @@ export function useBulkCreateQuestionBank() {
       }));
 
       // 100+ sual üçün 50-lik chunk-larla insert (timeout riskini azaldır)
+      // M3.1: Hər hansı chunk uğursuz olsa, əvvəlki chunk-lar geri silinir (best-effort atomicity)
       const CHUNK_SIZE = 50;
       const results: QuestionBankItem[] = [];
+      const insertedIds: string[] = [];
+
       for (let i = 0; i < questionsWithUser.length; i += CHUNK_SIZE) {
         const chunk = questionsWithUser.slice(i, i + CHUNK_SIZE);
         const { data, error } = await supabase
           .from('question_bank')
           .insert(chunk)
           .select();
-        if (error) throw error;
-        results.push(...(data as unknown as QuestionBankItem[]));
+
+        if (error) {
+          // Rollback: əvvəl insert olunan sualları sil
+          if (insertedIds.length > 0) {
+            await supabase.from('question_bank').delete().in('id', insertedIds);
+          }
+          throw error;
+        }
+
+        const inserted = data as unknown as QuestionBankItem[];
+        insertedIds.push(...inserted.map(d => d.id));
+        results.push(...inserted);
       }
       return results;
     },
