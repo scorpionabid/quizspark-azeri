@@ -4,8 +4,16 @@ export type ParsedQuestion = Omit<QuestionBankItem, 'id' | 'created_at' | 'updat
 
 export interface ParseWarning {
   line: number;
-  type: 'missing_answer' | 'no_options' | 'empty_question';
+  type: 
+    | 'missing_answer' 
+    | 'no_options' 
+    | 'empty_question' 
+    | 'duplicate_option' 
+    | 'invalid_format' 
+    | 'invalid_correct_answer'
+    | 'missing_question_text';
   message: string;
+  severity: 'error' | 'warning' | 'info';
 }
 
 export interface ParseResult {

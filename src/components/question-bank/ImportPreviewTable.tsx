@@ -96,7 +96,13 @@ const TYPE_LABELS: Record<string, string> = {
   code: 'Kod',
 };
 
-function isValidQuestion(q: PreviewQuestion): boolean {
+function isValidQuestion(q: PreviewQuestion, warnings: ParseWarning[] = []): boolean {
+  const qWarnings = warnings.filter(w => {
+    const qt = q.question_text?.slice(0, 35) ?? '';
+    return w.message.includes(qt);
+  });
+  if (qWarnings.some(w => w.severity === 'error')) return false;
+
   if (!q.question_text?.trim()) return false;
   const qt = q.question_type;
   // Mürəkkəb tiplər üçün structured data yetəri hesab edilir
@@ -104,6 +110,7 @@ function isValidQuestion(q: PreviewQuestion): boolean {
   if (qt === 'ordering') return !!(q.sequence_items && q.sequence_items.length >= 2);
   if (qt === 'numerical') return q.numerical_answer != null || !!(q.correct_answer?.trim());
   if (qt === 'fill_blank') return !!(q.correct_answer?.trim() || q.fill_blank_template?.includes('___'));
+  if (qt === 'essay') return !!(q.question_text?.trim());
   return !!(q.correct_answer?.trim());
 }
 
@@ -255,7 +262,7 @@ export function ImportPreviewTable({
     setEditDraft(null);
   };
 
-  const validCount = questions.filter(isValidQuestion).length;
+  const validCount = questions.filter(q => isValidQuestion(q, warnings)).length;
   const invalidCount = questions.length - validCount;
   const stats = computeStats(questions);
 
@@ -401,7 +408,12 @@ export function ImportPreviewTable({
             <AnimatePresence initial={false}>
               {pageQuestions.map((q, localIdx) => {
                 const globalIdx = pageStart + localIdx;
-                const valid = isValidQuestion(q);
+                const qWarnings = warnings.filter(w => {
+                  const qt = q.question_text?.slice(0, 35) ?? '';
+                  return w.message.includes(qt);
+                });
+                const hasError = qWarnings.some(w => w.severity === 'error') || !isValidQuestion(q, warnings);
+                const hasWarning = qWarnings.some(w => w.severity === 'warning');
                 const isEditing = editingIndex === globalIdx;
                 return (
                   <motion.tr
@@ -410,7 +422,7 @@ export function ImportPreviewTable({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: 40 }}
                     transition={{ duration: 0.18 }}
-                    className={`border-b border-border/30 ${!valid ? 'bg-amber-500/5' : ''}`}
+                    className={`border-b border-border/30 ${hasError ? 'bg-rose-500/5 dark:bg-rose-500/10' : hasWarning ? 'bg-amber-500/5' : ''}`}
                   >
                     <TableCell className="text-xs text-muted-foreground font-mono align-top pt-3">
                       {globalIdx + 1}
@@ -461,37 +473,34 @@ export function ImportPreviewTable({
                         </div>
                       ) : (
                         <div className="space-y-1">
-                          <p className={`text-sm leading-snug ${!valid ? 'text-amber-600' : ''}`}>
-                            {!valid && (
+                          <p className="text-sm leading-snug">
+                            {(hasError || hasWarning) && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <AlertTriangle 
-                                      className="inline h-3 w-3 mr-1 mb-0.5 cursor-help" 
+                                      className={`inline h-3.5 w-3.5 mr-1.5 mb-0.5 cursor-help ${hasError ? 'text-rose-500' : 'text-amber-500'}`} 
                                       data-testid={`warning-icon-${globalIdx}`}
                                     />
                                   </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs text-xs">
-                                    {warnings
-                                      .filter(w => {
-                                        const qt = q.question_text?.slice(0, 35) ?? '';
-                                        return w.message.includes(qt);
-                                      })
-                                      .map((w, wi) => (
-                                        <p key={wi}>• {w.message}</p>
-                                      ))}
-                                    {warnings.filter(w => {
-                                      const qt = q.question_text?.slice(0, 35) ?? '';
-                                      return w.message.includes(qt);
-                                    }).length === 0 && (
-                                      <p>Sual mətni və ya düzgün cavab boşdur</p>
+                                  <TooltipContent className="max-w-xs text-xs p-3 space-y-2">
+                                    <p className="font-bold border-b pb-1 mb-1">{hasError ? 'Mütləq düzəldilməli xətalar:' : 'Xəbərdarlıqlar:'}</p>
+                                    {qWarnings.length > 0 ? (
+                                      qWarnings.map((w, wi) => (
+                                        <div key={wi} className={`flex gap-1.5 ${w.severity === 'error' ? 'text-rose-500' : 'text-amber-500'}`}>
+                                          <span className="shrink-0">•</span>
+                                          <span>{w.message}</span>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <p className="text-rose-500">• Sual mətni və ya düzgün cavab boşdur</p>
                                     )}
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
                             )}
                             {q.question_text ? (
-                              <span data-testid={`question-text-${globalIdx}`}>
+                              <span data-testid={`question-text-${globalIdx}`} className={hasError ? 'text-rose-600 font-medium' : ''}>
                                 <MathRenderer text={q.question_text} />
                               </span>
                             ) : (

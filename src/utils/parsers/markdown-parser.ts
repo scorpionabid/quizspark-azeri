@@ -55,6 +55,7 @@ function parseMatchingBlock(
       line: lineOffset,
       type: 'missing_answer',
       message: `Uyğunlaşdırma sualında ən azı 2 cüt lazımdır`,
+      severity: 'error',
     });
   }
 
@@ -111,6 +112,7 @@ function parseOrderingBlock(
       line: lineOffset,
       type: 'missing_answer',
       message: `Ardıcıllıq sualında ən azı 2 element lazımdır`,
+      severity: 'error',
     });
   }
 
@@ -160,6 +162,7 @@ function parseFillBlankBlock(
       line: lineOffset,
       type: 'empty_question',
       message: `Fill-blank sualında ___ boşluq işarəsi tapılmadı`,
+      severity: 'error',
     });
   }
   if (!result.correct_answer) {
@@ -167,6 +170,7 @@ function parseFillBlankBlock(
       line: lineOffset,
       type: 'missing_answer',
       message: `Fill-blank sualında "Cavab:" bölməsi tapılmadı`,
+      severity: 'error',
     });
   }
 
@@ -220,6 +224,7 @@ function parseNumericalBlock(
       line: lineOffset,
       type: 'missing_answer',
       message: `Rəqəmsal sualda "Cavab:" bölməsi tapılmadı`,
+      severity: 'error',
     });
   }
 
@@ -302,6 +307,7 @@ function parseCodeBlock(
       line: lineOffset,
       type: 'missing_answer',
       message: `Kod sualında "Cavab:" bölməsi tapılmadı`,
+      severity: 'error',
     });
   }
 
@@ -309,7 +315,11 @@ function parseCodeBlock(
 }
 
 /**
- * Format 1: `# Sual mətni\n- [x] Düzgün\n- [ ] Səhv`
+ * Universal Format: `# Sual mətni`
+ *
+ * İki sintaksisi dəstəkləyir (geriyə uyğunluq qorunur):
+ *   a) Köhnə checklist:  `- [x] Düzgün # İzah` / `- [ ] Səhv`
+ *   b) YENİ universal:   `A) Variant # İzah`  +  `Cavab: C`
  */
 function parseMarkdownFormat1(content: string): ParseResult {
   const questions: ParsedQuestion[] = [];
@@ -331,44 +341,114 @@ function parseMarkdownFormat1(content: string): ParseResult {
       options: [],
     };
 
-    const optionMatches = [...block.matchAll(/^[-*]\s*\[([ xX])\]\s*(.+)$/gm)];
-    for (const match of optionMatches) {
-      const isCorrect = match[1].toLowerCase() === 'x';
-      const rawText = match[2].trim();
-      
-      // Support for inline feedback: "Option Text # Feedback"
-      const [text, feedback] = rawText.split('#').map(s => s.trim());
-      
-      const optionIndex = (result.options as string[]).length;
-      (result.options as string[]).push(text);
-      if (isCorrect) result.correct_answer = text;
-      
-      if (feedback) {
-        if (!result.per_option_explanations) result.per_option_explanations = {};
-        result.per_option_explanations[optionIndex.toString()] = feedback;
+    // ── a) Köhnə sintaksis: `- [x] Variant # İzah` ──────────────────────
+    const checklistMatches = [...block.matchAll(/^[-*]\s*\[([ xX])\]\s*(.+)$/gm)];
+    if (checklistMatches.length > 0) {
+      for (const match of checklistMatches) {
+        const isCorrect = match[1].toLowerCase() === 'x';
+        const rawText = match[2].trim();
+        const [text, feedback] = rawText.split('#').map(s => s.trim());
+        const optionIndex = (result.options as string[]).length;
+        (result.options as string[]).push(text);
+        if (isCorrect) result.correct_answer = text;
+        if (feedback) {
+          if (!result.per_option_explanations) result.per_option_explanations = {};
+          result.per_option_explanations[optionIndex.toString()] = feedback;
+        }
+      }
+      extractMetadata(rest.join('\n').split('\n'), result);
+    } else {
+      // ── b) YENİ universal sintaksis: `A) Variant # İzah` + `Cavab: C` ──
+      const optionRE = /^([A-Za-z\d]+)[).]\s+(.+)/;
+      const metaLines: string[] = [];
+
+      for (const line of rest) {
+        const clean = line.trim();
+        if (!clean) continue;
+        const optMatch = clean.match(optionRE);
+        if (optMatch) {
+          const rawText = optMatch[2].trim();
+          const [text, feedback] = rawText.split('#').map(s => s.trim());
+          const optionIndex = (result.options as string[]).length;
+          (result.options as string[]).push(text);
+          if (feedback) {
+            if (!result.per_option_explanations) result.per_option_explanations = {};
+            result.per_option_explanations[optionIndex.toString()] = feedback;
+          }
+        } else {
+          metaLines.push(clean);
+        }
+      }
+
+      extractMetadata(metaLines, result);
+
+      // `Cavab: C` → hərfdən/rəqəmdən tam variant mətni
+      if (result.correct_answer) {
+        const opts = result.options as string[];
+        const ansVal = result.correct_answer.trim();
+        if (/^[A-Za-z]$/.test(ansVal)) {
+          const idx = ansVal.toUpperCase().charCodeAt(0) - 65;
+          if (opts[idx]) result.correct_answer = opts[idx];
+        } else if (/^\d+$/.test(ansVal)) {
+          const idx = parseInt(ansVal, 10) - 1;
+          if (opts[idx]) result.correct_answer = opts[idx];
+        }
+      }
+
+      // true_false aşkarlama
+      const TRUE_FALSE_RE = /^(doğru|yanlış|bəli|xeyr|true|false)$/i;
+      const opts = result.options as string[];
+      if (opts.length === 2 && opts.every(o => TRUE_FALSE_RE.test(o.trim()))) {
+        result.question_type = 'true_false';
       }
     }
 
-    extractMetadata(rest.join('\n').split('\n'), result);
+    if (!questionText || questionText.trim() === '') {
+      warnings.push({
+        line: lineOffset,
+        type: 'missing_question_text',
+        message: `Sual mətni tapılmadı və ya boşdur`,
+        severity: 'error',
+      });
+    }
 
-    if (questionText && result.options && (result.options as string[]).length === 0) {
+    if (result.options && (result.options as string[]).length > 0) {
+      const opts = result.options as string[];
+      const seen = new Set<string>();
+      opts.forEach((opt, idx) => {
+        if (seen.has(opt.toLowerCase())) {
+          warnings.push({
+            line: lineOffset + idx + 1,
+            type: 'duplicate_option',
+            message: `"${opt}" variantı təkrarlanır`,
+            severity: 'warning',
+          });
+        }
+        seen.add(opt.toLowerCase());
+      });
+    }
+
+    if (questionText && result.options && (result.options as string[]).length === 0 && result.question_type !== 'short_answer') {
       warnings.push({
         line: lineOffset,
         type: 'no_options',
         message: `"${questionText.slice(0, 40)}..." sualında variant tapılmadı`,
+        severity: 'error',
       });
     }
-    if (!result.correct_answer) {
+    if (!result.correct_answer && result.question_type !== 'essay') {
       warnings.push({
         line: lineOffset,
         type: 'missing_answer',
         message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab işarələnməyib`,
+        severity: 'error',
       });
     }
     if (questionText) questions.push(result as ParsedQuestion);
   }
   return { questions, warnings };
 }
+
 
 /**
  * Format 2: `1. Sual mətni\nA) Variant\nB) Variant\nANSWER: A`
@@ -414,97 +494,44 @@ function parseMarkdownFormat2(content: string): ParseResult {
     result.options = optLines;
     extractMetadata(metaLines, result);
 
-    if (optLines.length === 0) {
+    if (!questionText || questionText.trim() === '') {
       warnings.push({
         line: firstLineNum,
-        type: 'no_options',
-        message: `"${questionText.slice(0, 40)}..." sualında variant tapılmadı`,
-      });
-    }
-    if (!result.correct_answer) {
-      warnings.push({
-        line: firstLineNum,
-        type: 'missing_answer',
-        message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib — preview-da əlavə edin`,
+        type: 'missing_question_text',
+        message: `Sual mətni tapılmadı və ya boşdur`,
+        severity: 'error',
       });
     }
 
-    if (questionText) questions.push(result as ParsedQuestion);
-  }
-  return { questions, warnings };
-}
-
-/**
- * Format 3: `Sual mətni\n\t•\tVariant A\n\t•\tVariant B`
- */
-function parseMarkdownFormat3(content: string): ParseResult {
-  const questions: ParsedQuestion[] = [];
-  const warnings: ParseWarning[] = [];
-
-  const blocks = content
-    .split(/(?=^(?:\d+)\s*$)/m)
-    .map(b => b.trim())
-    .filter(Boolean);
-
-  for (const block of blocks) {
-    const lines = block.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    if (lines.length < 2) continue;
-
-    let startIdx = 0;
-    if (/^\d+$/.test(lines[0])) startIdx = 1;
-
-    const questionText = lines[startIdx]?.trim();
-    if (!questionText) continue;
-
-    const firstLineNum = content.split(block)[0].split('\n').length + 1;
-    const result: Partial<ParsedQuestion> = {
-      question_text: questionText,
-      question_type: 'multiple_choice',
-      difficulty: 'orta',
-      options: [],
-    };
-
-    const metaLines: string[] = [];
-
-    for (let i = startIdx + 1; i < lines.length; i++) {
-      const l = lines[i];
-      const bulletMatch = l.match(/^[\t\s]*[-•*]\s*(?:\t\s*)?(.+)$/u);
-      if (bulletMatch) {
-        (result.options as string[]).push(bulletMatch[1].trim());
-      } else {
-        metaLines.push(l);
-      }
-    }
-
-    extractMetadata(metaLines, result);
-
-    for (const ml of metaLines) {
-      const ansMatch = ml.match(/^(?:Düzgün|Cavab|Doğru cavab)\s*[:-]?\s*(.+)/i);
-      if (ansMatch) {
-        const val = ansMatch[1].trim();
-        if ((result.options as string[]).includes(val)) {
-          result.correct_answer = val;
-        } else {
-          const idx = val.toUpperCase().charCodeAt(0) - 65;
-          if ((result.options as string[])[idx]) {
-            result.correct_answer = (result.options as string[])[idx];
-          }
+    if (optLines.length > 0) {
+      const seen = new Set<string>();
+      optLines.forEach((opt, idx) => {
+        if (seen.has(opt.toLowerCase())) {
+          warnings.push({
+            line: firstLineNum + idx + 1,
+            type: 'duplicate_option',
+            message: `"${opt}" variantı təkrarlanır`,
+            severity: 'warning',
+          });
         }
-      }
+        seen.add(opt.toLowerCase());
+      });
     }
 
-    if ((result.options as string[]).length === 0) {
+    if (optLines.length === 0 && result.question_type !== 'short_answer') {
       warnings.push({
         line: firstLineNum,
         type: 'no_options',
         message: `"${questionText.slice(0, 40)}..." sualında variant tapılmadı`,
+        severity: 'error',
       });
     }
-    if (!result.correct_answer) {
+    if (!result.correct_answer && result.question_type !== 'essay') {
       warnings.push({
         line: firstLineNum,
         type: 'missing_answer',
         message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib — preview-da əlavə edin`,
+        severity: 'error',
       });
     }
 
@@ -512,6 +539,7 @@ function parseMarkdownFormat3(content: string): ParseResult {
   }
   return { questions, warnings };
 }
+
 
 /**
  * Tək sual blokunu parse edir.
@@ -593,12 +621,19 @@ export function parseSingleBlock(
     }
   }
 
-  if (!questionLines.length) return { questions: [], warnings: [] };
+  const questionText = questionLines.join('\n').trim();
 
-  const questionText = questionLines.join('\n');
+  // true_false aşkarlama: "Doğru/Yanlış", "Bəli/Xeyr", "True/False" cütü
+  const TRUE_FALSE_RE = /^(doğru|yanlış|bəli|xeyr|true|false)$/i;
+  const isTrueFalse =
+    options.length === 2 && options.every(o => TRUE_FALSE_RE.test(o.trim()));
+
   const result: Partial<ParsedQuestion> = {
     question_text: questionText,
-    question_type: options.length > 0 ? 'multiple_choice' : 'short_answer',
+    question_type:
+      isTrueFalse ? 'true_false'
+      : options.length > 0 ? 'multiple_choice'
+      : 'short_answer',
     difficulty: 'orta',
     options: options.length > 0 ? options : null,
   };
@@ -651,17 +686,44 @@ export function parseSingleBlock(
   if (correctAnswer) result.correct_answer = correctAnswer;
 
   const warnings: ParseWarning[] = [];
+  
+  if (!questionText || questionText.trim() === '') {
+    warnings.push({
+      line: lineOffset,
+      type: 'missing_question_text',
+      message: `Sual mətni tapılmadı və ya boşdur`,
+      severity: 'error',
+    });
+  }
+
+  if (options.length > 0) {
+    const seen = new Set<string>();
+    options.forEach((opt, idx) => {
+      if (seen.has(opt.toLowerCase())) {
+        warnings.push({
+          line: lineOffset + idx + 1,
+          type: 'duplicate_option',
+          message: `"${opt}" variantı təkrarlanır`,
+          severity: 'warning',
+        });
+      }
+      seen.add(opt.toLowerCase());
+    });
+  }
+
   if (options.length === 0 && !result.correct_answer) {
     warnings.push({
       line: lineOffset,
       type: 'missing_answer',
       message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib`,
+      severity: 'error',
     });
   } else if (options.length > 0 && !result.correct_answer) {
     warnings.push({
       line: lineOffset,
       type: 'missing_answer',
       message: `"${questionText.slice(0, 40)}..." sualında düzgün cavab göstərilməyib`,
+      severity: 'error',
     });
   }
 
@@ -675,7 +737,7 @@ export function parseMarkdownSeparated(content: string): ParseResult {
   const allQuestions: ParsedQuestion[] = [];
   const allWarnings: ParseWarning[] = [];
 
-  const blocks = content.split(/^(?:---+|===+)\s*$/m);
+  const blocks = content.split(/^(?:---+|===+|___+|\*\*\*+|⸻+|—+)\s*$/m);
   let lineOffset = 0;
 
   for (const block of blocks) {
@@ -709,7 +771,8 @@ export function parseMarkdownSeparated(content: string): ParseResult {
  * Əsas Markdown parser.
  */
 export const parseMarkdownFull = (content: string): ParseResult => {
-  if (/^(?:---+|===+)\s*$/m.test(content)) {
+  const horizontalRule = /^(?:---+|===+|___+|\*\*\*+|⸻+|—+)\s*$/m;
+  if (horizontalRule.test(content)) {
     const result = parseMarkdownSeparated(content);
     if (result.questions.length > 0) return result;
   }
@@ -723,13 +786,9 @@ export const parseMarkdownFull = (content: string): ParseResult => {
     if (result.questions.length > 0) return result;
   }
 
-  if (/[\t\s]*[•]\s*/m.test(content) || /^\d+\s*$/m.test(content)) {
-    const result = parseMarkdownFormat3(content);
-    if (result.questions.length > 0) return result;
-  }
-
   const singleResult = parseSingleBlock(content, 0);
   if (singleResult.questions.length > 0) return singleResult;
 
   return { questions: [], warnings: [] };
 }
+

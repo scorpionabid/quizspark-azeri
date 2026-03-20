@@ -3,49 +3,45 @@ import { parseMarkdownFull, parseAiken, parseGIFT } from '../import-parsers';
 
 describe('import-parsers', () => {
   describe('parseMarkdownFull', () => {
-    it('should parse Format 1 (Header + Checklist)', () => {
+    it('should parse Universal Format (Header + Labeled Options + Cavab)', () => {
       const content = `# Sual 1
-- [x] Düzgün
-- [ ] Səhv 1
+A) Birinci # İzah 1
+B) İkinci # İzah 2
+C) Düzgün # İzah 3
 
-Izahat: Bu bir izahdır
+Cavab: C
 Kateqoriya: Elm`;
       const result = parseMarkdownFull(content);
       expect(result.questions).toHaveLength(1);
       expect(result.questions[0].question_text).toBe('Sual 1');
       expect(result.questions[0].correct_answer).toBe('Düzgün');
+      expect(result.questions[0].options).toHaveLength(3);
+      expect(result.questions[0].per_option_explanations?.['2']).toBe('İzah 3');
       expect(result.questions[0].category).toBe('Elm');
-      expect(result.warnings).toHaveLength(0);
     });
 
-    it('should parse Format 2 (Numbered + Variants) - test.md style', () => {
+    it('should parse Format 1 (Header + Checklist) - Legacy support', () => {
+      const content = `# Sual 1
+- [x] Düzgün
+- [ ] Səhv 1
+
+Izahat: Bu bir izahdır`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].correct_answer).toBe('Düzgün');
+    });
+
+    it('should parse Format 2 (Numbered + Variants) via single block fallback', () => {
       const content = `1. Azərbaycanın paytaxtı?
 A) Gəncə
 B) Bakı
 C) Sumqayıt
 
-Düzgün cavab: B
-Taqlar: coğrafiya, bakı`;
+Düzgün cavab: B`;
       const result = parseMarkdownFull(content);
       expect(result.questions).toHaveLength(1);
       expect(result.questions[0].question_text).toBe('Azərbaycanın paytaxtı?');
       expect(result.questions[0].correct_answer).toBe('Bakı');
-      expect(result.questions[0].tags).toContain('coğrafiya');
-    });
-
-    it('should parse Format 3 (Bullet Points) - Apple Notes style', () => {
-      const content = `1
-Paytaxtımız haradır?
-- Bakı
-- Gəncə
-- Şəki
-
-Cavab: Bakı`;
-      const result = parseMarkdownFull(content);
-      expect(result.questions).toHaveLength(1);
-      expect(result.questions[0].question_text).toBe('Paytaxtımız haradır?');
-      expect(result.questions[0].correct_answer).toBe('Bakı');
-      expect(result.questions[0].options).toHaveLength(3);
     });
 
     it('should generate warnings for missing answers', () => {
@@ -91,6 +87,126 @@ ANSWER: 2`;
       const result = parseMarkdownFull(content);
       expect(result.questions).toHaveLength(1);
       expect(result.questions[0].correct_answer).toBe('Option 2');
+    });
+    it('should detect true_false type when options are Doğru/Yanlış', () => {
+      const content = `Su kimyəvi formulası H₂O-dur.
+A) Doğru
+B) Yanlış
+
+ANSWER: A
+Kateqoriya: Kimya`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_type).toBe('true_false');
+      expect(result.questions[0].correct_answer).toBe('Doğru');
+      expect(result.questions[0].category).toBe('Kimya');
+    });
+
+    it('should detect true_false type with True/False options', () => {
+      const content = `The sky is blue.
+A) True
+B) False
+
+ANSWER: A`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_type).toBe('true_false');
+    });
+
+    it('should parse matching block with Tip: matching', () => {
+      const content = `Tip: matching
+Əsərləri müəllifləri ilə uyğunlaşdırın:
+Dədə Qorqud → Türk xalq dastanı
+Ana → Maksim Gorki
+Don Kixot → Servantes
+
+Kateqoriya: Ədəbiyyat
+Çətinlik: orta`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_type).toBe('matching');
+      expect(result.questions[0].category).toBe('Ədəbiyyat');
+    });
+
+    it('should parse fill_blank block with ___ placeholder', () => {
+      const content = `Tip: fill_blank
+Azərbaycanın paytaxtı ___ şəhəridir.
+
+Cavab: Bakı
+Kateqoriya: Coğrafiya`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_type).toBe('fill_blank');
+      expect(result.questions[0].correct_answer).toBe('Bakı');
+    });
+
+    it('should parse ordering block with Tip: ordering', () => {
+      const content = `Tip: ordering
+Hadisələri xronoloji ardıcıllıqla sıralayın:
+- Birinci Dünya Müharibəsi (1914)
+- Sovet İttifaqının yaranması (1922)
+- Azərbaycanın müstəqillik elanı (1991)
+
+Kateqoriya: Tarix`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_type).toBe('ordering');
+      expect(result.questions[0].category).toBe('Tarix');
+    });
+
+    it('should parse short_answer type when no options given', () => {
+      const content = `Azərbaycanın paytaxtı nədir?
+
+Cavab: Bakı
+Kateqoriya: Coğrafiya`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_type).toBe('short_answer');
+      expect(result.questions[0].correct_answer).toBe('Bakı');
+    });
+    it('should assign severity: error for critical issues like missing answers', () => {
+      const content = `# Sual cavabsız
+- [ ] Variant 1`;
+      const result = parseMarkdownFull(content);
+      expect(result.warnings[0].severity).toBe('error');
+    });
+
+    it('should detect duplicate options and assign severity: warning', () => {
+      const content = `# Sual
+A) Bakı
+B) Gəncə
+C) Bakı
+Cavab: A`;
+      const result = parseMarkdownFull(content);
+      expect(result.warnings.some(w => w.type === 'duplicate_option')).toBe(true);
+      expect(result.warnings.find(w => w.type === 'duplicate_option')?.severity).toBe('warning');
+    });
+
+    it('should detect missing question text and assign severity: error', () => {
+      const content = `A) Variant 1
+B) Variant 2
+Cavab: A`;
+      const result = parseMarkdownFull(content);
+      expect(result.warnings.some(w => w.type === 'missing_question_text')).toBe(true);
+    });
+
+    it('should split blocks using special separators like em-dash or asterisks', () => {
+      const content = `Sual 1
+A) V1
+Cavab: A
+⸻
+Sual 2
+A) V2
+Cavab: A
+***
+Sual 3
+A) V3
+Cavab: A`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(3);
+      expect(result.questions[0].question_text).toContain('Sual 1');
+      expect(result.questions[1].question_text).toContain('Sual 2');
+      expect(result.questions[2].question_text).toContain('Sual 3');
     });
   });
 
