@@ -37,8 +37,11 @@ export async function readFileWithEncoding(file: File): Promise<string> {
  */
 export function detectFormat(
   content: string,
-): 'json' | 'csv' | 'aiken' | 'gift' | 'markdown' {
+): 'json' | 'csv' | 'aiken' | 'gift' | 'markdown' | 'moodle_xml' {
   const trimmed = content.trim();
+
+  // Moodle XML
+  if (trimmed.startsWith('<?xml') || trimmed.startsWith('<quiz')) return 'moodle_xml';
 
   // JSON
   if (trimmed.startsWith('[') || trimmed.startsWith('{')) return 'json';

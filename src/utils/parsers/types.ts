@@ -21,6 +21,9 @@ export interface PreviewQuestion {
   hint?: string | null;
   per_option_explanations?: Record<string, string> | null;
   potential_duplicate?: boolean;
+  question_image_url?: string | null;
+  option_images?: Record<number, string> | null;
+  weight?: number | null;
 }
 
 export interface ParseWarning {

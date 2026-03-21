@@ -53,6 +53,10 @@ export function QuestionTableRow({
     else setLocalDraft(null);
   }, [isEditing, q]);
 
+  const imageCount =
+    (q.question_image_url ? 1 : 0) +
+    Object.keys(q.option_images ?? {}).length;
+
   const qWarnings = warnings.filter(w => {
     const qt = q.question_text?.slice(0, 35) ?? '';
     return w.message.includes(qt);
@@ -105,6 +109,26 @@ export function QuestionTableRow({
           </div>
         ) : (
           <div className="space-y-1">
+            {q.question_image_url && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <img
+                      src={q.question_image_url}
+                      alt="Sual şəkli"
+                      className="h-12 w-12 rounded object-cover border border-border/50 mb-1 cursor-zoom-in"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="p-1">
+                    <img
+                      src={q.question_image_url}
+                      alt="Sual şəkli"
+                      className="max-w-[240px] max-h-[240px] rounded object-contain"
+                    />
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <p className="text-sm leading-snug">
               {(hasError || hasWarning) && (
                 <TooltipProvider>
@@ -154,6 +178,11 @@ export function QuestionTableRow({
               {q.category && (
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                   {q.category}
+                </Badge>
+              )}
+              {imageCount > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                  🖼 {imageCount}
                 </Badge>
               )}
               {q.potential_duplicate && (

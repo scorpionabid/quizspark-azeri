@@ -12,9 +12,45 @@ import {
   detectFormat,
   parseJsonImport,
   parseCsvImport,
+  parseMoodleXML,
 } from '@/utils/import-parsers';
 import { formatQuestionsForImport } from '@/components/question-bank/import-export/utils';
 import { ImportFormat } from '@/components/question-bank/import-export/constants';
+
+/**
+ * Converts a base64 data URI to a File, uploads it to the question-images
+ * Supabase bucket and returns the public URL.  Returns null on failure.
+ */
+async function uploadBase64Image(dataUri: string): Promise<string | null> {
+  try {
+    const [header, b64] = dataUri.split(',');
+    if (!header || !b64) return null;
+    const mimeMatch = header.match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+    const ext  = mime.split('/')[1]?.replace('jpeg', 'jpg') ?? 'png';
+
+    const byteChars = atob(b64);
+    const bytes     = new Uint8Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+
+    const blob     = new Blob([bytes], { type: mime });
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+
+    const { data, error } = await supabase.storage
+      .from('question-images')
+      .upload(fileName, blob);
+
+    if (error) return null;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('question-images')
+      .getPublicUrl(data.path);
+
+    return publicUrl;
+  } catch {
+    return null;
+  }
+}
 
 interface ImportStats {
   total: number;
@@ -77,6 +113,82 @@ export function useImportPreview(): UseImportPreviewReturn {
         parsed = parseAiken(content) as PreviewQuestion[];
       } else if (detected === 'gift') {
         parsed = parseGIFT(content) as PreviewQuestion[];
+      } else if (detected === 'moodle_xml') {
+        const r = parseMoodleXML(content);
+
+        // Propagate XML parse errors as user-visible messages
+        if (r.parseError && r.questions.length === 0) {
+          throw new Error(r.parseError);
+        }
+
+        parsed = r.questions;
+        invalidCount = r.invalidCount;
+
+        // ── Upload embedded base64 images to Supabase storage ───────────────
+        // Count total base64 images (question + option images)
+        const totalImages = parsed.reduce((sum, q) => {
+          let n = q.question_image_url?.startsWith('data:') ? 1 : 0;
+          if (q.option_images) {
+            n += Object.values(q.option_images as Record<string, string>)
+              .filter(v => v.startsWith('data:')).length;
+          }
+          return sum + n;
+        }, 0);
+
+        if (totalImages > 0) {
+          toast.info(`${totalImages} şəkil yüklənir...`);
+          let uploadedCount = 0;
+          let failedCount   = 0;
+          let dedupCount    = 0;
+
+          // Deduplication cache: base64 fingerprint → Supabase public URL
+          const dedupCache = new Map<string, string>();
+
+          const getOrUpload = async (uri: string): Promise<string | null> => {
+            // Fingerprint: length + first 64 chars (fast, collision-resistant within one file)
+            const fp = `${uri.length}:${uri.slice(5, 69)}`;
+            if (dedupCache.has(fp)) { dedupCount++; return dedupCache.get(fp)!; }
+            const url = await uploadBase64Image(uri);
+            if (url) { dedupCache.set(fp, url); uploadedCount++; }
+            else { failedCount++; }
+            return url;
+          };
+
+          // Process sequentially so progress is predictable
+          const updatedParsed: PreviewQuestion[] = [];
+          for (const q of parsed) {
+            const updated = { ...q };
+
+            if (updated.question_image_url?.startsWith('data:')) {
+              updated.question_image_url = await getOrUpload(updated.question_image_url);
+            }
+
+            if (updated.option_images) {
+              const uploadedOpts: Record<number, string> = {};
+              for (const [idxStr, uri] of Object.entries(updated.option_images as Record<string, string>)) {
+                const idx = Number(idxStr);
+                if (uri.startsWith('data:')) {
+                  const url = await getOrUpload(uri);
+                  if (url) uploadedOpts[idx] = url;
+                } else {
+                  uploadedOpts[idx] = uri;
+                }
+              }
+              updated.option_images = Object.keys(uploadedOpts).length ? uploadedOpts : null;
+            }
+
+            updatedParsed.push(updated);
+          }
+
+          parsed = updatedParsed;
+
+          const dedupNote = dedupCount > 0 ? ` (${dedupCount} dublikat keçildi)` : '';
+          if (failedCount > 0) {
+            toast.warning(`${uploadedCount} şəkil yükləndi, ${failedCount} uğursuz oldu${dedupNote}.`);
+          } else {
+            toast.success(`${uploadedCount} şəkil uğurla yükləndi${dedupNote}.`);
+          }
+        }
       } else {
         const result = parseMarkdownFull(content);
         parsed = result.questions as PreviewQuestion[];

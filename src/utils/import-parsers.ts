@@ -10,6 +10,7 @@ export { parseAiken, parseGIFT };
 export { parseMarkdownFull };
 export { parseJsonImport } from './parsers/json-parser';
 export { parseCsvImport, parseCsvLine } from './parsers/csv-parser';
+export { parseMoodleXML } from './parsers/moodle-xml-parser';
 
 /**
  * Legacy wrapper — köhnə kodla uyğunluq üçün.

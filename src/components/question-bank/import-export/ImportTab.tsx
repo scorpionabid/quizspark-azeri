@@ -85,6 +85,7 @@ export function ImportTab({
     if (importFormat === 'json') { type = 'application/json'; ext = 'json'; }
     else if (importFormat === 'csv') { type = 'text/csv'; ext = 'csv'; }
     else if (importFormat === 'markdown') ext = 'md';
+    else if (importFormat === 'moodle_xml') { type = 'application/xml'; ext = 'xml'; }
     downloadFile(new Blob([content], { type }), `sual-shabloni-${importFormat}.${ext}`);
   };
 
@@ -106,6 +107,7 @@ export function ImportTab({
               <SelectItem value="aiken">Aiken (.txt)</SelectItem>
               <SelectItem value="gift">GIFT (.txt)</SelectItem>
               <SelectItem value="markdown">Markdown (.md)</SelectItem>
+              <SelectItem value="moodle_xml">Moodle XML (.xml)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -151,8 +153,8 @@ export function ImportTab({
         <p className="font-medium">
           {isDraggingOver ? 'Faylı buraxın!' : 'Fayl seçin və ya buraya sürükləyin'}
         </p>
-        <p className="text-sm text-muted-foreground mt-1">JSON, CSV, Aiken, GIFT və ya Markdown</p>
-        <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
+        <p className="text-sm text-muted-foreground mt-1">JSON, CSV, Aiken, GIFT, Markdown və ya Moodle XML</p>
+        <input ref={fileInputRef} type="file" accept=".json,.csv,.txt,.md,.xml" onChange={handleFileSelect} className="hidden" />
       </motion.div>
 
       {importError && (
