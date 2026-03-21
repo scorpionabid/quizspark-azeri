@@ -8,6 +8,8 @@ export * from './parsers/types';
 export { readFileWithEncoding, detectFormat };
 export { parseAiken, parseGIFT };
 export { parseMarkdownFull };
+export { parseJsonImport } from './parsers/json-parser';
+export { parseCsvImport, parseCsvLine } from './parsers/csv-parser';
 
 /**
  * Legacy wrapper — köhnə kodla uyğunluq üçün.
@@ -30,8 +32,6 @@ export const parseContent = (content: string, format?: string): ParseResult => {
     case 'markdown':
       return parseMarkdownFull(content);
     default:
-      // JSON və CSV hələlik birbaşa ImportExportDialog-da idarə olunur, 
-      // lakin burada struktur üçün saxlanılır.
       return { questions: [], warnings: [] };
   }
 };
