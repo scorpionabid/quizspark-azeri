@@ -749,6 +749,7 @@ export type Database = {
       }
       quizzes: {
         Row: {
+          auto_advance: boolean | null
           created_at: string | null
           creator_id: string
           description: string | null
@@ -767,6 +768,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          auto_advance?: boolean | null
           created_at?: string | null
           creator_id: string
           description?: string | null
@@ -785,6 +787,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          auto_advance?: boolean | null
           created_at?: string | null
           creator_id?: string
           description?: string | null

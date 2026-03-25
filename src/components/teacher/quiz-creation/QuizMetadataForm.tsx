@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { UseFormReturn } from 'react-hook-form';
 import { QuizMetadataFormData } from '@/lib/validations/quiz';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Layout, Calendar, Zap } from 'lucide-react';
+import { Settings, Layout, Calendar, Zap, SkipForward } from 'lucide-react';
 
 const SUBJECTS = [
     'Riyaziyyat', 'Fizika', 'Kimya', 'Biologiya', 'Tarix',
@@ -251,6 +251,29 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                             <div className="space-y-0.5">
                                                 <FormLabel className="text-base cursor-pointer">Geri Bildirim</FormLabel>
                                                 <FormDescription>Bitirdikdən sonra cavablar və izahatlar göstərilsin</FormDescription>
+                                            </div>
+                                            <FormControl>
+                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="auto_advance"
+                                    render={({ field }) => (
+                                        <FormItem className="flex items-center justify-between space-x-2 rounded-lg border p-4">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base cursor-pointer flex items-center gap-2">
+                                                    <SkipForward className="h-4 w-4 text-primary" />
+                                                    Avtokeçid
+                                                </FormLabel>
+                                                <FormDescription>
+                                                    {field.value
+                                                        ? 'Cavabdan sonra avtomatik növbəti suala keçir'
+                                                        : '"Növbəti" düyməsi ilə əl ilə keçid'}
+                                                </FormDescription>
                                             </div>
                                             <FormControl>
                                                 <Switch checked={field.value} onCheckedChange={field.onChange} />

@@ -32,6 +32,7 @@ export const quizMetadataSchema = z.object({
     available_to: z.string().optional().nullable().or(z.literal('')),
     time_bonus_enabled: z.boolean().default(false),
     time_penalty_enabled: z.boolean().default(false),
+    auto_advance: z.boolean().default(false),
 }).refine(
     (data) => {
         // M2.3: available_from < available_to cross-field validasiyası

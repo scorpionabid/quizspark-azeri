@@ -100,14 +100,17 @@ export default function QuizPage() {
   }, [isPreview, attemptId, startTime, user, quiz, displayQuestions, completeAttempt, updateXPAsync]);
 
   const handleNextInternal = useCallback(async (latestAnswers: Answer[]) => {
+    // Pending auto-advance timeout-u ləğv et (double-advance bug fix)
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current);
+      transitionTimeoutRef.current = null;
+    }
     if (currentQuestion < displayQuestions.length - 1) {
       setCurrentQuestion(prev => prev + 1);
       setLocalAnswer('');
       setShowFeedback(false);
       setShowHint(false);
-      transitionTimeoutRef.current = null;
     } else {
-      transitionTimeoutRef.current = null;
       await completeQuizWithAnswers(latestAnswers);
     }
   }, [currentQuestion, displayQuestions.length, completeQuizWithAnswers]);
@@ -204,13 +207,20 @@ export default function QuizPage() {
       });
     }
 
-    if (transitionTimeoutRef.current) {
-      clearTimeout(transitionTimeoutRef.current);
+    // Avtokeçid: quiz.auto_advance === true olduqda avtomatik növbəti suala keçir.
+    // Gecikmə: sualın time_limit-i varsa həmin saniyə, yoxdursa 1500ms.
+    // auto_advance === false (manual) olduqda istifadəçi "Növbəti" düyməsini basmalıdır.
+    if (quiz?.auto_advance) {
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+      const delay = currentQ.time_limit ? currentQ.time_limit * 1000 : 1500;
+      transitionTimeoutRef.current = setTimeout(async () => {
+        if (transitionTimeoutRef.current !== null) {
+          await handleNextInternal(updatedAnswers);
+        }
+      }, delay);
     }
-
-    transitionTimeoutRef.current = setTimeout(async () => {
-      handleNextInternal(updatedAnswers);
-    }, 1500 + (isCorrect && currentQ.explanation ? 1500 : 0));
   }, [showFeedback, displayQuestions, currentQuestion, answers, attemptId, quiz, isPreview, updateAttempt, handleNextInternal]);
 
   // M3.3: Yarımçıq cəhdi davam etdir

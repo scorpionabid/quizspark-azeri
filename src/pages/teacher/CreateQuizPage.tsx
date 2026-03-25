@@ -183,6 +183,7 @@ export default function CreateQuizPage() {
       available_to: '',
       time_bonus_enabled: false,
       time_penalty_enabled: false,
+      auto_advance: false,
     },
   });
 
@@ -208,6 +209,7 @@ export default function CreateQuizPage() {
         available_to: existingQuiz.available_to || '',
         time_bonus_enabled: existingQuiz.time_bonus_enabled ?? false,
         time_penalty_enabled: existingQuiz.time_penalty_enabled ?? false,
+        auto_advance: existingQuiz.auto_advance ?? false,
       });
     }
   }, [id, existingQuiz, form]);
@@ -482,6 +484,7 @@ export default function CreateQuizPage() {
         available_to: metadata.available_to || null,
         time_bonus_enabled: metadata.time_bonus_enabled,
         time_penalty_enabled: metadata.time_penalty_enabled,
+        auto_advance: metadata.auto_advance,
       };
 
       if (id) {

@@ -30,6 +30,7 @@ export interface Quiz {
   available_to?: string | null;
   time_bonus_enabled?: boolean;
   time_penalty_enabled?: boolean;
+  auto_advance?: boolean;
 }
 
 export interface QuizFilters {
