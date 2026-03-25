@@ -61,6 +61,32 @@ export default function QuizPage() {
   const timeUpTriggeredRef = useRef(false);
   const totalTimeUpRef = useRef(false);
   const answersRef = useRef<Answer[]>([]);
+  const draftLoadedRef = useRef(false);
+
+  // Auto-Save Draft to LocalStorage
+  useEffect(() => {
+    if (attemptId && quizState === 'playing' && Object.keys(localAnswers).length > 0) {
+      localStorage.setItem(`quiz_draft_${attemptId}`, JSON.stringify(localAnswers));
+    }
+  }, [localAnswers, attemptId, quizState]);
+
+  // Restore Draft on Mount
+  useEffect(() => {
+    if (attemptId && quizState === 'playing' && !draftLoadedRef.current) {
+      draftLoadedRef.current = true;
+      const saved = localStorage.getItem(`quiz_draft_${attemptId}`);
+      if (saved && Object.keys(localAnswers).length === 0) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') {
+            setLocalAnswers(parsed);
+          }
+        } catch (e) {
+          console.error("Failed to parse draft", e);
+        }
+      }
+    }
+  }, [attemptId, quizState, localAnswers]);
 
   const isLoading = quizLoading || questionsLoading;
 
@@ -98,6 +124,7 @@ export default function QuizPage() {
           answers: latestAnswers as unknown as Record<string, string>[],
         });
         localStorage.removeItem(`quiz_start_${quiz.id}`);
+        localStorage.removeItem(`quiz_draft_${attemptId}`);
         const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
         setEarnedXP(prev => prev + xpGain);
         if (xpGain > 0) {
@@ -321,6 +348,7 @@ export default function QuizPage() {
       setCurrentPage(0);
       setAnswers([]);
       setLocalAnswers({});
+      draftLoadedRef.current = false;
       const totalDurationSecs = (quiz.duration || 20) * 60;
       setTotalTimeLeft(totalDurationSecs);
       setTimeLeft(totalDurationSecs);
