@@ -6,7 +6,77 @@
 
 @layer base {
   :root {
-    /* Game-inspired educational palette */
+    /* --- Light Mode (Default) --- */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Vibrant teal primary - slightly more saturated for light mode */
+    --primary: 174 72% 45%;
+    --primary-foreground: 210 40% 98%;
+    --primary-glow: 174 72% 60%;
+
+    /* Warm orange secondary */
+    --secondary: 32 95% 55%;
+    --secondary-foreground: 210 40% 98%;
+
+    /* Muted tones */
+    --muted: 210 40% 92%;
+    --muted-foreground: 215 25% 45%;
+
+    /* Purple accent */
+    --accent: 262 83% 60%;
+    --accent-foreground: 210 40% 98%;
+
+    /* Status colors */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 76% 40%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 174 72% 45%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar - Light */
+    --sidebar-background: 210 40% 96%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 174 72% 45%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 214 32% 91%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 88%;
+    --sidebar-ring: 174 72% 45%;
+
+    /* Gradients adapted for light mode */
+    --gradient-primary: linear-gradient(135deg, hsl(174 72% 50%), hsl(174 72% 35%));
+    --gradient-secondary: linear-gradient(135deg, hsl(32 95% 60%), hsl(32 95% 45%));
+    --gradient-accent: linear-gradient(135deg, hsl(262 83% 65%), hsl(262 83% 50%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 40% 98%));
+    --gradient-hero: linear-gradient(135deg, hsl(210 40% 98%) 0%, hsl(210 40% 94%) 50%, hsl(174 72% 90% / 0.3) 100%);
+
+    /* Shadows softer for light mode */
+    --shadow-glow: 0 0 20px hsl(174 72% 60% / 0.15);
+    --shadow-card: 0 4px 20px hsl(222 47% 10% / 0.05);
+    --shadow-elevated: 0 12px 40px hsl(222 47% 10% / 0.1);
+
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .dark {
+    /* --- Dark Mode (Original Game Style) --- */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
@@ -16,24 +86,19 @@
     --popover: 222 47% 14%;
     --popover-foreground: 210 40% 98%;
 
-    /* Vibrant teal primary */
     --primary: 174 72% 56%;
     --primary-foreground: 222 47% 11%;
     --primary-glow: 174 72% 70%;
 
-    /* Warm orange secondary */
     --secondary: 32 95% 60%;
     --secondary-foreground: 222 47% 11%;
 
-    /* Muted navy tones */
     --muted: 222 47% 18%;
     --muted-foreground: 215 20% 65%;
 
-    /* Purple accent for achievements */
     --accent: 262 83% 68%;
     --accent-foreground: 210 40% 98%;
 
-    /* Status colors */
     --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
 
@@ -47,9 +112,7 @@
     --input: 222 47% 18%;
     --ring: 174 72% 56%;
 
-    --radius: 0.75rem;
-
-    /* Sidebar */
+    /* Sidebar - Dark */
     --sidebar-background: 222 47% 8%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 174 72% 56%;
@@ -59,26 +122,17 @@
     --sidebar-border: 222 47% 18%;
     --sidebar-ring: 174 72% 56%;
 
-    /* Custom gradients */
+    /* Gradients for dark mode */
     --gradient-primary: linear-gradient(135deg, hsl(174 72% 56%), hsl(174 72% 40%));
     --gradient-secondary: linear-gradient(135deg, hsl(32 95% 60%), hsl(32 95% 45%));
     --gradient-accent: linear-gradient(135deg, hsl(262 83% 68%), hsl(262 83% 55%));
     --gradient-card: linear-gradient(180deg, hsl(222 47% 16%), hsl(222 47% 12%));
     --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 8%) 50%, hsl(174 72% 20% / 0.3) 100%);
 
-    /* Shadows */
+    /* Shadows for dark mode */
     --shadow-glow: 0 0 40px hsl(174 72% 56% / 0.3);
     --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.4);
     --shadow-elevated: 0 16px 48px hsl(0 0% 0% / 0.5);
-
-    /* Animations */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
   }
 }
 
