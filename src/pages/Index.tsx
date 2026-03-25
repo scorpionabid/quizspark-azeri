@@ -2,12 +2,13 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { QuizCard, Quiz } from "@/components/quiz/QuizCard";
+import { QuizCard } from "@/components/quiz/QuizCard";
 import { CategoryFilter } from "@/components/quiz/CategoryFilter";
 import { QuizFilters, QuizFilterValues } from "@/components/quiz/QuizFilters";
 import { useAuth } from "@/contexts/AuthContext";
-import { sampleQuizzes, categories } from "@/data/sampleQuizzes";
+import { usePublicQuizzes, useQuizzesMeta } from "@/hooks/useQuizzes";
+import { categories } from "@/data/sampleQuizzes";
+import { PageLoader } from "@/components/ui/loading-spinner";
 
 const defaultFilters: QuizFilterValues = {
   difficulty: "all",
@@ -22,19 +23,23 @@ export default function Index() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [filters, setFilters] = useState<QuizFilterValues>(defaultFilters);
 
+  const { data: quizzes = [], isLoading: quizzesLoading } = usePublicQuizzes();
+  const quizIds = useMemo(() => quizzes.map(q => q.id), [quizzes]);
+  const { data: quizMeta = {}, isLoading: metaLoading } = useQuizzesMeta(quizIds);
+
   const isGuest = !user || user.role === 'guest';
   const isLoggedIn = !!user && user.role !== 'guest';
 
   const filteredQuizzes = useMemo(() => {
-    let result = sampleQuizzes.filter((quiz) => {
+    let result = quizzes.filter((quiz) => {
       // Search filter
       const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        quiz.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        quiz.subject.toLowerCase().includes(searchQuery.toLowerCase());
+        (quiz.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+        (quiz.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
       // Category filter
       const matchesCategory = !selectedCategory ||
-        quiz.subject.toLowerCase().includes(selectedCategory.toLowerCase());
+        (quiz.subject?.toLowerCase().includes(selectedCategory.toLowerCase()) ?? false);
 
       // Difficulty filter
       const matchesDifficulty = filters.difficulty === "all" ||
@@ -58,31 +63,45 @@ export default function Index() {
     // Sort
     switch (filters.sortBy) {
       case "popular":
-        result = [...result].sort((a, b) => b.playCount - a.playCount);
+        result = [...result].sort((a, b) => (b.play_count || 0) - (a.play_count || 0));
         break;
       case "rating":
-        result = [...result].sort((a, b) => b.rating - a.rating);
+        result = [...result].sort((a, b) => (b.rating || 0) - (a.rating || 0));
         break;
       case "questions":
-        result = [...result].sort((a, b) => b.questionCount - a.questionCount);
+        result = [...result].sort((a, b) => (quizMeta[b.id]?.question_count || 0) - (quizMeta[a.id]?.question_count || 0));
         break;
       case "newest":
       default:
-        // Keep original order for newest
+        result = [...result].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         break;
     }
 
     return result;
-  }, [searchQuery, selectedCategory, filters]);
+  }, [quizzes, quizMeta, searchQuery, selectedCategory, filters]);
 
-  const popularQuizzes = sampleQuizzes.filter(q => q.isPopular);
-  const newQuizzes = sampleQuizzes.filter(q => q.isNew);
+  // Derive static-looking data from real data
+  const popularQuizzes = useMemo(() => quizzes.filter(q => q.is_popular).slice(0, 4), [quizzes]);
+  const newQuizzes = useMemo(() => quizzes.filter(q => q.is_new).slice(0, 4), [quizzes]);
 
-  const handlePlayQuiz = (quiz: Quiz) => {
+  // Dynamic Stats
+  const stats = useMemo(() => {
+    const totalQuizzes = quizzes.length;
+    const totalParticipants = quizzes.reduce((sum, q) => sum + (q.play_count || 0), 0);
+    const uniqueSubjects = new Set(quizzes.map(q => q.subject).filter(Boolean)).size;
+    
+    return {
+      quizzes: totalQuizzes > 0 ? `${totalQuizzes}+` : "0",
+      participants: totalParticipants > 1000 ? `${Math.floor(totalParticipants/1000)}K+` : totalParticipants.toString(),
+      subjects: uniqueSubjects || 0
+    };
+  }, [quizzes]);
+
+  const handlePlayQuiz = (quiz: import("@/hooks/useQuizzes").Quiz) => {
     navigate(`/quiz/${quiz.id}`);
   };
 
-  const handlePreviewQuiz = (quiz: Quiz) => {
+  const handlePreviewQuiz = (quiz: import("@/hooks/useQuizzes").Quiz) => {
     navigate(`/quiz/${quiz.id}?preview=true`);
   };
 
@@ -92,8 +111,12 @@ export default function Index() {
     setSearchQuery("");
   };
 
+  if (quizzesLoading && quizzes.length === 0) {
+    return <PageLoader text="Quizlər yüklənir..." />;
+  }
+
   return (
-    <div className="bg-gradient-hero">
+    <div className="bg-gradient-hero min-h-screen">
       {/* Hero Section */}
       <section className="relative overflow-hidden px-4 py-16 sm:px-6 lg:px-8">
         {/* Decorative elements */}
@@ -133,25 +156,25 @@ export default function Index() {
 
           {/* Stats */}
           <div className="mx-auto grid max-w-2xl grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-8">
-            <div className="rounded-2xl bg-card/50 p-4 backdrop-blur-sm">
+            <div className="rounded-2xl bg-card/50 p-4 backdrop-blur-sm border border-border/30">
               <div className="mb-1 flex items-center justify-center gap-2 text-primary">
                 <BookOpen className="h-5 w-5" />
               </div>
-              <div className="text-2xl font-bold text-foreground sm:text-3xl">150+</div>
+              <div className="text-2xl font-bold text-foreground sm:text-3xl">{stats.quizzes}</div>
               <div className="text-xs text-muted-foreground sm:text-sm">Quizlər</div>
             </div>
-            <div className="rounded-2xl bg-card/50 p-4 backdrop-blur-sm">
+            <div className="rounded-2xl bg-card/50 p-4 backdrop-blur-sm border border-border/30">
               <div className="mb-1 flex items-center justify-center gap-2 text-secondary">
                 <Target className="h-5 w-5" />
               </div>
-              <div className="text-2xl font-bold text-foreground sm:text-3xl">10K+</div>
+              <div className="text-2xl font-bold text-foreground sm:text-3xl">{stats.participants}</div>
               <div className="text-xs text-muted-foreground sm:text-sm">İştirakçı</div>
             </div>
-            <div className="rounded-2xl bg-card/50 p-4 backdrop-blur-sm">
+            <div className="rounded-2xl bg-card/50 p-4 backdrop-blur-sm border border-border/30">
               <div className="mb-1 flex items-center justify-center gap-2 text-accent">
                 <Trophy className="h-5 w-5" />
               </div>
-              <div className="text-2xl font-bold text-foreground sm:text-3xl">8</div>
+              <div className="text-2xl font-bold text-foreground sm:text-3xl">{stats.subjects}</div>
               <div className="text-xs text-muted-foreground sm:text-sm">Fənn</div>
             </div>
           </div>
@@ -199,6 +222,7 @@ export default function Index() {
                 <QuizCard
                   key={quiz.id}
                   quiz={quiz}
+                  questionCount={quizMeta[quiz.id]?.question_count}
                   onPlay={handlePlayQuiz}
                   onPreview={handlePreviewQuiz}
                   isGuest={isGuest}
@@ -224,6 +248,7 @@ export default function Index() {
                 <QuizCard
                   key={quiz.id}
                   quiz={quiz}
+                  questionCount={quizMeta[quiz.id]?.question_count}
                   onPlay={handlePlayQuiz}
                   onPreview={handlePreviewQuiz}
                   isGuest={isGuest}
@@ -255,6 +280,7 @@ export default function Index() {
                 <QuizCard
                   key={quiz.id}
                   quiz={quiz}
+                  questionCount={quizMeta[quiz.id]?.question_count}
                   onPlay={handlePlayQuiz}
                   onPreview={handlePreviewQuiz}
                   isGuest={isGuest}
@@ -262,10 +288,15 @@ export default function Index() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-card/50 py-16 text-center">
-              <div className="mb-4 text-6xl">🔍</div>
+            <div className="flex flex-col items-center justify-center rounded-2xl bg-card/50 py-16 text-center border border-dashed border-border/50">
+              <div className="mb-4 text-6xl opacity-50">🔍</div>
               <h3 className="mb-2 text-xl font-semibold text-foreground">Quiz tapılmadı</h3>
-              <p className="text-muted-foreground">Axtarış sorğunuzu dəyişdirməyə çalışın</p>
+              <p className="text-muted-foreground">Seçdiyiniz meyarlara uyğun heç bir quiz yoxdur.</p>
+              {(searchQuery || selectedCategory) && (
+                <Button variant="link" onClick={handleClearFilters} className="mt-4 text-primary">
+                  Filtrləri təmizlə
+                </Button>
+              )}
             </div>
           )}
         </div>
