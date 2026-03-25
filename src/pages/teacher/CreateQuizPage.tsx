@@ -184,6 +184,13 @@ export default function CreateQuizPage() {
       time_bonus_enabled: false,
       time_penalty_enabled: false,
       auto_advance: false,
+      access_password: '',
+      strict_mode: false,
+      allow_backtracking: true,
+      questions_per_page: 1,
+      allow_bookmarks: true,
+      show_question_nav: true,
+      background_image_url: '',
     },
   });
 
@@ -210,6 +217,13 @@ export default function CreateQuizPage() {
         time_bonus_enabled: existingQuiz.time_bonus_enabled ?? false,
         time_penalty_enabled: existingQuiz.time_penalty_enabled ?? false,
         auto_advance: existingQuiz.auto_advance ?? false,
+        access_password: existingQuiz.access_password || '',
+        strict_mode: existingQuiz.strict_mode ?? false,
+        allow_backtracking: existingQuiz.allow_backtracking ?? true,
+        questions_per_page: existingQuiz.questions_per_page ?? 1,
+        allow_bookmarks: existingQuiz.allow_bookmarks ?? true,
+        show_question_nav: existingQuiz.show_question_nav ?? true,
+        background_image_url: existingQuiz.background_image_url || '',
       });
     }
   }, [id, existingQuiz, form]);
@@ -485,6 +499,13 @@ export default function CreateQuizPage() {
         time_bonus_enabled: metadata.time_bonus_enabled,
         time_penalty_enabled: metadata.time_penalty_enabled,
         auto_advance: metadata.auto_advance,
+        access_password: metadata.access_password || null,
+        strict_mode: metadata.strict_mode,
+        allow_backtracking: metadata.allow_backtracking,
+        questions_per_page: metadata.questions_per_page,
+        allow_bookmarks: metadata.allow_bookmarks,
+        show_question_nav: metadata.show_question_nav,
+        background_image_url: metadata.background_image_url || null,
       };
 
       if (id) {

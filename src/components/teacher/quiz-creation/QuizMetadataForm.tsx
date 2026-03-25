@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
     Form,
     FormControl,
@@ -23,7 +23,10 @@ import { Switch } from '@/components/ui/switch';
 import { UseFormReturn } from 'react-hook-form';
 import { QuizMetadataFormData } from '@/lib/validations/quiz';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Layout, Calendar, Zap, SkipForward } from 'lucide-react';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Settings, Layout, Calendar, Zap, SkipForward, Shield, Palette, Clock, Lock, Compass, Image as ImageIcon, Upload } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const SUBJECTS = [
     'Riyaziyyat', 'Fizika', 'Kimya', 'Biologiya', 'Tarix',
@@ -42,6 +45,46 @@ interface QuizMetadataFormProps {
 
 export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
     const [isCustomSubject, setIsCustomSubject] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, onChange: (value: string) => void) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const fileExt = file.name.split('.').pop() || 'png';
+            const fileName = `${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('quiz_assets')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage
+                .from('quiz_assets')
+                .getPublicUrl(filePath);
+
+            onChange(data.publicUrl);
+            toast.success('Fon şəkli uğurla yükləndi');
+        } catch (error: unknown) {
+            const errStr = error instanceof Error ? error.message : String(error);
+            toast.error('Yükləmə xətası: ' + errStr);
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const BACKGROUND_OPTIONS = [
+        { label: 'Yoxdur', value: '' },
+        { label: 'Dəftər vərəqi', value: '/backgrounds/paper-lined.svg' },
+        { label: 'Riyaziyyat dəftəri', value: '/backgrounds/paper-graph.svg' },
+        { label: 'Nöqtəli kağız', value: '/backgrounds/paper-dot.svg' },
+    ];
 
     return (
         <Form {...form}>
@@ -54,11 +97,11 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                         <TabsList className="bg-muted/50">
                             <TabsTrigger value="general" className="gap-2 text-xs">
                                 <Layout className="h-3.5 w-3.5" />
-                                Ümumi
+                                Əsas
                             </TabsTrigger>
                             <TabsTrigger value="settings" className="gap-2 text-xs">
                                 <Settings className="h-3.5 w-3.5" />
-                                Nizamlamalar
+                                Əlavə
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -200,232 +243,457 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                         </FormItem>
                                     )}
                                 />
-
-                                <FormField
-                                    control={form.control}
-                                    name="duration"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Müddət (dəq)</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    min={1}
-                                                    max={300}
-                                                    {...field}
-                                                    onChange={(e) => field.onChange(Number(e.target.value))}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
                             </div>
                         </div>
                     </TabsContent>
 
                     <TabsContent value="settings" className="p-6 mt-0">
-                        <div className="grid gap-6">
-                            <div className="grid gap-6 sm:grid-cols-2">
-                                <FormField
-                                    control={form.control}
-                                    name="shuffle_questions"
-                                    render={({ field }) => (
-                                        <FormItem className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                                            <div className="space-y-0.5">
-                                                <FormLabel className="text-base cursor-pointer">Sualları Qarışdır</FormLabel>
-                                                <FormDescription>Sualların ardıcıllığı hər cəhddə dəyişəcək</FormDescription>
-                                            </div>
-                                            <FormControl>
-                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                            </FormControl>
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="show_feedback"
-                                    render={({ field }) => (
-                                        <FormItem className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                                            <div className="space-y-0.5">
-                                                <FormLabel className="text-base cursor-pointer">Geri Bildirim</FormLabel>
-                                                <FormDescription>Bitirdikdən sonra cavablar və izahatlar göstərilsin</FormDescription>
-                                            </div>
-                                            <FormControl>
-                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                            </FormControl>
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="auto_advance"
-                                    render={({ field }) => (
-                                        <FormItem className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                                            <div className="space-y-0.5">
-                                                <FormLabel className="text-base cursor-pointer flex items-center gap-2">
-                                                    <SkipForward className="h-4 w-4 text-primary" />
-                                                    Avtokeçid
-                                                </FormLabel>
-                                                <FormDescription>
-                                                    {field.value
-                                                        ? 'Cavabdan sonra avtomatik növbəti suala keçir'
-                                                        : '"Növbəti" düyməsi ilə əl ilə keçid'}
-                                                </FormDescription>
-                                            </div>
-                                            <FormControl>
-                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                            </FormControl>
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-
-                            {/* Scheduling Section */}
-                            <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
-                                <h3 className="mb-4 flex items-center gap-2 font-semibold text-foreground">
-                                    <Calendar className="h-4 w-4 text-primary" />
-                                    Planlaşdırma
-                                </h3>
-                                <div className="grid gap-4 sm:grid-cols-2">
+                        <Accordion type="multiple" defaultValue={['design', 'security', 'time', 'navigation', 'permissions']} className="w-full space-y-4">
+                            
+                            {/* Dizayn və Fon Şəkli */}
+                            <AccordionItem value="design" className="border rounded-xl px-4 bg-muted/10">
+                                <AccordionTrigger className="hover:no-underline py-4">
+                                    <div className="flex items-center gap-2">
+                                        <ImageIcon className="h-4 w-4 text-primary" />
+                                        <span className="font-semibold">Dizayn və Fon Şəkli</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pt-2 pb-4">
                                     <FormField
                                         control={form.control}
-                                        name="available_from"
+                                        name="background_image_url"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Açılış Zamanı</FormLabel>
+                                                <FormLabel>Test Fonu (Background)</FormLabel>
+                                                <FormDescription>Test zamanı arxa planda görünəcək şəkli seçin və ya yükləyin</FormDescription>
+                                                
+                                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 mb-4">
+                                                    {BACKGROUND_OPTIONS.map((bg) => (
+                                                        <div 
+                                                            key={bg.label} 
+                                                            onClick={() => field.onChange(bg.value)}
+                                                            className={`relative cursor-pointer rounded-xl border-2 transition-all overflow-hidden h-24 flex items-center justify-center bg-cover bg-center ${field.value === bg.value ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}
+                                                            style={bg.value ? { backgroundImage: `url(${bg.value})` } : { backgroundColor: 'hsl(var(--muted))' }}
+                                                        >
+                                                            <div className="absolute inset-x-0 bottom-0 bg-background/90 backdrop-blur-sm p-1.5 text-center text-[10px] font-medium border-t">
+                                                                {bg.label}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    
+                                                    {/* Custom Upload */}
+                                                    <div 
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className={`relative cursor-pointer rounded-xl border-2 border-dashed transition-all overflow-hidden h-24 flex flex-col items-center justify-center gap-1 ${field.value && !BACKGROUND_OPTIONS.some(b => b.value === field.value) ? 'border-primary ring-2 ring-primary/20 bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}
+                                                    >
+                                                        <input 
+                                                            type="file" 
+                                                            ref={fileInputRef}
+                                                            className="hidden" 
+                                                            accept="image/*"
+                                                            onChange={(e) => handleFileUpload(e, field.onChange)}
+                                                            disabled={isUploading}
+                                                        />
+                                                        {isUploading ? (
+                                                            <div className="text-[10px] text-muted-foreground animate-pulse">Yüklənir...</div>
+                                                        ) : (
+                                                            <>
+                                                                <Upload className="h-5 w-5 text-muted-foreground" />
+                                                                <div className="text-[10px] text-muted-foreground font-medium text-center px-1">
+                                                                    Öz Şəkliniz
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                
                                                 <FormControl>
-                                                    <Input type="datetime-local" {...field} value={field.value ?? ''} />
+                                                    <Input 
+                                                        placeholder="Və ya şəkil URL-i daxil edin..." 
+                                                        {...field} 
+                                                        value={field.value ?? ''}
+                                                    />
                                                 </FormControl>
-                                                <FormDescription>Quiz nə vaxtdan əlçatan olsun?</FormDescription>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
                                     />
-                                    <FormField
-                                        control={form.control}
-                                        name="available_to"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Qapanış Zamanı</FormLabel>
-                                                <FormControl>
-                                                    <Input type="datetime-local" {...field} value={field.value ?? ''} />
-                                                </FormControl>
-                                                <FormDescription>Quiz nə vaxt bağlansın?</FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                            </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                            
+                            {/* Təhlükəsizlik Bölməsi */}
+                            <AccordionItem value="security" className="border rounded-xl px-4 bg-red-50/50 dark:bg-red-950/10">
+                                <AccordionTrigger className="hover:no-underline py-4">
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="h-4 w-4 text-red-500" />
+                                        <span className="font-semibold text-red-700 dark:text-red-400">Təhlükəsizlik və Nəzarət</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pt-2 pb-4">
+                                    <div className="grid gap-6 sm:grid-cols-2">
+                                        <FormField
+                                            control={form.control}
+                                            name="access_password"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Şifrəli Giriş</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="Boş qoysanız hər kəsə açıq olacaq"
+                                                            {...field}
+                                                            value={field.value ?? ''}
+                                                        />
+                                                    </FormControl>
+                                                    <FormDescription>Yalnız şifrəni bilənlər testə daxil ola bilər</FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="strict_mode"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4 border-red-200 dark:border-red-900/30">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-sm cursor-pointer text-red-600 dark:text-red-400">Ciddi Rejim (Anti-cheat)</FormLabel>
+                                                        <FormDescription className="text-xs">Tab dəyişdikdə xəbərdarlıq edir</FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
 
-                            {/* Timing Options */}
-                            <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
-                                <h3 className="mb-4 flex items-center gap-2 font-semibold text-foreground">
-                                    <Zap className="h-4 w-4 text-primary" />
-                                    Zaman Effektləri
-                                </h3>
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <FormField
-                                        control={form.control}
-                                        name="time_bonus_enabled"
-                                        render={({ field }) => (
-                                            <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-3">
-                                                <div className="space-y-0.5">
-                                                    <FormLabel className="text-sm cursor-pointer flex items-center gap-2">
-                                                        Zaman Bonusu
-                                                    </FormLabel>
-                                                    <FormDescription className="text-xs">Sürətli cavaba görə +XP</FormDescription>
-                                                </div>
-                                                <FormControl>
-                                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="time_penalty_enabled"
-                                        render={({ field }) => (
-                                            <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-3">
-                                                <div className="space-y-0.5">
-                                                    <FormLabel className="text-sm cursor-pointer flex items-center gap-2 text-destructive">
-                                                        Zaman Cəriməsi
-                                                    </FormLabel>
-                                                    <FormDescription className="text-xs">Səhv cavabda vaxtın azalması</FormDescription>
-                                                </div>
-                                                <FormControl>
-                                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                            </div>
+                            {/* Sual İdarəetməsi (Naviqasiya) */}
+                            <AccordionItem value="navigation" className="border rounded-xl px-4 bg-muted/10">
+                                <AccordionTrigger className="hover:no-underline py-4">
+                                    <div className="flex items-center gap-2">
+                                        <Compass className="h-4 w-4 text-primary" />
+                                        <span className="font-semibold">Sual Qaydaları və Naviqasiya</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pt-2 pb-4">
+                                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="questions_per_page"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Səhifələmə (Say)</FormLabel>
+                                                    <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value ?? 1)}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Seçin" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="1">1 Sual (Tək-tək)</SelectItem>
+                                                            <SelectItem value="5">Səhifədə 5 Sual</SelectItem>
+                                                            <SelectItem value="10">Səhifədə 10 Sual</SelectItem>
+                                                            <SelectItem value="0">Bütün Suallar (Siyahı)</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormDescription>Bir səhifədə görünəcək sual sayı</FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="allow_backtracking"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-sm cursor-pointer">Geriyə Qayıtmaq</FormLabel>
+                                                        <FormDescription className="text-xs">Əvvəlki suala icazə</FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="allow_bookmarks"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-sm cursor-pointer">Sancaq (Bookmark)</FormLabel>
+                                                        <FormDescription className="text-xs">Sualı yadda saxlamaq</FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="show_question_nav"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-sm cursor-pointer">Kənar Naviqasiya</FormLabel>
+                                                        <FormDescription className="text-xs">Böyük testlər üçün panel</FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                            
+                            {/* Zaman Bölməsi */}
+                            <AccordionItem value="time" className="border rounded-xl px-4 bg-muted/10">
+                                <AccordionTrigger className="hover:no-underline py-4">
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="h-4 w-4 text-primary" />
+                                        <span className="font-semibold">Zaman Bölməsi</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pt-2 pb-4">
+                                    <div className="grid gap-6 sm:grid-cols-3">
+                                        <FormField
+                                            control={form.control}
+                                            name="duration"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Müddət (dəq)</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            min={1}
+                                                            max={300}
+                                                            {...field}
+                                                            onChange={(e) => field.onChange(Number(e.target.value))}
+                                                        />
+                                                    </FormControl>
+                                                    <FormDescription>Testin ümumi vaxtı</FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="time_bonus_enabled"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-3">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-sm cursor-pointer flex items-center gap-2">
+                                                            Zaman Bonusu
+                                                        </FormLabel>
+                                                        <FormDescription className="text-xs">Sürətli cavaba +XP</FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="time_penalty_enabled"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-3">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-sm cursor-pointer flex items-center gap-2 text-destructive">
+                                                            Zaman Cəriməsi
+                                                        </FormLabel>
+                                                        <FormDescription className="text-xs">Səhv cavabda vaxt azalır</FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
 
-                            <div className="grid gap-6 sm:grid-cols-3">
-                                <FormField
-                                    control={form.control}
-                                    name="pass_percentage"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Keçid Balı (%)</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    min={0}
-                                                    max={100}
-                                                    {...field}
-                                                    onChange={(e) => field.onChange(Number(e.target.value))}
-                                                />
-                                            </FormControl>
-                                            <FormDescription>Minimum keçid faizi</FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                            {/* Görünüş Bölməsi */}
+                            <AccordionItem value="appearance" className="border rounded-xl px-4 bg-muted/10">
+                                <AccordionTrigger className="hover:no-underline py-4">
+                                    <div className="flex items-center gap-2">
+                                        <Palette className="h-4 w-4 text-primary" />
+                                        <span className="font-semibold">Görünüş Bölməsi</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pt-2 pb-4">
+                                    <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
+                                        <FormField
+                                            control={form.control}
+                                            name="shuffle_questions"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-sm cursor-pointer">Sualları Qarışdır</FormLabel>
+                                                        <FormDescription className="text-xs">Hər cəhddə fərqli sıra</FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="show_feedback"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-sm cursor-pointer">Geri Bildirim</FormLabel>
+                                                        <FormDescription className="text-xs">Cavablar və izahatlar göstərilir</FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="auto_advance"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-sm cursor-pointer flex items-center gap-2">
+                                                            <SkipForward className="h-4 w-4 text-primary" />
+                                                            Avtokeçid
+                                                        </FormLabel>
+                                                        <FormDescription className="text-xs">
+                                                            {field.value ? 'Cavabdan sonra test irəliləyir' : 'Əllə düyməyə basılır'}
+                                                        </FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
 
-                                <FormField
-                                    control={form.control}
-                                    name="attempts_limit"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Cəhd Limiti</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    min={1}
-                                                    max={100}
-                                                    {...field}
-                                                    onChange={(e) => field.onChange(Number(e.target.value))}
-                                                />
-                                            </FormControl>
-                                            <FormDescription>Maksimum cəhd sayı</FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                            {/* Səlahiyyət Bölməsi */}
+                            <AccordionItem value="permissions" className="border rounded-xl px-4 bg-muted/10">
+                                <AccordionTrigger className="hover:no-underline py-4">
+                                    <div className="flex items-center gap-2">
+                                        <Shield className="h-4 w-4 text-primary" />
+                                        <span className="font-semibold">Səlahiyyət Bölməsi</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pt-2 pb-4">
+                                    <div className="grid gap-6 sm:grid-cols-3">
+                                        <FormField
+                                            control={form.control}
+                                            name="is_public"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-col justify-center gap-2 rounded-lg border bg-background p-4">
+                                                    <FormLabel className="text-sm">Görünüşmə Stili</FormLabel>
+                                                    <div className="flex items-center gap-3">
+                                                        <FormControl>
+                                                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                        </FormControl>
+                                                        <span className="text-sm font-medium">{field.value ? 'İctimai (Hər kəsə)' : 'Şəxsi (Linklə)'}</span>
+                                                    </div>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="pass_percentage"
+                                            render={({ field }) => (
+                                                <FormItem className="rounded-lg border bg-background p-4">
+                                                    <FormLabel className="text-sm">Keçid Balı (%)</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            min={0}
+                                                            max={100}
+                                                            className="mt-2"
+                                                            {...field}
+                                                            onChange={(e) => field.onChange(Number(e.target.value))}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="attempts_limit"
+                                            render={({ field }) => (
+                                                <FormItem className="rounded-lg border bg-background p-4">
+                                                    <FormLabel className="text-sm">Cəhd Limiti</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            min={1}
+                                                            max={100}
+                                                            className="mt-2"
+                                                            {...field}
+                                                            onChange={(e) => field.onChange(Number(e.target.value))}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
 
-                                <FormField
-                                    control={form.control}
-                                    name="is_public"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-col justify-center gap-2">
-                                            <FormLabel>Görünüş</FormLabel>
-                                            <div className="flex items-center gap-3">
-                                                <FormControl>
-                                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                                </FormControl>
-                                                <span className="text-sm font-medium">{field.value ? 'İctimai' : 'Şəxsi'}</span>
-                                            </div>
-                                            <FormDescription>Quiz hər kəsə açıq olsun?</FormDescription>
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                        </div>
+                            {/* Planlaşdırma Bölməsi */}
+                            <AccordionItem value="scheduling" className="border rounded-xl px-4 bg-muted/10">
+                                <AccordionTrigger className="hover:no-underline py-4">
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="h-4 w-4 text-primary" />
+                                        <span className="font-semibold">Planlaşdırma</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pt-2 pb-4">
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <FormField
+                                            control={form.control}
+                                            name="available_from"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Açılış Zamanı</FormLabel>
+                                                    <FormControl>
+                                                        <Input type="datetime-local" {...field} value={field.value ?? ''} />
+                                                    </FormControl>
+                                                    <FormDescription>Quiz nə vaxtdan əlçatan olsun?</FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="available_to"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Qapanış Zamanı</FormLabel>
+                                                    <FormControl>
+                                                        <Input type="datetime-local" {...field} value={field.value ?? ''} />
+                                                    </FormControl>
+                                                    <FormDescription>Quiz nə vaxt bağlansın?</FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+
+                        </Accordion>
                     </TabsContent>
                 </Tabs>
             </div>

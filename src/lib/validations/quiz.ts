@@ -33,6 +33,14 @@ export const quizMetadataSchema = z.object({
     time_bonus_enabled: z.boolean().default(false),
     time_penalty_enabled: z.boolean().default(false),
     auto_advance: z.boolean().default(false),
+    // Advanced Features
+    access_password: z.string().max(50).optional().nullable().or(z.literal('')),
+    strict_mode: z.boolean().default(false),
+    allow_backtracking: z.boolean().default(true),
+    questions_per_page: z.number().int().default(1),
+    allow_bookmarks: z.boolean().default(true),
+    show_question_nav: z.boolean().default(true),
+    background_image_url: z.string().optional().nullable().or(z.literal('')),
 }).refine(
     (data) => {
         // M2.3: available_from < available_to cross-field validasiyası

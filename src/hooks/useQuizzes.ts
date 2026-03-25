@@ -31,6 +31,13 @@ export interface Quiz {
   time_bonus_enabled?: boolean;
   time_penalty_enabled?: boolean;
   auto_advance?: boolean;
+  access_password?: string | null;
+  strict_mode?: boolean;
+  allow_backtracking?: boolean;
+  questions_per_page?: number;
+  allow_bookmarks?: boolean;
+  show_question_nav?: boolean;
+  background_image_url?: string | null;
 }
 
 export interface QuizFilters {

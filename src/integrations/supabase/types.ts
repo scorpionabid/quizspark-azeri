@@ -7,10 +7,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -91,6 +111,41 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      ai_model_aliases: {
+        Row: {
+          alias_key: string
+          created_at: string | null
+          description: string | null
+          id: string
+          model_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          alias_key: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          model_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          alias_key?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          model_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_aliases_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "ai_models"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_models: {
         Row: {
@@ -371,6 +426,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ai_daily_limit: number | null
           avatar_url: string | null
           bio: string | null
           created_at: string | null
@@ -379,14 +435,19 @@ export type Database = {
           grade: string | null
           id: string
           is_profile_complete: boolean
+          last_active_at: string | null
+          level: number | null
           phone: string | null
           school: string | null
           status: string | null
+          streak_count: number | null
           subscription_tier: string
           updated_at: string | null
           user_id: string
+          xp_points: number | null
         }
         Insert: {
+          ai_daily_limit?: number | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
@@ -395,14 +456,19 @@ export type Database = {
           grade?: string | null
           id?: string
           is_profile_complete?: boolean
+          last_active_at?: string | null
+          level?: number | null
           phone?: string | null
           school?: string | null
           status?: string | null
+          streak_count?: number | null
           subscription_tier?: string
           updated_at?: string | null
           user_id: string
+          xp_points?: number | null
         }
         Update: {
+          ai_daily_limit?: number | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
@@ -411,12 +477,16 @@ export type Database = {
           grade?: string | null
           id?: string
           is_profile_complete?: boolean
+          last_active_at?: string | null
+          level?: number | null
           phone?: string | null
           school?: string | null
           status?: string | null
+          streak_count?: number | null
           subscription_tier?: string
           updated_at?: string | null
           user_id?: string
+          xp_points?: number | null
         }
         Relationships: []
       }
@@ -429,18 +499,37 @@ export type Database = {
           difficulty: string | null
           embedding: string | null
           explanation: string | null
+          feedback_enabled: boolean | null
+          fill_blank_template: string | null
+          hint: string | null
+          hotspot_data: Json | null
           id: string
+          matching_pairs: Json | null
           media_type: string | null
           media_url: string | null
+          model_3d_type: string | null
+          model_3d_url: string | null
+          numerical_answer: number | null
+          numerical_tolerance: number | null
           option_images: Json | null
           options: Json | null
+          per_option_explanations: Json | null
+          quality_score: number | null
           question_image_url: string | null
           question_text: string
           question_type: string
+          sequence_items: Json | null
           source_document_id: string | null
           tags: string[] | null
+          time_limit: number | null
+          title: string | null
           updated_at: string
+          usage_count: number | null
           user_id: string | null
+          video_end_time: number | null
+          video_start_time: number | null
+          video_url: string | null
+          weight: number | null
         }
         Insert: {
           bloom_level?: string | null
@@ -450,18 +539,37 @@ export type Database = {
           difficulty?: string | null
           embedding?: string | null
           explanation?: string | null
+          feedback_enabled?: boolean | null
+          fill_blank_template?: string | null
+          hint?: string | null
+          hotspot_data?: Json | null
           id?: string
+          matching_pairs?: Json | null
           media_type?: string | null
           media_url?: string | null
+          model_3d_type?: string | null
+          model_3d_url?: string | null
+          numerical_answer?: number | null
+          numerical_tolerance?: number | null
           option_images?: Json | null
           options?: Json | null
+          per_option_explanations?: Json | null
+          quality_score?: number | null
           question_image_url?: string | null
           question_text: string
           question_type?: string
+          sequence_items?: Json | null
           source_document_id?: string | null
           tags?: string[] | null
+          time_limit?: number | null
+          title?: string | null
           updated_at?: string
+          usage_count?: number | null
           user_id?: string | null
+          video_end_time?: number | null
+          video_start_time?: number | null
+          video_url?: string | null
+          weight?: number | null
         }
         Update: {
           bloom_level?: string | null
@@ -471,18 +579,37 @@ export type Database = {
           difficulty?: string | null
           embedding?: string | null
           explanation?: string | null
+          feedback_enabled?: boolean | null
+          fill_blank_template?: string | null
+          hint?: string | null
+          hotspot_data?: Json | null
           id?: string
+          matching_pairs?: Json | null
           media_type?: string | null
           media_url?: string | null
+          model_3d_type?: string | null
+          model_3d_url?: string | null
+          numerical_answer?: number | null
+          numerical_tolerance?: number | null
           option_images?: Json | null
           options?: Json | null
+          per_option_explanations?: Json | null
+          quality_score?: number | null
           question_image_url?: string | null
           question_text?: string
           question_type?: string
+          sequence_items?: Json | null
           source_document_id?: string | null
           tags?: string[] | null
+          time_limit?: number | null
+          title?: string | null
           updated_at?: string
+          usage_count?: number | null
           user_id?: string | null
+          video_end_time?: number | null
+          video_start_time?: number | null
+          video_url?: string | null
+          weight?: number | null
         }
         Relationships: [
           {
@@ -535,50 +662,6 @@ export type Database = {
           },
         ]
       }
-      questions: {
-        Row: {
-          correct_answer: string
-          created_at: string | null
-          explanation: string | null
-          id: string
-          options: Json | null
-          order_index: number | null
-          question_text: string
-          question_type: string | null
-          quiz_id: string
-        }
-        Insert: {
-          correct_answer: string
-          created_at?: string | null
-          explanation?: string | null
-          id?: string
-          options?: Json | null
-          order_index?: number | null
-          question_text: string
-          question_type?: string | null
-          quiz_id: string
-        }
-        Update: {
-          correct_answer?: string
-          created_at?: string | null
-          explanation?: string | null
-          id?: string
-          options?: Json | null
-          order_index?: number | null
-          question_text?: string
-          question_type?: string | null
-          quiz_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "questions_quiz_id_fkey"
-            columns: ["quiz_id"]
-            isOneToOne: false
-            referencedRelation: "quizzes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       question_ratings: {
         Row: {
           comment: string | null
@@ -624,7 +707,111 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "questions"
             referencedColumns: ["id"]
-          }
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          correct_answer: string
+          created_at: string | null
+          explanation: string | null
+          fill_blank_template: string | null
+          hint: string | null
+          hotspot_data: Json | null
+          id: string
+          matching_pairs: Json | null
+          media_type: string | null
+          media_url: string | null
+          model_3d_type: string | null
+          model_3d_url: string | null
+          numerical_answer: number | null
+          numerical_tolerance: number | null
+          option_images: Json | null
+          options: Json | null
+          order_index: number | null
+          per_option_explanations: Json | null
+          question_image_url: string | null
+          question_text: string
+          question_type: string | null
+          quiz_id: string
+          sequence_items: Json | null
+          time_limit: number | null
+          title: string | null
+          video_end_time: number | null
+          video_start_time: number | null
+          video_url: string | null
+          weight: number | null
+        }
+        Insert: {
+          correct_answer: string
+          created_at?: string | null
+          explanation?: string | null
+          fill_blank_template?: string | null
+          hint?: string | null
+          hotspot_data?: Json | null
+          id?: string
+          matching_pairs?: Json | null
+          media_type?: string | null
+          media_url?: string | null
+          model_3d_type?: string | null
+          model_3d_url?: string | null
+          numerical_answer?: number | null
+          numerical_tolerance?: number | null
+          option_images?: Json | null
+          options?: Json | null
+          order_index?: number | null
+          per_option_explanations?: Json | null
+          question_image_url?: string | null
+          question_text: string
+          question_type?: string | null
+          quiz_id: string
+          sequence_items?: Json | null
+          time_limit?: number | null
+          title?: string | null
+          video_end_time?: number | null
+          video_start_time?: number | null
+          video_url?: string | null
+          weight?: number | null
+        }
+        Update: {
+          correct_answer?: string
+          created_at?: string | null
+          explanation?: string | null
+          fill_blank_template?: string | null
+          hint?: string | null
+          hotspot_data?: Json | null
+          id?: string
+          matching_pairs?: Json | null
+          media_type?: string | null
+          media_url?: string | null
+          model_3d_type?: string | null
+          model_3d_url?: string | null
+          numerical_answer?: number | null
+          numerical_tolerance?: number | null
+          option_images?: Json | null
+          options?: Json | null
+          order_index?: number | null
+          per_option_explanations?: Json | null
+          question_image_url?: string | null
+          question_text?: string
+          question_type?: string | null
+          quiz_id?: string
+          sequence_items?: Json | null
+          time_limit?: number | null
+          title?: string | null
+          video_end_time?: number | null
+          video_start_time?: number | null
+          video_url?: string | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
         ]
       }
       quiz_attempts: {
@@ -749,7 +936,15 @@ export type Database = {
       }
       quizzes: {
         Row: {
+          access_password: string | null
+          allow_backtracking: boolean
+          allow_bookmarks: boolean
+          attempts_limit: number | null
           auto_advance: boolean | null
+          available_from: string | null
+          available_to: string | null
+          background_image_url: string | null
+          cover_image_url: string | null
           created_at: string | null
           creator_id: string
           description: string | null
@@ -757,18 +952,35 @@ export type Database = {
           duration: number | null
           grade: string | null
           id: string
+          is_archived: boolean
           is_new: boolean | null
           is_popular: boolean | null
           is_public: boolean | null
           is_published: boolean | null
+          pass_percentage: number | null
           play_count: number | null
+          questions_per_page: number
           rating: number | null
+          show_feedback: boolean | null
+          show_question_nav: boolean
+          shuffle_questions: boolean | null
+          strict_mode: boolean
           subject: string | null
+          time_bonus_enabled: boolean | null
+          time_penalty_enabled: boolean | null
           title: string
           updated_at: string | null
         }
         Insert: {
+          access_password?: string | null
+          allow_backtracking?: boolean
+          allow_bookmarks?: boolean
+          attempts_limit?: number | null
           auto_advance?: boolean | null
+          available_from?: string | null
+          available_to?: string | null
+          background_image_url?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           creator_id: string
           description?: string | null
@@ -776,18 +988,35 @@ export type Database = {
           duration?: number | null
           grade?: string | null
           id?: string
+          is_archived?: boolean
           is_new?: boolean | null
           is_popular?: boolean | null
           is_public?: boolean | null
           is_published?: boolean | null
+          pass_percentage?: number | null
           play_count?: number | null
+          questions_per_page?: number
           rating?: number | null
+          show_feedback?: boolean | null
+          show_question_nav?: boolean
+          shuffle_questions?: boolean | null
+          strict_mode?: boolean
           subject?: string | null
+          time_bonus_enabled?: boolean | null
+          time_penalty_enabled?: boolean | null
           title: string
           updated_at?: string | null
         }
         Update: {
+          access_password?: string | null
+          allow_backtracking?: boolean
+          allow_bookmarks?: boolean
+          attempts_limit?: number | null
           auto_advance?: boolean | null
+          available_from?: string | null
+          available_to?: string | null
+          background_image_url?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           creator_id?: string
           description?: string | null
@@ -795,13 +1024,22 @@ export type Database = {
           duration?: number | null
           grade?: string | null
           id?: string
+          is_archived?: boolean
           is_new?: boolean | null
           is_popular?: boolean | null
           is_public?: boolean | null
           is_published?: boolean | null
+          pass_percentage?: number | null
           play_count?: number | null
+          questions_per_page?: number
           rating?: number | null
+          show_feedback?: boolean | null
+          show_question_nav?: boolean
+          shuffle_questions?: boolean | null
+          strict_mode?: boolean
           subject?: string | null
+          time_bonus_enabled?: boolean | null
+          time_penalty_enabled?: boolean | null
           title?: string
           updated_at?: string | null
         }
@@ -836,6 +1074,48 @@ export type Database = {
           },
         ]
       }
+      support_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_read: boolean
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_receiver_id_profiles_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "support_messages_sender_id_profiles_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -859,9 +1139,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      admin_ai_usage_monitoring: {
+        Row: {
+          effective_limit: number | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          total_requests: number | null
+          total_tokens: number | null
+          usage_date: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_admin_conversations: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          full_name: string
+          last_message: string
+          last_message_at: string
+          unread_count: number
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -890,11 +1193,15 @@ export type Database = {
           tags: string[]
         }[]
       }
-      select_oauth_role: { Args: { p_role: string; p_phone?: string }; Returns: undefined }
-      update_subscription_tier: {
-        Args: { p_user_id: string; p_tier: string }
+      select_oauth_role: {
+        Args: { p_phone?: string; p_role: string }
         Returns: undefined
       }
+      update_subscription_tier: {
+        Args: { p_tier: string; p_user_id: string }
+        Returns: undefined
+      }
+      update_user_gamification: { Args: { p_xp_gain: number }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "teacher" | "student"
@@ -911,121 +1218,125 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "teacher", "student"],
     },
   },
 } as const
+
