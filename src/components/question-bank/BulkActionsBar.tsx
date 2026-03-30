@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, FolderEdit, Tag, X } from 'lucide-react';
+import { Trash2, FolderEdit, Tag, X, Share2 } from 'lucide-react';
 import { useState } from 'react';
 
 interface BulkActionsBarProps {
@@ -10,6 +10,7 @@ interface BulkActionsBarProps {
   onBulkUpdateCategory: (category: string) => void;
   onBulkUpdateDifficulty: (difficulty: string) => void;
   onClearSelection: () => void;
+  onBulkShare?: () => void;
   isDeleting?: boolean;
   isUpdating?: boolean;
 }
@@ -27,6 +28,7 @@ export function BulkActionsBar({
   onBulkUpdateCategory,
   onBulkUpdateDifficulty,
   onClearSelection,
+  onBulkShare,
   isDeleting,
   isUpdating,
 }: BulkActionsBarProps) {
@@ -127,6 +129,18 @@ export function BulkActionsBar({
           >
             <Tag className="h-4 w-4 mr-1" />
             Çətinlik dəyiş
+          </Button>
+        )}
+
+        {/* Bulk Share */}
+        {onBulkShare && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onBulkShare}
+          >
+            <Share2 className="h-4 w-4 mr-1" />
+            Paylaş
           </Button>
         )}
 

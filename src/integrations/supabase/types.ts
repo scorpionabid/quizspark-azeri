@@ -1110,6 +1110,50 @@ export type Database = {
           },
         ]
       }
+      question_bank_shares: {
+        Row: {
+          id: string
+          question_id: string
+          shared_by: string
+          shared_with: string
+          message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          question_id: string
+          shared_by: string
+          shared_with: string
+          message?: string | null
+          created_at?: string
+        }
+        Update: {
+          message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qbs_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qbs_shared_by_fkey"
+            columns: ["shared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "qbs_shared_with_fkey"
+            columns: ["shared_with"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          }
+        ]
+      }
       answer_reviews: {
         Row: {
           ai_feedback: string | null
@@ -1776,6 +1820,17 @@ export type Database = {
       }
     }
     Functions: {
+      get_teachers_for_sharing: {
+        Args: {
+          search_term?: string
+        }
+        Returns: {
+          user_id: string
+          full_name: string | null
+          email: string | null
+          avatar_url: string | null
+        }[]
+      }
       get_admin_conversations: {
         Args: never
         Returns: {

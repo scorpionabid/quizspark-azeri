@@ -1,7 +1,10 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import {
   Plus,
   Upload,
@@ -29,40 +32,59 @@ import {
   useBulkDeleteQuestionBank,
   useBulkUpdateQuestionBank,
   useBulkCreateQuestionBank,
+  useShareQuestion,
+  useCopyToMyBank,
   QuestionBankItem,
   SortParams,
   QuestionFilters as Filters,
+  QuestionBankMode,
 } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, QuestionCategory } from '@/hooks/useQuestionCategories';
 
 import { QuestionFilters } from '@/components/question-bank/QuestionFilters';
 import { BulkActionsBar } from '@/components/question-bank/BulkActionsBar';
 import { QuestionTable } from '@/components/question-bank/QuestionTable';
+import { SharedWithMeTable } from '@/components/question-bank/SharedWithMeTable';
+import { ShareQuestionDialog } from '@/components/question-bank/ShareQuestionDialog';
 import { QuestionEditDialog } from '@/components/question-bank/QuestionEditDialog';
 import { QuestionViewDialog } from '@/components/question-bank/QuestionViewDialog';
 import { ImportExportDialog } from '@/components/question-bank/ImportExportDialog';
 import { CategoryManagementDialog } from '@/components/question-bank/CategoryManagementDialog';
 import { QuestionEnhanceDialog } from '@/components/question-bank/QuestionEnhanceDialog';
-import { Badge } from '@/components/ui/badge';
 import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
 import { BloomAnalytics } from '@/components/question-bank/BloomAnalytics';
 
 const PAGE_SIZE = 50;
 
 export default function QuestionBankPage() {
-  // Pagination state
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Active tab — synced with URL ?tab=...
+  const [activeTab, setActiveTab] = useState<QuestionBankMode>(() => {
+    const tab = searchParams.get('tab');
+    return tab === 'shared-with-me' ? 'shared-with-me' : 'my-questions';
+  });
+
+  const handleTabChange = (tab: string) => {
+    const mode = tab as QuestionBankMode;
+    setActiveTab(mode);
+    if (mode === 'shared-with-me') {
+      setSearchParams({ tab: 'shared-with-me' });
+    } else {
+      setSearchParams({});
+    }
+  };
+
+  // ── My Questions state ──────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(0);
-
-  // Filter state
   const [filters, setFilters] = useState<Filters>({});
-
-  // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  // Sorting state
   const [sort, setSort] = useState<SortParams | undefined>({ column: 'created_at', direction: 'desc' });
 
-  // Dialog states
+  // ── Shared With Me state ────────────────────────────────────────
+  const [sharedPage, setSharedPage] = useState(0);
+
+  // ── Dialog states ───────────────────────────────────────────────
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [importExportOpen, setImportExportOpen] = useState(false);
@@ -70,36 +92,47 @@ export default function QuestionBankPage() {
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [enhanceDialogOpen, setEnhanceDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
-  // Current question for dialogs
   const [currentQuestion, setCurrentQuestion] = useState<QuestionBankItem | null>(null);
   const [editMode, setEditMode] = useState<'create' | 'edit'>('create');
   const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
+  const [shareTargetQuestions, setShareTargetQuestions] = useState<QuestionBankItem[]>([]);
 
-  // Queries
+  // ── Queries ─────────────────────────────────────────────────────
   const { data: questionData, isLoading: questionsLoading } = useQuestionBankList(
     { page: currentPage, pageSize: PAGE_SIZE },
     filters,
-    sort
+    sort,
+    'my-questions'
   );
+
+  const { data: sharedData, isLoading: sharedLoading } = useQuestionBankList(
+    { page: sharedPage, pageSize: PAGE_SIZE },
+    {},
+    undefined,
+    'shared-with-me'
+  );
+
   const { data: stats } = useQuestionBankStats();
   const { data: questionCategories = [] } = useQuestionCategories();
 
-  // Extract category names for filters and other components
-  const categories = useMemo(() =>
-    questionCategories.map((c: QuestionCategory) => c.name),
+  const categories = useMemo(
+    () => questionCategories.map((c: QuestionCategory) => c.name),
     [questionCategories]
   );
 
-  // Mutations
+  // ── Mutations ────────────────────────────────────────────────────
   const createQuestion = useCreateQuestionBank();
   const updateQuestion = useUpdateQuestionBank();
   const deleteQuestion = useDeleteQuestionBank();
   const bulkDelete = useBulkDeleteQuestionBank();
   const bulkUpdate = useBulkUpdateQuestionBank();
   const bulkCreate = useBulkCreateQuestionBank();
+  const shareQuestion = useShareQuestion();
+  const copyToMyBank = useCopyToMyBank();
 
-  // Handlers
+  // ── My Questions handlers ────────────────────────────────────────
   const handleFiltersChange = useCallback((newFilters: Filters) => {
     setFilters(newFilters);
     setCurrentPage(0);
@@ -123,22 +156,22 @@ export default function QuestionBankPage() {
   const handleSelectChange = useCallback((id: string, selected: boolean) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (selected) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
+      if (selected) next.add(id);
+      else next.delete(id);
       return next;
     });
   }, []);
 
-  const handleSelectAll = useCallback((selected: boolean) => {
-    if (selected && questionData?.questions) {
-      setSelectedIds(new Set(questionData.questions.map((q) => q.id)));
-    } else {
-      setSelectedIds(new Set());
-    }
-  }, [questionData?.questions]);
+  const handleSelectAll = useCallback(
+    (selected: boolean) => {
+      if (selected && questionData?.questions) {
+        setSelectedIds(new Set(questionData.questions.map((q) => q.id)));
+      } else {
+        setSelectedIds(new Set());
+      }
+    },
+    [questionData?.questions]
+  );
 
   const handleCreateClick = () => {
     setEditMode('create');
@@ -241,9 +274,7 @@ export default function QuestionBankPage() {
     }
   };
 
-  const handleBulkDelete = () => {
-    setBulkDeleteConfirmOpen(true);
-  };
+  const handleBulkDelete = () => setBulkDeleteConfirmOpen(true);
 
   const handleConfirmBulkDelete = () => {
     bulkDelete.mutate(Array.from(selectedIds), {
@@ -274,18 +305,57 @@ export default function QuestionBankPage() {
     });
   };
 
-  // Pagination
+  // ── Sharing handlers ─────────────────────────────────────────────
+  const handleShareClick = (question: QuestionBankItem) => {
+    setShareTargetQuestions([question]);
+    setShareDialogOpen(true);
+  };
+
+  const handleBulkShare = () => {
+    const selected = questionData?.questions.filter((q) => selectedIds.has(q.id)) ?? [];
+    setShareTargetQuestions(selected);
+    setShareDialogOpen(true);
+  };
+
+  const handleShare = (recipientIds: string[], message?: string) => {
+    shareQuestion.mutate(
+      {
+        questionIds: shareTargetQuestions.map((q) => q.id),
+        recipientIds,
+        message,
+      },
+      {
+        onSuccess: () => {
+          setShareDialogOpen(false);
+          setSelectedIds(new Set());
+        },
+      }
+    );
+  };
+
+  const handleCopyToMyBank = (question: QuestionBankItem) => {
+    copyToMyBank.mutate(question);
+  };
+
+  // ── Pagination helpers ───────────────────────────────────────────
   const totalPages = questionData?.totalPages || 0;
+  const sharedTotalPages = sharedData?.totalPages || 0;
+
   const paginationItems = useMemo(() => {
-    const items = [];
+    const items: number[] = [];
     const start = Math.max(0, currentPage - 2);
     const end = Math.min(totalPages, currentPage + 3);
-
-    for (let i = start; i < end; i++) {
-      items.push(i);
-    }
+    for (let i = start; i < end; i++) items.push(i);
     return items;
   }, [currentPage, totalPages]);
+
+  const sharedPaginationItems = useMemo(() => {
+    const items: number[] = [];
+    const start = Math.max(0, sharedPage - 2);
+    const end = Math.min(sharedTotalPages, sharedPage + 3);
+    for (let i = start; i < end; i++) items.push(i);
+    return items;
+  }, [sharedPage, sharedTotalPages]);
 
   return (
     <div className="space-y-6">
@@ -362,84 +432,147 @@ export default function QuestionBankPage() {
         </Card>
       </div>
 
-      {/* Bloom Analytics Section */}
+      {/* Bloom Analytics */}
       <BloomAnalytics stats={stats?.bloomLevelCounts || {}} />
 
-      {/* Filters */}
-      <QuestionFilters
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-        categories={categories}
-        onClearFilters={handleClearFilters}
-      />
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList>
+          <TabsTrigger value="my-questions">Mənim Suallarım</TabsTrigger>
+          <TabsTrigger value="shared-with-me" className="gap-2">
+            Mənə Paylaşılanlar
+            {(sharedData?.totalCount ?? 0) > 0 && (
+              <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                {sharedData!.totalCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Bulk Actions */}
-      <BulkActionsBar
-        selectedCount={selectedIds.size}
-        categories={categories}
-        onBulkDelete={handleBulkDelete}
-        onBulkUpdateCategory={handleBulkUpdateCategory}
-        onBulkUpdateDifficulty={handleBulkUpdateDifficulty}
-        onClearSelection={() => setSelectedIds(new Set())}
-        isDeleting={bulkDelete.isPending}
-        isUpdating={bulkUpdate.isPending}
-      />
+        {/* ── My Questions Tab ── */}
+        <TabsContent value="my-questions" className="space-y-4 mt-4">
+          <QuestionFilters
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            categories={categories}
+            onClearFilters={handleClearFilters}
+          />
 
-      {/* Question Table */}
-      <QuestionTable
-        questions={questionData?.questions || []}
-        selectedIds={selectedIds}
-        onSelectChange={handleSelectChange}
-        onSelectAll={handleSelectAll}
-        onEdit={handleEditClick}
-        onDelete={handleDeleteClick}
-        onDuplicate={handleDuplicateClick}
-        onView={handleViewClick}
-        onEnhance={handleEnhanceClick}
-        onSort={handleSort}
-        sort={sort}
-        isLoading={questionsLoading}
-      />
+          <BulkActionsBar
+            selectedCount={selectedIds.size}
+            categories={categories}
+            onBulkDelete={handleBulkDelete}
+            onBulkUpdateCategory={handleBulkUpdateCategory}
+            onBulkUpdateDifficulty={handleBulkUpdateDifficulty}
+            onClearSelection={() => setSelectedIds(new Set())}
+            onBulkShare={selectedIds.size > 0 ? handleBulkShare : undefined}
+            isDeleting={bulkDelete.isPending}
+            isUpdating={bulkUpdate.isPending}
+          />
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                className={currentPage === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-              />
-            </PaginationItem>
-            {paginationItems.map((page) => (
-              <PaginationItem key={page}>
-                <PaginationLink
-                  onClick={() => setCurrentPage(page)}
-                  isActive={currentPage === page}
-                  className="cursor-pointer"
-                >
-                  {page + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                className={currentPage >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+          <QuestionTable
+            questions={questionData?.questions || []}
+            selectedIds={selectedIds}
+            onSelectChange={handleSelectChange}
+            onSelectAll={handleSelectAll}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteClick}
+            onDuplicate={handleDuplicateClick}
+            onView={handleViewClick}
+            onEnhance={handleEnhanceClick}
+            onShare={handleShareClick}
+            onSort={handleSort}
+            sort={sort}
+            isLoading={questionsLoading}
+          />
 
-      {/* Results info */}
-      <div className="text-sm text-muted-foreground text-center">
-        {questionData?.totalCount || 0} sualdan{' '}
-        {currentPage * PAGE_SIZE + 1}-
-        {Math.min((currentPage + 1) * PAGE_SIZE, questionData?.totalCount || 0)} göstərilir
-      </div>
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                    className={currentPage === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+                {paginationItems.map((page) => (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => setCurrentPage(page)}
+                      isActive={currentPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                    className={currentPage >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
 
-      {/* Dialogs */}
+          <div className="text-sm text-muted-foreground text-center">
+            {questionData?.totalCount || 0} sualdan{' '}
+            {currentPage * PAGE_SIZE + 1}–
+            {Math.min((currentPage + 1) * PAGE_SIZE, questionData?.totalCount || 0)} göstərilir
+          </div>
+        </TabsContent>
+
+        {/* ── Shared With Me Tab ── */}
+        <TabsContent value="shared-with-me" className="space-y-4 mt-4">
+          <SharedWithMeTable
+            questions={sharedData?.questions || []}
+            isLoading={sharedLoading}
+            onView={handleViewClick}
+            onCopy={handleCopyToMyBank}
+          />
+
+          {sharedTotalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setSharedPage((p) => Math.max(0, p - 1))}
+                    className={sharedPage === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+                {sharedPaginationItems.map((page) => (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => setSharedPage(page)}
+                      isActive={sharedPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setSharedPage((p) => Math.min(sharedTotalPages - 1, p + 1))}
+                    className={sharedPage >= sharedTotalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+
+          {(sharedData?.totalCount ?? 0) > 0 && (
+            <div className="text-sm text-muted-foreground text-center">
+              {sharedData!.totalCount} paylaşılmış sualdan{' '}
+              {sharedPage * PAGE_SIZE + 1}–
+              {Math.min((sharedPage + 1) * PAGE_SIZE, sharedData!.totalCount)} göstərilir
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* ── Dialogs ── */}
       <CategoryManagementDialog
         open={categoryDialogOpen}
         onOpenChange={setCategoryDialogOpen}
@@ -474,6 +607,14 @@ export default function QuestionBankPage() {
         questions={questionData?.questions || []}
         onImport={handleImport}
         isImporting={bulkCreate.isPending}
+      />
+
+      <ShareQuestionDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        questions={shareTargetQuestions}
+        onShare={handleShare}
+        isSharing={shareQuestion.isPending}
       />
 
       <ConfirmDialog

@@ -10,7 +10,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowUpDown, ArrowUp, ArrowDown, Edit, Trash2, Copy, MoreHorizontal, Eye, Image, Star } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Edit, Trash2, Copy, MoreHorizontal, Eye, Image, Star, Share2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +34,7 @@ interface QuestionTableProps {
   onDuplicate: (question: QuestionBankItem) => void;
   onView: (question: QuestionBankItem) => void;
   onEnhance: (question: QuestionBankItem) => void;
+  onShare?: (question: QuestionBankItem) => void;
   onSort: (column: string) => void;
   sort?: SortParams;
   isLoading?: boolean;
@@ -75,6 +76,7 @@ export function QuestionTable({
   onDuplicate,
   onView,
   onEnhance,
+  onShare,
   onSort,
   sort,
   isLoading,
@@ -271,6 +273,12 @@ export function QuestionTable({
                         AI Asistent
                       </DropdownMenuItem>
                     </SubscriptionGate>
+                    {onShare && (
+                      <DropdownMenuItem onClick={() => onShare(question)}>
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Paylaş
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => onDelete(question.id)}
