@@ -208,7 +208,29 @@ Cavab: A`;
       expect(result.questions[1].question_text).toContain('Sual 2');
       expect(result.questions[2].question_text).toContain('Sual 3');
     });
+
+    it('should parse local format with inline options and Düzgün cavab', () => {
+      const content = `Azərbaycan dövləti: A) Dünyəvi B) Demokratik C) Unitar Düzgün cavab: B`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_text).toBe('Azərbaycan dövləti:');
+      expect(result.questions[0].options).toHaveLength(3);
+      expect(result.questions[0].correct_answer).toBe('Demokratik');
+    });
+
+    it('should split multiple questions in a single block using Answer lines as boundaries', () => {
+      const content = `Sual 1: A) O1 B) O2 Cavab: A
+Sual 2: A) X1 B) X2
+Düzgün cavab: B`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(2);
+      expect(result.questions[0].question_text).toBe('Sual 1:');
+      expect(result.questions[0].correct_answer).toBe('O1');
+      expect(result.questions[1].question_text).toBe('Sual 2:');
+      expect(result.questions[1].correct_answer).toBe('X2');
+    });
   });
+
 
   describe('parseAiken', () => {
     it('should parse standard Aiken format', () => {

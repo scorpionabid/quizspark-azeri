@@ -119,7 +119,7 @@ export function parseMarkdownFormat2(content: string): ParseResult {
   const warnings: ParseWarning[] = [];
 
   const blocks = content
-    .split(/\n\s*\r?\n(?=\d+[.)]\s)/)
+    .split(/\n\s*\r?\n(?=\d+[.):]\s)/)
     .map((b) => b.trim())
     .filter(Boolean);
 
@@ -130,7 +130,7 @@ export function parseMarkdownFormat2(content: string): ParseResult {
       .filter(Boolean);
     if (!lines.length) continue;
 
-    const headerMatch = lines[0].match(/^\d+[.)]\s+(.+)/);
+    const headerMatch = lines[0].match(/^\d+[.):]\s+(.+)/);
     if (!headerMatch) continue;
     const questionText = headerMatch[1].trim();
     const firstLineNum = content.split(block)[0].split('\n').length + 1;

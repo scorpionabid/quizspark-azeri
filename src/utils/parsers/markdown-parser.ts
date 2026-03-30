@@ -24,7 +24,7 @@ export const parseMarkdownFull = (content: string): ParseResult => {
     return parseMarkdownFormat1(content);
   }
 
-  if (/^\d+[.)]\s+/m.test(content)) {
+  if (/^\d+[.):]\s+/m.test(content)) {
     const result = parseMarkdownFormat2(content);
     if (result.questions.length > 0) return result;
   }

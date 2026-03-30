@@ -5,6 +5,7 @@ import {
   warnDuplicateOptions,
   warnIfMissingText,
   warnIfMissingAnswer,
+  extractInlineOptions,
 } from './markdown-utils';
 import {
   parseMatchingBlock,
@@ -27,61 +28,110 @@ type BlockResult = { questions: ParsedQuestion[]; warnings: ParseWarning[] };
 function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
   const META_RE =
     /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün|Cavab|Doğru cavab)\s*[:-]/iu;
+  const ANSWER_LINE_RE = /^(ANSWER|Düzgün cavab|Doğru cavab|Cavab|Doğru)\s*[:-]/i;
 
-  const questionLines: string[] = [];
-  const options: string[] = [];
-  const metaLines: string[] = [];
+  const allQuestions: ParsedQuestion[] = [];
+  const allWarnings: ParseWarning[] = [];
+
+  let currentQuestionLines: string[] = [];
+  let currentOptions: string[] = [];
+  let currentMetaLines: string[] = [];
   let parsingOptions = false;
 
-  for (const line of lines) {
+  const finalizeQuestion = (currentLineIndex: number) => {
+    const questionText = currentQuestionLines.join('\n').trim();
+    if (!questionText) return;
+
+    const isTrueFalse =
+      currentOptions.length === 2 && currentOptions.every((o) => TRUE_FALSE_RE.test(o.trim()));
+
+    const result: Partial<ParsedQuestion> = {
+      question_text: questionText,
+      question_type: isTrueFalse
+        ? 'true_false'
+        : currentOptions.length > 0
+          ? 'multiple_choice'
+          : 'short_answer',
+      difficulty: 'orta',
+      options: currentOptions.length > 0 ? currentOptions : null,
+    };
+
+    extractMetadata(currentMetaLines, result);
+
+    const warnOffset = lineOffset + currentLineIndex - (currentQuestionLines.length + currentOptions.length + currentMetaLines.length);
+
+    const missingText = warnIfMissingText(questionText, Math.max(0, warnOffset));
+    if (missingText) allWarnings.push(missingText);
+
+    if (currentOptions.length > 0) {
+      allWarnings.push(...warnDuplicateOptions(currentOptions, Math.max(0, warnOffset)));
+    }
+
+    if (!result.correct_answer) {
+      allWarnings.push(warnIfMissingAnswer(questionText, Math.max(0, warnOffset)));
+    }
+
+    allQuestions.push(result as ParsedQuestion);
+
+    // Reset
+    currentQuestionLines = [];
+    currentOptions = [];
+    currentMetaLines = [];
+    parsingOptions = false;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+
+    // Check for inline metadata: "Question text... Cavab: A"
+    const inlineMetaMatch = line.match(
+      /(.+?)\s*((?:İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün|Cavab|Doğru cavab)\s*[:-].+)$/iu,
+    );
+
+    let remainingAfterMeta = '';
+    if (inlineMetaMatch) {
+      line = inlineMetaMatch[1];
+      remainingAfterMeta = inlineMetaMatch[2];
+    }
+
     const aikenOpt = line.match(/^([A-Za-z\d]+)\s*[).]\s+(.+)/);
     const bulletOpt = line.match(/^[-•*]\s+(?!\[)(.+)/);
     const isMeta = META_RE.test(line);
 
     if (isMeta) {
       parsingOptions = false;
-      metaLines.push(line);
+      currentMetaLines.push(line);
     } else if (aikenOpt) {
       parsingOptions = true;
-      options.push(aikenOpt[2].trim());
-    } else if (bulletOpt && parsingOptions) {
-      options.push(bulletOpt[1].trim());
-    } else if (!parsingOptions) {
-      questionLines.push(line);
+      currentOptions.push(aikenOpt[2].trim());
     } else {
-      metaLines.push(line);
+      const inlineOpts = extractInlineOptions(line);
+      if (inlineOpts.length > 0) {
+        parsingOptions = true;
+        currentOptions.push(...inlineOpts);
+      } else if (bulletOpt && parsingOptions) {
+        currentOptions.push(bulletOpt[1].trim());
+      } else if (!parsingOptions) {
+        currentQuestionLines.push(line);
+      } else {
+        currentMetaLines.push(line);
+      }
+    }
+
+    // Handle the inline metadata we found
+    if (remainingAfterMeta) {
+      currentMetaLines.push(remainingAfterMeta);
+      if (ANSWER_LINE_RE.test(remainingAfterMeta)) {
+        finalizeQuestion(i);
+      }
     }
   }
 
-  const questionText = questionLines.join('\n').trim();
-  const isTrueFalse = options.length === 2 && options.every((o) => TRUE_FALSE_RE.test(o.trim()));
+  finalizeQuestion(lines.length - 1);
 
-  const result: Partial<ParsedQuestion> = {
-    question_text: questionText,
-    question_type: isTrueFalse ? 'true_false' : options.length > 0 ? 'multiple_choice' : 'short_answer',
-    difficulty: 'orta',
-    options: options.length > 0 ? options : null,
-  };
-
-  // extractMetadata handles answer resolution (letter/number → option text)
-  // using result.options which is already populated above
-  extractMetadata(metaLines, result);
-
-  const warnings: ParseWarning[] = [];
-
-  const missingText = warnIfMissingText(questionText, lineOffset);
-  if (missingText) warnings.push(missingText);
-
-  if (options.length > 0) {
-    warnings.push(...warnDuplicateOptions(options, lineOffset));
-  }
-
-  if (!result.correct_answer) {
-    warnings.push(warnIfMissingAnswer(questionText, lineOffset));
-  }
-
-  return { questions: [result as ParsedQuestion], warnings };
+  return { questions: allQuestions, warnings: allWarnings };
 }
+
 
 // ─── parseSingleBlock ─────────────────────────────────────────────────────────
 
@@ -177,7 +227,7 @@ export function parseMarkdownSeparated(content: string): ParseResult {
       continue;
     }
 
-    if (/^\d+[.)]\s/m.test(trimmed)) {
+    if (/^\d+[.):]\s/m.test(trimmed)) {
       const r = parseMarkdownFormat2(trimmed);
       allQuestions.push(...r.questions);
       allWarnings.push(...r.warnings);

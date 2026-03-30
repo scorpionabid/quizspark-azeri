@@ -87,3 +87,16 @@ export function warnIfMissingAnswer(
     severity: 'error',
   };
 }
+
+/**
+ * Yan-yana (inline) düzülmüş variantları ayırır.
+ * Məsələn: "A) Variant1 B) Variant2" -> ["Variant1", "Variant2"]
+ */
+export function extractInlineOptions(line: string): string[] {
+  const matches = [...line.matchAll(/([A-Z\d]+[).])\s+((?:(?![A-Z\d]+[).]\s+).)+)/gi)];
+  if (matches.length > 1) {
+    return matches.map((m) => m[2].trim());
+  }
+  return [];
+}
+
