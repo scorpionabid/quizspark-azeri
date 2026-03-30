@@ -492,37 +492,84 @@ export type Database = {
       }
       question_bank: {
         Row: {
+          accepted_answers: string[] | null
+          ai_grading_enabled: boolean
+          ai_grading_prompt: string | null
+          alt_text: string | null
+          answer_case_sensitive: boolean
+          answer_match_type: string
+          answer_trim_spaces: boolean
+          audio_playback_limit: number | null
+          audio_transcript: string | null
           bloom_level: string | null
           category: string | null
+          code_language: string | null
+          code_memory_limit_mb: number | null
+          code_starter_template: string | null
+          code_test_cases: Json | null
+          code_time_limit_ms: number | null
           correct_answer: string
+          correct_option_indices: number[] | null
           created_at: string
+          curriculum_standard: string | null
+          diagram_labels: Json | null
           difficulty: string | null
           embedding: string | null
+          essay_max_words: number | null
+          essay_min_words: number | null
+          essay_rubric: Json | null
           explanation: string | null
+          feedback_correct: string | null
           feedback_enabled: boolean | null
+          feedback_incorrect: string | null
+          fill_blank_answers: Json | null
+          fill_blank_case_sensitive: boolean
           fill_blank_template: string | null
           hint: string | null
           hotspot_data: Json | null
+          hotspot_tolerance_px: number | null
+          hotspot_type: string
           id: string
+          is_graded: boolean
+          is_required: boolean
+          learning_objective: string | null
+          likert_max_label: string | null
+          likert_min_label: string | null
+          likert_scale: number | null
+          matching_left_media: Json | null
+          matching_left_type: string
           matching_pairs: Json | null
+          matching_right_media: Json | null
+          matching_right_type: string
+          matrix_columns: Json | null
+          matrix_correct_answers: Json | null
+          matrix_rows: Json | null
+          max_attempts: number | null
           media_type: string | null
           media_url: string | null
           model_3d_type: string | null
           model_3d_url: string | null
           numerical_answer: number | null
           numerical_tolerance: number | null
+          objective_id: string | null
           option_images: Json | null
           options: Json | null
+          partial_credit_config: Json | null
+          partial_credit_enabled: boolean
           per_option_explanations: Json | null
           quality_score: number | null
           question_image_url: string | null
           question_text: string
           question_type: string
+          read_aloud_text: string | null
           sequence_items: Json | null
+          show_hint_after_attempts: number | null
+          shuffle_options: boolean
           source_document_id: string | null
           tags: string[] | null
           time_limit: number | null
           title: string | null
+          topic: string | null
           updated_at: string
           usage_count: number | null
           user_id: string | null
@@ -532,37 +579,84 @@ export type Database = {
           weight: number | null
         }
         Insert: {
+          accepted_answers?: string[] | null
+          ai_grading_enabled?: boolean
+          ai_grading_prompt?: string | null
+          alt_text?: string | null
+          answer_case_sensitive?: boolean
+          answer_match_type?: string
+          answer_trim_spaces?: boolean
+          audio_playback_limit?: number | null
+          audio_transcript?: string | null
           bloom_level?: string | null
           category?: string | null
+          code_language?: string | null
+          code_memory_limit_mb?: number | null
+          code_starter_template?: string | null
+          code_test_cases?: Json | null
+          code_time_limit_ms?: number | null
           correct_answer: string
+          correct_option_indices?: number[] | null
           created_at?: string
+          curriculum_standard?: string | null
+          diagram_labels?: Json | null
           difficulty?: string | null
           embedding?: string | null
+          essay_max_words?: number | null
+          essay_min_words?: number | null
+          essay_rubric?: Json | null
           explanation?: string | null
+          feedback_correct?: string | null
           feedback_enabled?: boolean | null
+          feedback_incorrect?: string | null
+          fill_blank_answers?: Json | null
+          fill_blank_case_sensitive?: boolean
           fill_blank_template?: string | null
           hint?: string | null
           hotspot_data?: Json | null
+          hotspot_tolerance_px?: number | null
+          hotspot_type?: string
           id?: string
+          is_graded?: boolean
+          is_required?: boolean
+          learning_objective?: string | null
+          likert_max_label?: string | null
+          likert_min_label?: string | null
+          likert_scale?: number | null
+          matching_left_media?: Json | null
+          matching_left_type?: string
           matching_pairs?: Json | null
+          matching_right_media?: Json | null
+          matching_right_type?: string
+          matrix_columns?: Json | null
+          matrix_correct_answers?: Json | null
+          matrix_rows?: Json | null
+          max_attempts?: number | null
           media_type?: string | null
           media_url?: string | null
           model_3d_type?: string | null
           model_3d_url?: string | null
           numerical_answer?: number | null
           numerical_tolerance?: number | null
+          objective_id?: string | null
           option_images?: Json | null
           options?: Json | null
+          partial_credit_config?: Json | null
+          partial_credit_enabled?: boolean
           per_option_explanations?: Json | null
           quality_score?: number | null
           question_image_url?: string | null
           question_text: string
           question_type?: string
+          read_aloud_text?: string | null
           sequence_items?: Json | null
+          show_hint_after_attempts?: number | null
+          shuffle_options?: boolean
           source_document_id?: string | null
           tags?: string[] | null
           time_limit?: number | null
           title?: string | null
+          topic?: string | null
           updated_at?: string
           usage_count?: number | null
           user_id?: string | null
@@ -572,37 +666,84 @@ export type Database = {
           weight?: number | null
         }
         Update: {
+          accepted_answers?: string[] | null
+          ai_grading_enabled?: boolean
+          ai_grading_prompt?: string | null
+          alt_text?: string | null
+          answer_case_sensitive?: boolean
+          answer_match_type?: string
+          answer_trim_spaces?: boolean
+          audio_playback_limit?: number | null
+          audio_transcript?: string | null
           bloom_level?: string | null
           category?: string | null
+          code_language?: string | null
+          code_memory_limit_mb?: number | null
+          code_starter_template?: string | null
+          code_test_cases?: Json | null
+          code_time_limit_ms?: number | null
           correct_answer?: string
+          correct_option_indices?: number[] | null
           created_at?: string
+          curriculum_standard?: string | null
+          diagram_labels?: Json | null
           difficulty?: string | null
           embedding?: string | null
+          essay_max_words?: number | null
+          essay_min_words?: number | null
+          essay_rubric?: Json | null
           explanation?: string | null
+          feedback_correct?: string | null
           feedback_enabled?: boolean | null
+          feedback_incorrect?: string | null
+          fill_blank_answers?: Json | null
+          fill_blank_case_sensitive?: boolean
           fill_blank_template?: string | null
           hint?: string | null
           hotspot_data?: Json | null
+          hotspot_tolerance_px?: number | null
+          hotspot_type?: string
           id?: string
+          is_graded?: boolean
+          is_required?: boolean
+          learning_objective?: string | null
+          likert_max_label?: string | null
+          likert_min_label?: string | null
+          likert_scale?: number | null
+          matching_left_media?: Json | null
+          matching_left_type?: string
           matching_pairs?: Json | null
+          matching_right_media?: Json | null
+          matching_right_type?: string
+          matrix_columns?: Json | null
+          matrix_correct_answers?: Json | null
+          matrix_rows?: Json | null
+          max_attempts?: number | null
           media_type?: string | null
           media_url?: string | null
           model_3d_type?: string | null
           model_3d_url?: string | null
           numerical_answer?: number | null
           numerical_tolerance?: number | null
+          objective_id?: string | null
           option_images?: Json | null
           options?: Json | null
+          partial_credit_config?: Json | null
+          partial_credit_enabled?: boolean
           per_option_explanations?: Json | null
           quality_score?: number | null
           question_image_url?: string | null
           question_text?: string
           question_type?: string
+          read_aloud_text?: string | null
           sequence_items?: Json | null
+          show_hint_after_attempts?: number | null
+          shuffle_options?: boolean
           source_document_id?: string | null
           tags?: string[] | null
           time_limit?: number | null
           title?: string | null
+          topic?: string | null
           updated_at?: string
           usage_count?: number | null
           user_id?: string | null
@@ -612,6 +753,13 @@ export type Database = {
           weight?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "question_bank_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "learning_objectives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "question_bank_source_document_id_fkey"
             columns: ["source_document_id"]
@@ -712,14 +860,54 @@ export type Database = {
       }
       questions: {
         Row: {
+          accepted_answers: string[] | null
+          ai_grading_enabled: boolean
+          ai_grading_prompt: string | null
+          alt_text: string | null
+          answer_case_sensitive: boolean
+          answer_match_type: string
+          answer_trim_spaces: boolean
+          audio_playback_limit: number | null
+          audio_transcript: string | null
+          code_language: string | null
+          code_memory_limit_mb: number | null
+          code_starter_template: string | null
+          code_test_cases: Json | null
+          code_time_limit_ms: number | null
           correct_answer: string
+          correct_option_indices: number[] | null
           created_at: string | null
+          curriculum_standard: string | null
+          diagram_labels: Json | null
+          essay_max_words: number | null
+          essay_min_words: number | null
+          essay_rubric: Json | null
           explanation: string | null
+          feedback_correct: string | null
+          feedback_incorrect: string | null
+          fill_blank_answers: Json | null
+          fill_blank_case_sensitive: boolean
           fill_blank_template: string | null
           hint: string | null
           hotspot_data: Json | null
+          hotspot_tolerance_px: number | null
+          hotspot_type: string
           id: string
+          is_graded: boolean
+          is_required: boolean
+          learning_objective: string | null
+          likert_max_label: string | null
+          likert_min_label: string | null
+          likert_scale: number | null
+          matching_left_media: Json | null
+          matching_left_type: string
           matching_pairs: Json | null
+          matching_right_media: Json | null
+          matching_right_type: string
+          matrix_columns: Json | null
+          matrix_correct_answers: Json | null
+          matrix_rows: Json | null
+          max_attempts: number | null
           media_type: string | null
           media_url: string | null
           model_3d_type: string | null
@@ -729,28 +917,75 @@ export type Database = {
           option_images: Json | null
           options: Json | null
           order_index: number | null
+          partial_credit_config: Json | null
+          partial_credit_enabled: boolean
           per_option_explanations: Json | null
           question_image_url: string | null
           question_text: string
           question_type: string | null
           quiz_id: string
+          read_aloud_text: string | null
+          section_id: string | null
           sequence_items: Json | null
+          show_hint_after_attempts: number | null
+          shuffle_options: boolean
           time_limit: number | null
           title: string | null
+          topic: string | null
           video_end_time: number | null
           video_start_time: number | null
           video_url: string | null
           weight: number | null
         }
         Insert: {
+          accepted_answers?: string[] | null
+          ai_grading_enabled?: boolean
+          ai_grading_prompt?: string | null
+          alt_text?: string | null
+          answer_case_sensitive?: boolean
+          answer_match_type?: string
+          answer_trim_spaces?: boolean
+          audio_playback_limit?: number | null
+          audio_transcript?: string | null
+          code_language?: string | null
+          code_memory_limit_mb?: number | null
+          code_starter_template?: string | null
+          code_test_cases?: Json | null
+          code_time_limit_ms?: number | null
           correct_answer: string
+          correct_option_indices?: number[] | null
           created_at?: string | null
+          curriculum_standard?: string | null
+          diagram_labels?: Json | null
+          essay_max_words?: number | null
+          essay_min_words?: number | null
+          essay_rubric?: Json | null
           explanation?: string | null
+          feedback_correct?: string | null
+          feedback_incorrect?: string | null
+          fill_blank_answers?: Json | null
+          fill_blank_case_sensitive?: boolean
           fill_blank_template?: string | null
           hint?: string | null
           hotspot_data?: Json | null
+          hotspot_tolerance_px?: number | null
+          hotspot_type?: string
           id?: string
+          is_graded?: boolean
+          is_required?: boolean
+          learning_objective?: string | null
+          likert_max_label?: string | null
+          likert_min_label?: string | null
+          likert_scale?: number | null
+          matching_left_media?: Json | null
+          matching_left_type?: string
           matching_pairs?: Json | null
+          matching_right_media?: Json | null
+          matching_right_type?: string
+          matrix_columns?: Json | null
+          matrix_correct_answers?: Json | null
+          matrix_rows?: Json | null
+          max_attempts?: number | null
           media_type?: string | null
           media_url?: string | null
           model_3d_type?: string | null
@@ -760,28 +995,75 @@ export type Database = {
           option_images?: Json | null
           options?: Json | null
           order_index?: number | null
+          partial_credit_config?: Json | null
+          partial_credit_enabled?: boolean
           per_option_explanations?: Json | null
           question_image_url?: string | null
           question_text: string
           question_type?: string | null
           quiz_id: string
+          read_aloud_text?: string | null
+          section_id?: string | null
           sequence_items?: Json | null
+          show_hint_after_attempts?: number | null
+          shuffle_options?: boolean
           time_limit?: number | null
           title?: string | null
+          topic?: string | null
           video_end_time?: number | null
           video_start_time?: number | null
           video_url?: string | null
           weight?: number | null
         }
         Update: {
+          accepted_answers?: string[] | null
+          ai_grading_enabled?: boolean
+          ai_grading_prompt?: string | null
+          alt_text?: string | null
+          answer_case_sensitive?: boolean
+          answer_match_type?: string
+          answer_trim_spaces?: boolean
+          audio_playback_limit?: number | null
+          audio_transcript?: string | null
+          code_language?: string | null
+          code_memory_limit_mb?: number | null
+          code_starter_template?: string | null
+          code_test_cases?: Json | null
+          code_time_limit_ms?: number | null
           correct_answer?: string
+          correct_option_indices?: number[] | null
           created_at?: string | null
+          curriculum_standard?: string | null
+          diagram_labels?: Json | null
+          essay_max_words?: number | null
+          essay_min_words?: number | null
+          essay_rubric?: Json | null
           explanation?: string | null
+          feedback_correct?: string | null
+          feedback_incorrect?: string | null
+          fill_blank_answers?: Json | null
+          fill_blank_case_sensitive?: boolean
           fill_blank_template?: string | null
           hint?: string | null
           hotspot_data?: Json | null
+          hotspot_tolerance_px?: number | null
+          hotspot_type?: string
           id?: string
+          is_graded?: boolean
+          is_required?: boolean
+          learning_objective?: string | null
+          likert_max_label?: string | null
+          likert_min_label?: string | null
+          likert_scale?: number | null
+          matching_left_media?: Json | null
+          matching_left_type?: string
           matching_pairs?: Json | null
+          matching_right_media?: Json | null
+          matching_right_type?: string
+          matrix_columns?: Json | null
+          matrix_correct_answers?: Json | null
+          matrix_rows?: Json | null
+          max_attempts?: number | null
           media_type?: string | null
           media_url?: string | null
           model_3d_type?: string | null
@@ -791,14 +1073,21 @@ export type Database = {
           option_images?: Json | null
           options?: Json | null
           order_index?: number | null
+          partial_credit_config?: Json | null
+          partial_credit_enabled?: boolean
           per_option_explanations?: Json | null
           question_image_url?: string | null
           question_text?: string
           question_type?: string | null
           quiz_id?: string
+          read_aloud_text?: string | null
+          section_id?: string | null
           sequence_items?: Json | null
+          show_hint_after_attempts?: number | null
+          shuffle_options?: boolean
           time_limit?: number | null
           title?: string | null
+          topic?: string | null
           video_end_time?: number | null
           video_start_time?: number | null
           video_url?: string | null
@@ -812,13 +1101,322 @@ export type Database = {
             referencedRelation: "quizzes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "questions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      answer_reviews: {
+        Row: {
+          ai_feedback: string | null
+          ai_score: number | null
+          attempt_id: string
+          awarded_score: number | null
+          comments: string | null
+          id: string
+          max_score: number | null
+          question_id: string
+          reviewed_at: string | null
+          reviewer_id: string | null
+          rubric_scores: Json | null
+          status: string
+          student_answer: string | null
+          submitted_at: string
+          updated_at: string
+        }
+        Insert: {
+          ai_feedback?: string | null
+          ai_score?: number | null
+          attempt_id: string
+          awarded_score?: number | null
+          comments?: string | null
+          id?: string
+          max_score?: number | null
+          question_id: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          rubric_scores?: Json | null
+          status?: string
+          student_answer?: string | null
+          submitted_at?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_feedback?: string | null
+          ai_score?: number | null
+          attempt_id?: string
+          awarded_score?: number | null
+          comments?: string | null
+          id?: string
+          max_score?: number | null
+          question_id?: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          rubric_scores?: Json | null
+          status?: string
+          student_answer?: string | null
+          submitted_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answer_reviews_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answer_reviews_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answer_reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      learning_objectives: {
+        Row: {
+          bloom_level: string | null
+          created_at: string
+          curriculum: string | null
+          description: string | null
+          grade: string | null
+          id: string
+          subject: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bloom_level?: string | null
+          created_at?: string
+          curriculum?: string | null
+          description?: string | null
+          grade?: string | null
+          id?: string
+          subject?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bloom_level?: string | null
+          created_at?: string
+          curriculum?: string | null
+          description?: string | null
+          grade?: string | null
+          id?: string
+          subject?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_objectives_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      question_revisions: {
+        Row: {
+          change_summary: string | null
+          changed_by: string | null
+          created_at: string
+          id: string
+          question_bank_id: string
+          revision_number: number
+          snapshot: Json
+        }
+        Insert: {
+          change_summary?: string | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          question_bank_id: string
+          revision_number?: number
+          snapshot: Json
+        }
+        Update: {
+          change_summary?: string | null
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          question_bank_id?: string
+          revision_number?: number
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_revisions_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "question_revisions_question_bank_id_fkey"
+            columns: ["question_bank_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_prerequisites: {
+        Row: {
+          created_at: string
+          id: string
+          min_score: number
+          prerequisite_id: string
+          quiz_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          min_score?: number
+          prerequisite_id: string
+          quiz_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          min_score?: number
+          prerequisite_id?: string
+          quiz_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_prerequisites_prerequisite_id_fkey"
+            columns: ["prerequisite_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_prerequisites_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_sections: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          order_index: number
+          pass_score: number | null
+          quiz_id: string
+          time_limit: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          pass_score?: number | null
+          quiz_id: string
+          time_limit?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          pass_score?: number | null
+          quiz_id?: string
+          time_limit?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_sections_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_mastery: {
+        Row: {
+          attempt_count: number
+          bloom_level: string | null
+          category: string
+          correct_count: number
+          id: string
+          last_practiced: string | null
+          next_review_at: string | null
+          student_id: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          bloom_level?: string | null
+          category: string
+          correct_count?: number
+          id?: string
+          last_practiced?: string | null
+          next_review_at?: string | null
+          student_id: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          bloom_level?: string | null
+          category?: string
+          correct_count?: number
+          id?: string
+          last_practiced?: string | null
+          next_review_at?: string | null
+          student_id?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_mastery_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       quiz_attempts: {
         Row: {
           answers: Json | null
+          bookmarked_questions: string[] | null
           completed_at: string | null
+          device_type: string | null
+          hint_used_questions: string[] | null
           id: string
+          question_timings: Json | null
           quiz_id: string
           score: number | null
           started_at: string | null
@@ -828,8 +1426,12 @@ export type Database = {
         }
         Insert: {
           answers?: Json | null
+          bookmarked_questions?: string[] | null
           completed_at?: string | null
+          device_type?: string | null
+          hint_used_questions?: string[] | null
           id?: string
+          question_timings?: Json | null
           quiz_id: string
           score?: number | null
           started_at?: string | null
@@ -839,8 +1441,12 @@ export type Database = {
         }
         Update: {
           answers?: Json | null
+          bookmarked_questions?: string[] | null
           completed_at?: string | null
+          device_type?: string | null
+          hint_used_questions?: string[] | null
           id?: string
+          question_timings?: Json | null
           quiz_id?: string
           score?: number | null
           started_at?: string | null
@@ -1149,6 +1755,22 @@ export type Database = {
           total_tokens: number | null
           usage_date: string | null
           user_id: string | null
+        }
+        Relationships: []
+      }
+      student_mastery_with_level: {
+        Row: {
+          attempt_count: number | null
+          bloom_level: string | null
+          category: string | null
+          correct_count: number | null
+          id: string | null
+          last_practiced: string | null
+          mastery_level: number | null
+          next_review_at: string | null
+          student_id: string | null
+          topic: string | null
+          updated_at: string | null
         }
         Relationships: []
       }

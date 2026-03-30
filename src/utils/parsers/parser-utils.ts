@@ -71,7 +71,7 @@ export function extractMedia(target: Partial<ParsedQuestion>) {
   if (!target.question_text) return;
   
   // Look for ![alt](url) or just (url) if it looks like an image
-  const imgRegex = /!\[.*?\]\((https?:\/\/[^\s\)]+\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^)]+)?)\)/i;
+  const imgRegex = /!\[.*?\]\((https?:\/\/[^\s)]+\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^)]+)?)\)/i;
   const match = target.question_text.match(imgRegex);
   
   if (match) {

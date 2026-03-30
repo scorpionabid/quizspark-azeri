@@ -45,6 +45,44 @@ export function useQuestionEditForm(
     numerical_tolerance: 0,
     matching_pairs: [] as { left: string; right: string }[],
     sequence_items: [] as string[],
+    // P1: Qısa cavab
+    accepted_answers: [] as string[],
+    answer_case_sensitive: false,
+    answer_trim_spaces: true,
+    answer_match_type: 'exact' as string,
+    // P1: Esse
+    essay_rubric: null as Array<{ criterion: string; maxPoints: number; description?: string }> | null,
+    essay_min_words: '' as number | string,
+    essay_max_words: '' as number | string,
+    ai_grading_enabled: false,
+    // P1: Ümumi feedback
+    feedback_correct: '',
+    feedback_incorrect: '',
+    // P1: Pedaqoji metadata
+    learning_objective: '',
+    topic: '',
+    // P2: Kod sualı
+    code_language: 'python' as string,
+    code_starter_template: '',
+    code_test_cases: [] as Array<{ input: string; expectedOutput: string; description?: string; isHidden?: boolean }>,
+    // P2: Fill blank çox boşluq
+    fill_blank_answers: null as Record<string, string[]> | null,
+    fill_blank_case_sensitive: false,
+    // P2: Matching media
+    matching_left_type: 'text' as string,
+    matching_right_type: 'text' as string,
+    // P3: Matrix / Likert
+    matrix_rows: [] as string[],
+    matrix_columns: [] as string[],
+    matrix_correct_answers: null as Record<string, string> | null,
+    likert_min_label: '',
+    likert_max_label: '',
+    likert_scale: 5 as number,
+    diagram_labels: [] as Array<{ id: string; x: number; y: number; expectedLabel: string }>,
+    // Ümumi
+    is_graded: true,
+    shuffle_options: true,
+    partial_credit_enabled: false,
   });
 
   const { uploadImage, isUploading } = useQuestionImageUpload();
@@ -55,6 +93,8 @@ export function useQuestionEditForm(
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const q = question as any;
     if (question && mode === 'edit') {
       setFormData({
         title: question.title || '',
@@ -81,10 +121,37 @@ export function useQuestionEditForm(
         fill_blank_template: question.fill_blank_template || '',
         numerical_answer: question.numerical_answer ?? '',
         numerical_tolerance: question.numerical_tolerance ?? 0,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        matching_pairs: (question as any).matching_pairs || [],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        sequence_items: (question as any).sequence_items || [],
+        matching_pairs: q.matching_pairs || [],
+        sequence_items: q.sequence_items || [],
+        accepted_answers: q.accepted_answers || [],
+        answer_case_sensitive: q.answer_case_sensitive ?? false,
+        answer_trim_spaces: q.answer_trim_spaces ?? true,
+        answer_match_type: q.answer_match_type || 'exact',
+        essay_rubric: q.essay_rubric || null,
+        essay_min_words: q.essay_min_words ?? '',
+        essay_max_words: q.essay_max_words ?? '',
+        ai_grading_enabled: q.ai_grading_enabled ?? false,
+        feedback_correct: q.feedback_correct || '',
+        feedback_incorrect: q.feedback_incorrect || '',
+        learning_objective: q.learning_objective || '',
+        topic: q.topic || '',
+        code_language: q.code_language || 'python',
+        code_starter_template: q.code_starter_template || '',
+        code_test_cases: q.code_test_cases || [],
+        fill_blank_answers: q.fill_blank_answers || null,
+        fill_blank_case_sensitive: q.fill_blank_case_sensitive ?? false,
+        matching_left_type: q.matching_left_type || 'text',
+        matching_right_type: q.matching_right_type || 'text',
+        matrix_rows: q.matrix_rows || [],
+        matrix_columns: q.matrix_columns || [],
+        matrix_correct_answers: q.matrix_correct_answers || null,
+        likert_min_label: q.likert_min_label || '',
+        likert_max_label: q.likert_max_label || '',
+        likert_scale: q.likert_scale ?? 5,
+        diagram_labels: q.diagram_labels || [],
+        is_graded: q.is_graded ?? true,
+        shuffle_options: q.shuffle_options ?? true,
+        partial_credit_enabled: q.partial_credit_enabled ?? false,
       });
     } else {
       setFormData({
@@ -114,6 +181,35 @@ export function useQuestionEditForm(
         numerical_tolerance: 0,
         matching_pairs: [],
         sequence_items: [],
+        accepted_answers: [],
+        answer_case_sensitive: false,
+        answer_trim_spaces: true,
+        answer_match_type: 'exact',
+        essay_rubric: null,
+        essay_min_words: '',
+        essay_max_words: '',
+        ai_grading_enabled: false,
+        feedback_correct: '',
+        feedback_incorrect: '',
+        learning_objective: '',
+        topic: '',
+        code_language: 'python',
+        code_starter_template: '',
+        code_test_cases: [],
+        fill_blank_answers: null,
+        fill_blank_case_sensitive: false,
+        matching_left_type: 'text',
+        matching_right_type: 'text',
+        matrix_rows: [],
+        matrix_columns: [],
+        matrix_correct_answers: null,
+        likert_min_label: '',
+        likert_max_label: '',
+        likert_scale: 5,
+        diagram_labels: [],
+        is_graded: true,
+        shuffle_options: true,
+        partial_credit_enabled: false,
       });
     }
   }, [question, mode]);
@@ -127,6 +223,10 @@ export function useQuestionEditForm(
       const filled = (formData.options as string[]).filter(o => o.trim() !== '');
       if (filled.length < 2) errors.options = 'Ən azı 2 variant daxil edilməlidir';
       if (!formData.correct_answer) errors.correct_answer = 'Düzgün cavab seçilməlidir';
+    } else if (qt === 'multiple_select') {
+      const filled = (formData.options as string[]).filter(o => o.trim() !== '');
+      if (filled.length < 2) errors.options = 'Ən azı 2 variant daxil edilməlidir';
+      if (!formData.correct_answer) errors.correct_answer = 'Ən azı bir düzgün cavab seçilməlidir';
     } else if (qt === 'true_false' && !formData.correct_answer) {
       errors.correct_answer = 'Doğru/Yanlış seçilməlidir';
     } else if (qt === 'fill_blank' && !formData.correct_answer.trim()) {
@@ -141,10 +241,21 @@ export function useQuestionEditForm(
       else if (items.some(it => !it.trim())) errors.sequence_items = 'Bütün elementlər doldurulmalıdır';
     } else if (qt === 'numerical' && (formData.numerical_answer === '' || isNaN(Number(formData.numerical_answer)))) {
       errors.numerical_answer = 'Rəqəmsal cavab daxil edilməlidir';
-    } else if (qt === 'code' && !formData.correct_answer.trim()) {
-      errors.correct_answer = 'Gözlənilən çıxış/cavab boş ola bilməz';
+    } else if (qt === 'code') {
+      if (!formData.code_language) errors.code_language = 'Proqramlaşdırma dili seçilməlidir';
     } else if (qt === 'essay') {
       // Essay üçün model cavab isteğe bağlıdır — boş ola bilər
+    } else if (qt === 'matrix_choice') {
+      if (!formData.matrix_rows || formData.matrix_rows.length < 1) errors.matrix_rows = 'Ən azı 1 sıra daxil edilməlidir';
+      if (!formData.matrix_columns || formData.matrix_columns.length < 2) errors.matrix_columns = 'Ən azı 2 sütun daxil edilməlidir';
+    } else if (qt === 'likert') {
+      // Likert qiymətləndirilmir — boş ola bilər
+    } else if (qt === 'diagram_label') {
+      if (!formData.question_image_url) errors.question_image_url = 'Diaqram şəkli yüklənməlidir';
+      if (!formData.diagram_labels || formData.diagram_labels.length < 1) errors.diagram_labels = 'Ən azı 1 etiket nöqtəsi əlavə edilməlidir';
+    } else if (qt === 'audio') {
+      if (!formData.media_url) errors.media_url = 'Audio fayl yüklənməlidir';
+      if (!formData.correct_answer.trim()) errors.correct_answer = 'Düzgün cavab boş ola bilməz';
     } else if (!formData.correct_answer.trim()) {
       errors.correct_answer = 'Düzgün cavab boş ola bilməz';
     }
@@ -185,7 +296,8 @@ export function useQuestionEditForm(
     }
     setValidationErrors({});
 
-    const data: Partial<QuestionBankItem> = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: Partial<QuestionBankItem> & Record<string, any> = {
       title: formData.title || null,
       question_text: formData.question_text,
       question_type: formData.question_type,
@@ -209,9 +321,41 @@ export function useQuestionEditForm(
       fill_blank_template: formData.fill_blank_template || null,
       numerical_answer: formData.numerical_answer !== '' ? Number(formData.numerical_answer) : null,
       numerical_tolerance: Number(formData.numerical_tolerance) || 0,
+      // P1 fields
+      accepted_answers: formData.accepted_answers.length > 0 ? formData.accepted_answers : null,
+      answer_case_sensitive: formData.answer_case_sensitive,
+      answer_trim_spaces: formData.answer_trim_spaces,
+      answer_match_type: formData.answer_match_type || 'exact',
+      essay_rubric: formData.essay_rubric || null,
+      essay_min_words: formData.essay_min_words !== '' ? Number(formData.essay_min_words) : null,
+      essay_max_words: formData.essay_max_words !== '' ? Number(formData.essay_max_words) : null,
+      ai_grading_enabled: formData.ai_grading_enabled,
+      feedback_correct: formData.feedback_correct || null,
+      feedback_incorrect: formData.feedback_incorrect || null,
+      learning_objective: formData.learning_objective || null,
+      topic: formData.topic || null,
+      // P2 fields
+      code_language: formData.code_language || null,
+      code_starter_template: formData.code_starter_template || null,
+      code_test_cases: formData.code_test_cases.length > 0 ? formData.code_test_cases : null,
+      fill_blank_answers: formData.fill_blank_answers || null,
+      fill_blank_case_sensitive: formData.fill_blank_case_sensitive,
+      matching_left_type: formData.matching_left_type || 'text',
+      matching_right_type: formData.matching_right_type || 'text',
+      // P3 fields
+      matrix_rows: formData.matrix_rows.length > 0 ? formData.matrix_rows : null,
+      matrix_columns: formData.matrix_columns.length > 0 ? formData.matrix_columns : null,
+      matrix_correct_answers: formData.matrix_correct_answers || null,
+      likert_min_label: formData.likert_min_label || null,
+      likert_max_label: formData.likert_max_label || null,
+      likert_scale: formData.likert_scale || 5,
+      diagram_labels: formData.diagram_labels.length > 0 ? formData.diagram_labels : null,
+      is_graded: formData.is_graded,
+      shuffle_options: formData.shuffle_options,
+      partial_credit_enabled: formData.partial_credit_enabled,
     };
 
-    if (['multiple_choice', 'true_false', 'video'].includes(formData.question_type)) {
+    if (['multiple_choice', 'multiple_select', 'true_false', 'video', 'matrix_choice', 'likert'].includes(formData.question_type)) {
       data.options = formData.options.filter(o => o.trim() !== '');
     } else {
       data.options = null;
