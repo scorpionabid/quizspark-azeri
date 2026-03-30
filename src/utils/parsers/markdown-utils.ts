@@ -11,15 +11,10 @@ const BASE_META =
 /**
  * Cavab keyword-ləri — fill_blank, numerical, code, generic bloklar üçün.
  */
-export const ANSWER_META = 'Cavab|Düzgün cavab|Answer';
+export const ANSWER_META = 'Cavab|Düzgün cavab|Doğru cavab|Answer';
 
 /**
  * Baza dəstinə opsional əlavə keyword-lər birləşdirərək META_RE qurur.
- * @example
- *   buildMetaRE()                            // matching, ordering
- *   buildMetaRE(ANSWER_META)                 // fill_blank
- *   buildMetaRE(`${ANSWER_META}|Tolerans|Tolerance`)   // numerical
- *   buildMetaRE(`${ANSWER_META}|Dil|Language`)         // code
  */
 export function buildMetaRE(extra?: string): RegExp {
   const pattern = extra ? `${BASE_META}|${extra}` : BASE_META;
@@ -33,6 +28,12 @@ export const TIP_LINE_RE = /^Tip\s*:/i;
 
 /** Doğru/Yanlış/Bəli/Xeyr/True/False cütü */
 export const TRUE_FALSE_RE = /^(doğru|yanlış|bəli|xeyr|true|false)$/i;
+
+/** H1-H6 markdown başlıqları */
+export const HEADING_RE = /^#{1,6}\s+/;
+
+/** Hər hansı sual başlığı / prefix-i */
+export const QUESTION_PREFIX_RE = /^(?:#{1,6}|Sual|Q|Question)\s*[:.]?\s*(?:\d+\s*[-:.)]\s*)?(?:[^A-Za-z\u0400-\u04FF\u0250-\u02AF\u00C0-\u024F]*)*/i;
 
 // ─── Warning factory-ləri ─────────────────────────────────────────────────────
 
@@ -73,7 +74,6 @@ export function warnIfMissingText(questionText: string, lineOffset: number): Par
 
 /**
  * Cavab yoxluğu xəbərdarlığı.
- * @param suffix — Format2 kimi yerlərdə "— preview-da əlavə edin" kimi əlavə
  */
 export function warnIfMissingAnswer(
   questionText: string,
@@ -89,8 +89,12 @@ export function warnIfMissingAnswer(
 }
 
 /**
- * Yan-yana (inline) düzülmüş variantları ayırır.
- * Məsələn: "A) Variant1 B) Variant2" -> ["Variant1", "Variant2"]
+ * Tək sətirdəki inline variantları + sual mətnini ayırır.
+ *
+ * Format: "[sual mətni] A) Variant1 B) Variant2 C) Variant3"
+ *
+ * Qaytarır: { questionText, options } — hər ikisi dolu olarsa;
+ * yalnız 1 match varsa boş array qaytarır (tək variant inline sayılmır).
  */
 export function extractInlineOptions(line: string): string[] {
   const matches = [...line.matchAll(/([A-Z\d]+[).])\s+((?:(?![A-Z\d]+[).]\s+).)+)/gi)];
@@ -100,3 +104,55 @@ export function extractInlineOptions(line: string): string[] {
   return [];
 }
 
+/**
+ * Tək sətirlik sual formatını tam parse edir.
+ *
+ * Format: "[sual mətni] A) Opt1 B) Opt2 C) Opt3 [Cavab: X]"
+ *
+ * Uğurlu olduqda:
+ *   { questionText, options, metaLines }
+ * Uğursuz olduqda `null`.
+ */
+export function parseInlineLine(line: string): {
+  questionText: string;
+  options: string[];
+  metaLines: string[];
+} | null {
+  // Sətirdə ən azı 2 variant işarəsi olmalıdır: "A) ... B) ..."
+  const optionMarkers = [...line.matchAll(/\b([A-D\d])\)\s+/g)];
+  if (optionMarkers.length < 2) return null;
+
+  // İlk variant işarəsinin mövqeyi
+  const firstMarker = optionMarkers[0];
+  const firstPos = firstMarker.index ?? 0;
+
+  // Sual mətni: ilk variant işarəsindən əvvəlki hissə
+  let questionText = line.slice(0, firstPos).trim();
+
+  // Sual mətnini prefix-lərdən təmizlə
+  questionText = questionText.replace(QUESTION_PREFIX_RE, '').trim();
+  // Sonda qalan sual işarəsini sil (? saxla)
+  if (!questionText) return null;
+
+  // Optionlar + trailing meta hissəsini ayır
+  const optionsPart = line.slice(firstPos);
+
+  // Trailing meta (Cavab: / Düzgün cavab: / ANSWER:) axtar
+  const trailingMetaRE = /\s+((?:Düzgün cavab|Doğru cavab|Cavab|ANSWER)\s*:?\s*.+)$/i;
+  const metaMatch = optionsPart.match(trailingMetaRE);
+  const metaLines: string[] = [];
+  let optionsStr = optionsPart;
+
+  if (metaMatch) {
+    metaLines.push(metaMatch[1].trim());
+    optionsStr = optionsPart.slice(0, metaMatch.index).trim();
+  }
+
+  // Variantları ayır
+  const optMatches = [...optionsStr.matchAll(/[A-D\d]\)\s+((?:(?![A-D\d]\)\s+).)+)/gi)];
+  const options = optMatches.map(m => m[1].trim()).filter(Boolean);
+
+  if (options.length < 2) return null;
+
+  return { questionText, options, metaLines };
+}

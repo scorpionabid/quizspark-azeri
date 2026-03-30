@@ -113,13 +113,17 @@ export function parseMarkdownFormat1(content: string): ParseResult {
 }
 
 // ─── Format 2: `1. Sual mətni\nA) Variant\nANSWER: A` ────────────────────────
+//
+// Boş sətir VƏ ya növbəti `\d+[.):] ` pattern-i ayrıcı kimi işlənir.
 
 export function parseMarkdownFormat2(content: string): ParseResult {
   const questions: ParsedQuestion[] = [];
   const warnings: ParseWarning[] = [];
 
+  // Həm boş sətir, həm də ardıcıl (boş sətir olmayan) numbered sualları ayır.
+  // Lookahead: növbəti sətir rəqəmlə + separator-la başlayır.
   const blocks = content
-    .split(/\n\s*\r?\n(?=\d+[.):]\s)/)
+    .split(/\n(?:\s*\n(?=\d+[.):]\s)|\s*(?=\d+[.):]\s))/)
     .map((b) => b.trim())
     .filter(Boolean);
 
@@ -156,8 +160,13 @@ export function parseMarkdownFormat2(content: string): ParseResult {
     }
 
     result.options = optLines;
-    // extractMetadata resolves answer letters using result.options
     extractMetadata(metaLines, result);
+
+    // true_false aşkarlama
+    const opts = result.options as string[];
+    if (opts.length === 2 && opts.every((o) => TRUE_FALSE_RE.test(o.trim()))) {
+      result.question_type = 'true_false';
+    }
 
     const missingText = warnIfMissingText(questionText, firstLineNum);
     if (missingText) warnings.push(missingText);

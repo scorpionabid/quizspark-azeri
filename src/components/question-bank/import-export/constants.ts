@@ -1,25 +1,70 @@
 export const TEMPLATES: Record<string, string> = {
   aiken: `Sual mətni bura yazılır\nA) Birinci variant\nB) İkinci variant\nC) Üçüncü variant\nANSWER: A\nCATEGORY: Riyaziyyat\nDIFFICULTY: orta\nEXPLANATION: Sualın izahı bura yazılır\nTAGS: cəbr, tənliklər\nBLOOM: anlama`,
   gift: `// Sualın adı vacib deyil\n::Sualın Adı:: Sual mətni bura yazılır {\n  =Düzgün variant #İzah bura yazılır\n  ~Səhv variant 1\n  ~Səhv variant 2\n}`,
-  markdown: `### Format 1: Çoxseçimli (Həmçinin Çoxlu Cavab)
-# Sual mətni bura yazılır
-A) Birinci variant # Bu variantın izahı
-B) İkinci variant # Bu variantın izahı
-C) Düzgün variant # Düzgün cavabın izahı
-D) Dördüncü variant
+  markdown: `# ═══════════════════════════════════════════════════
+# MARKDOWN SUAL ŞABLONU — tam bələdçi
+# ═══════════════════════════════════════════════════
+# QAYDA: Hər sual "---" ilə ayrılmalıdır.
+# Metadata sətirləri (Cavab, Kateqoriya…) hər sualın
+# altında yazılır. Tiplər üçün "Tip:" açar sözü lazımdır.
+# ═══════════════════════════════════════════════════
 
-Cavab: C
-Izahat: Sualın ümumi izahı bura yazılır
-Kateqoriya: Riyaziyyat
-Çətinlik: orta
-Bloom: anlama
-Taqlar: cəbr, tənliklər
+## ── FORMAT 1: Çoxseçimli — tək düzgün cavab ─────────
+
+# Azərbaycanın paytaxtı hansı şəhərdir?
+A) Gəncə
+B) Bakı
+C) Sumqayıt
+D) Lənkəran
+
+Cavab: B
+Kateqoriya: Coğrafiya
+Çətinlik: asan
+İzahat: Bakı 1918-ci ildən Azərbaycanın paytaxtıdır.
+Bloom: bilmə
+Taqlar: paytaxt, coğrafiya
 
 ---
 
-### Format 2: Uyğunlaşdırma (Matching)
+## ── FORMAT 2: Çoxseçimli — çoxlu düzgün cavab ───────
+
+# Aşağıdakılardan hansılar Azərbaycan dövlət rəmzləridir?
+1. Dövlət bayrağı
+2. Milli valyuta
+3. Dövlət gerbi
+4. Dövlət himni
+
+Cavab: 1, 3, 4
+Kateqoriya: Ümumi Bilik
+Çətinlik: orta
+
+---
+
+## ── FORMAT 3: Doğru / Yanlış ────────────────────────
+
+# Azərbaycan 1991-ci ildə müstəqilliyini elan etdi?
+A) Doğru
+B) Yanlış
+
+Cavab: A
+Kateqoriya: Tarix
+Çətinlik: asan
+
+---
+
+## ── FORMAT 4: Qısa cavab (opsiyasız) ───────────────
+
+# Azərbaycanın ilk prezidenti kim olub?
+Cavab: Ayaz Mütəllibov
+Kateqoriya: Tarix
+Çətinlik: orta
+
+---
+
+## ── FORMAT 5: Uyğunlaşdırma — arrow formatı ────────
+
 Tip: matching
-Əsərləri müəllifləri ilə uyğunlaşdırın:
+# Əsərləri müəllifləri ilə uyğunlaşdırın:
 Dədə Qorqud → Türk xalq dastanı
 Ana → Maksim Gorki
 Don Kixot → Servantes
@@ -29,9 +74,28 @@ Kateqoriya: Ədəbiyyat
 
 ---
 
-### Format 3: Boşluq Doldur (Fill in the Blank)
+## ── FORMAT 6: Uyğunlaşdırma — siyahı formatı ───────
+
+Tip: matching
+# Anlayışları izahları ilə uyğunlaşdırın:
+1. Demokrasiya
+2. Monarxiya
+3. Respublika
+
+a) Xalqın hakimiyyəti
+b) Irsi dövlət başçısı
+c) Seçkili dövlət başçısı
+
+Cavab: 1-a; 2-b; 3-c
+Kateqoriya: Siyasi elmlər
+Çətinlik: çətin
+
+---
+
+## ── FORMAT 7: Boşluq doldur ─────────────────────────
+
 Tip: fill_blank
-Azərbaycanın paytaxtı ___ şəhədir.
+# Azərbaycanın paytaxtı ___ şəhəridir.
 
 Cavab: Bakı
 Kateqoriya: Coğrafiya
@@ -39,57 +103,60 @@ Kateqoriya: Coğrafiya
 
 ---
 
-### Format 4: Ardıcıllıq (Ordering)
+## ── FORMAT 8: Ardıcıllıq ────────────────────────────
+
 Tip: ordering
-Hadisələri xronoloji ardıcıllıqla sıralayın:
-- Birinci Dünya Müharibəsi (1914)
-- Sovet İttifaqının yaranması (1922)
-- Azərbaycanın müstəqillik elanı (1991)
+# Hadisələri xronoloji ardıcıllıqla sıralayın:
+- Birinci Dünya Müharibəsinin başlanması
+- Sovet İttifaqının yaranması
+- Azərbaycanın müstəqillik elanı
 
 Kateqoriya: Tarix
 Çətinlik: orta
 
 ---
 
-### Format 5: Doğru/Yanlış və ya Qısa Cavab
-Azərbaycanın paytaxtı Bakı şəhəridir?
-A) Doğru
-B) Yanlış
-Cavab: A
+## ── FORMAT 9: Rəqəmsal cavab ────────────────────────
+
+Tip: numerical
+# Suyun qaynama temperaturu neçə dərəcədir (°C)?
+
+Cavab: 100
+Tolerans: 0.5
+Kateqoriya: Fizika
+Çətinlik: asan
 
 ---
 
-### Format 9: Sıxlaşdırılmış (Yerli) Format
-Bu formatda suallar arasında boş sətir olması kifayətdir və variantlar yan-yana düzülə bilər:
+## ── FORMAT 10: Kod sualı ─────────────────────────────
 
-1: Azərbaycan dövləti: A) Dünyəvi B) Demokratik C) Unitar Düzgün cavab: B
+Tip: code
+# Aşağıdakı Python kodu nə çap edir?
 
-2: Xalqın suverenliyi dedikdə nə nəzərdə tutulur?
-A) Xalqın sərbəst müəyyənləşdirmək hüququ
-B) Dövlət hakimiyyətinin yeganə mənbəyi olmaq hüququ
-Düzgün cavab: A
+\`\`\`python
+x = [1, 2, 3]
+print(len(x))
+\`\`\`
+
+Cavab: 3
+Dil: python
+Kateqoriya: Proqramlaşdırma
+Çətinlik: asan
 
 ---
 
-### Format 10: Çoxlu Seçim (Prefiksiz)
-Variantların qarşısında A), B) və ya rəqəm yazmağa ehtiyac yoxdur. Sistem sətirləri avtomatik variant kimi tanıyacaq:
-
-Xalqımızın ülvi niyyətlərinə aiddir:
-vətəndaş cəmiyyətinin bərqərar edilməsi
-hüquqi, dünyəvi dövlət qurmaq
-layiqli həyat səviyyəsini təmin etmək
-öz müqəddəratını sərbəst müəyyən etmək
-Düzgün cavab: 1, 3
----
-
-### Format 11: Mürəkkəb Uyğunluq (Çox-çoxlu)
-Bir bəndə bir neçə variantın uyğun gəldiyi hallar üçün:
-
-Konstitusiyaya əsasən uyğunluğu müəyyən edin:
-1. İnsan hüquqlarının əsas prinsipi
-2. İnsan hüquqlarının müdafiəsi
-a) Dövlət təminat verir b) Məsuliyyəti əhatə edir c) Sui-istifadəyə yol verilmir
-Düzgün cavab: 1-b, c; 2-a`,
+## ══════════════════════════════════════════════════
+## METADATA AÇAR SÖZLƏRİ (hamısı ixtiyaridir)
+## ══════════════════════════════════════════════════
+## Cavab:        Düzgün cavab (hərf: A, B, C / mətn / rəqəm)
+## Kateqoriya:   Sualın kateqoriyası
+## Çətinlik:     asan / orta / çətin
+## İzahat:       Sualın izahı
+## Bloom:        bilmə / anlama / tətbiq / analiz / sintez / qiymətləndirmə
+## Taqlar:       tag1, tag2, tag3
+## Tolerans:     Rəqəmsal suallar üçün ±tolerans dəyəri
+## Dil:          Kod sualları üçün proqramlaşdırma dili
+## ══════════════════════════════════════════════════`,
   csv: `question_text,question_type,variant_a,variant_b,variant_c,variant_d,correct_answer,explanation,category,difficulty,bloom_level,tags\n"Sual mətni",multiple_choice,"Var A","Var B","Var C","Var D","Var A","İzah","Riyaziyyat","orta","anlama","tag1;tag2"`,
   json: `[\n  {\n    "question_text": "Sual mətni",\n    "question_type": "multiple_choice",\n    "options": ["A", "B", "C"],\n    "correct_answer": "A",\n    "explanation": "İzah",\n    "category": "Kateqoriya",\n    "difficulty": "orta",\n    "tags": ["tag1"]\n  }\n]`,
   moodle_xml: `<?xml version="1.0" encoding="UTF-8"?>
@@ -138,7 +205,7 @@ export const FORMAT_INFO: Record<string, string> = {
   aiken: 'Sadə çoxseçimli suallar üçün sürətli format.',
   gift: 'Moodle uyğunluğu və müxtəlif sual tipləri (MC, T/F, Short) üçün.',
   markdown:
-    'Ən çevik format — 11 fərqli üslub dəstəklənir: Çoxseçimli (Format 1), Çoxlu Cavab (Format 2), Doğru/Yanlış (Format 3), Qısa cavab (Format 4), Uyğunlaşdırma (Format 5), Boşluq doldur (Format 6), Ardıcıllıq (Format 7), Kod sualı (Format 8), Sıxlaşdırılmış (Format 9), Prefiksiz çoxlu seçim (Format 10) və Mürəkkəb Uyğunluq (Format 11). Şablonu yükləyin.',
+    'Ən etibarlı və çevik format — 10 fərqli sual tipi: Çoxseçimli (tək/çoxlu cavab), Doğru/Yanlış, Qısa cavab, Uyğunlaşdırma (arrow və siyahı), Ardıcıllıq, Boşluq doldurma, Rəqəmsal, Kod. Şablonu yükləyin, qaydlara uyğun hazırlayın — sıfıra yaxın xəta əldə edin.',
   moodle_xml:
     'Moodle LMS-dən export edilmiş XML fayllar üçün. Base64 kodlu şəkillər avtomatik Supabase-ə yüklənir. Dəstəklənən tiplər: multichoice, truefalse, shortanswer, essay, matching, numerical, cloze.',
 };

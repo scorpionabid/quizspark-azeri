@@ -4,8 +4,8 @@ import {
   TRUE_FALSE_RE,
   warnDuplicateOptions,
   warnIfMissingText,
-  warnIfMissingAnswer,
   extractInlineOptions,
+  parseInlineLine,
 } from './markdown-utils';
 import {
   parseMatchingBlock,
@@ -18,17 +18,37 @@ import { parseMarkdownFormat1, parseMarkdownFormat2 } from './markdown-format-pa
 
 type BlockResult = { questions: ParsedQuestion[]; warnings: ParseWarning[] };
 
+// ─── Heading stripping helper ─────────────────────────────────────────────────
+
+/**
+ * H1-H6 markdown başlıq prefix-ini sətirdən çıxarır.
+ * "### Sual 3: Mövzu (MCQ)" → "Mövzu (MCQ)" deyil, boş string qaytarır
+ * çünki bu cür sətir label kimi başqasından ayrıdır.
+ * Yalnız `# Sual mətni` (Format1) işləyir — başqa headings label sayılır.
+ */
+function stripHeading(line: string): string {
+  return line.replace(/^#{1,6}\s*/, '').trim();
+}
+
+/**
+ * Sətrin heading (H2+) section label olub-olmadığını yoxlayır.
+ * H1 (`# text`) Format1 sual marker-i sayılır, H2+ (`## text`, `### text`) label.
+ */
+function isSectionLabel(line: string): boolean {
+  return /^#{2,6}\s/.test(line);
+}
+
 // ─── Generic MCQ / Short Answer block ────────────────────────────────────────
 
 /**
  * Tip etiketi olmayan, spesifik format göstərişi olmayan blokları parse edir.
  * MCQ, true_false, multiple_select və short_answer növlərini avtomatik aşkarlayır.
- * `extractMetadata` cavab həllini (hərf → mətn) öz daxilində aparır.
  */
 function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
   const META_RE =
-    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[:-]/iu;
+    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans)\s*[:-]/iu;
   const ANSWER_LINE_RE = /^(ANSWER|Düzgün cavab|Doğru cavab|Cavab|Doğru)\s*[:-]/i;
+  const QUESTION_START_RE = /^(?:#{1,6}|Sual|Q|Question)\s*[:.]?\s*/i;
 
   const allQuestions: ParsedQuestion[] = [];
   const allWarnings: ParseWarning[] = [];
@@ -37,10 +57,19 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
   let currentOptions: string[] = [];
   let currentMetaLines: string[] = [];
   let parsingOptions = false;
+  // Section label (### Sual N: ...) mövcud bloğun başlığı
+  let sectionLabel = '';
 
   const finalizeQuestion = (currentLineIndex: number) => {
+    // Section label varsa onu sualın başlığı kimi istifadə et, sonra sıfırla
+    const label = sectionLabel;
+    sectionLabel = '';
+
     let questionText = currentQuestionLines.join('\n').trim();
-    
+
+    // Sual mətni Q: və ya # ilə başlayırsa, onu təmizlə
+    questionText = questionText.replace(QUESTION_START_RE, '').trim();
+
     // Yalnızca tamamilə boş blokları ignore et
     if (!questionText && currentOptions.length === 0 && currentMetaLines.length === 0) {
       return;
@@ -48,8 +77,15 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
 
     // Smart option detection: if no explicit options found but multiple lines exist
     if (currentOptions.length === 0 && currentQuestionLines.length > 1) {
-      currentOptions.push(...currentQuestionLines.slice(1).map((l) => l.trim()).filter(Boolean));
-      questionText = currentQuestionLines[0].trim();
+      // H2+ heading sətirini question lines-dan çıxar
+      const contentLines = currentQuestionLines.filter(l => !isSectionLabel(l));
+      if (contentLines.length > 1) {
+        currentOptions.push(...contentLines.slice(1).map((l) => l.trim()).filter(Boolean));
+        questionText = contentLines[0].trim().replace(QUESTION_START_RE, '').trim();
+      } else {
+        currentOptions.push(...currentQuestionLines.slice(1).map((l) => l.trim()).filter(Boolean));
+        questionText = currentQuestionLines[0].trim().replace(QUESTION_START_RE, '').trim();
+      }
     }
 
     const isTrueFalse =
@@ -66,8 +102,12 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
       options: currentOptions.length > 0 ? currentOptions : null,
     };
 
-    extractMetadata(currentMetaLines, result);
+    // Label varsa title kimi əlavə et
+    if (label) {
+      result.title = stripHeading(label);
+    }
 
+    extractMetadata(currentMetaLines, result);
 
     const warnOffset = lineOffset + currentLineIndex - (currentQuestionLines.length + currentOptions.length + currentMetaLines.length);
 
@@ -79,7 +119,13 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
     }
 
     if (!result.correct_answer) {
-      allWarnings.push(warnIfMissingAnswer(questionText, Math.max(0, warnOffset)));
+      const msg = `"${questionText.slice(0, 30)}..." sualında "Cavab:" sahəsi tapılmadı. Zəhmət olmasa düzgün variantı qeyd edin.`;
+      allWarnings.push({
+        line: Math.max(0, warnOffset),
+        type: 'missing_answer',
+        message: msg,
+        severity: 'error',
+      });
     }
 
     allQuestions.push(result as ParsedQuestion);
@@ -94,12 +140,21 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
 
+    // H2+ section label sətirini ayrıca qeyd et, sual lines-a əlavə etmə
+    if (isSectionLabel(line)) {
+      // Əvvəlki sualı tamamla (sual varsa)
+      if (currentQuestionLines.length > 0 || currentOptions.length > 0) {
+        finalizeQuestion(i);
+      }
+      sectionLabel = line;
+      continue;
+    }
+
     const aikenOpt = line.match(/^([A-Za-z\d]+)\s*[).]\s+(.+)/);
     const bulletOpt = line.match(/^[-•*]\s+(?!\[)(.+)/);
     const isMeta = META_RE.test(line);
 
     let remainingAfterMeta = '';
-    // Yalnız sətir tam olaraq meta sözü ilə başlamırsa (yəni əvvəlində mətn varsa) inline meta axtar
     if (!isMeta) {
       const inlineMetaMatch = line.match(
         /(.+?)\s*((?:İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[:-].+)$/iu,
@@ -117,6 +172,38 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
       parsingOptions = true;
       currentOptions.push(aikenOpt[2].trim());
     } else {
+      // Tək sətirlik inline format yoxla: "Sual mətni A) Opt1 B) Opt2"
+      const inlineParsed = parseInlineLine(line);
+      if (inlineParsed) {
+        // Mövcud sualı tamamla
+        if (currentQuestionLines.length > 0 || currentOptions.length > 0) {
+          finalizeQuestion(i);
+        }
+        // Yeni inline sualı birbaşa əlavə et
+        const inlineResult: Partial<ParsedQuestion> = {
+          question_text: inlineParsed.questionText,
+          question_type: 'multiple_choice',
+          difficulty: 'orta',
+          options: inlineParsed.options,
+        };
+        if (sectionLabel) {
+          inlineResult.title = stripHeading(sectionLabel);
+          sectionLabel = '';
+        }
+        extractMetadata(inlineParsed.metaLines, inlineResult);
+        // inline metaLines-da cavab tapılmasa warning
+        if (!inlineResult.correct_answer) {
+          allWarnings.push({
+            line: lineOffset + i,
+            type: 'missing_answer',
+            message: `"${inlineParsed.questionText.slice(0, 30)}..." sualında cavab tapılmadı`,
+            severity: 'error',
+          });
+        }
+        allQuestions.push(inlineResult as ParsedQuestion);
+        continue;
+      }
+
       const inlineOpts = extractInlineOptions(line);
       if (inlineOpts.length > 0) {
         parsingOptions = true;
@@ -188,7 +275,7 @@ export function parseSingleBlock(block: string, lineOffset: number): BlockResult
 
   // 2 — Arrow cütlər → matching
   const META_RE_LIGHT =
-    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Cavab|Düzgün|ANSWER|Tolerans|Dil)\s*[-:]/iu;
+    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Cavab|Düzgün|Düzgün cavab|Doğru cavab|ANSWER|Tolerans|Dil)\s*[-:]/iu;
   const PAIR_RE = /^.+\s*(?:→|->|::)\s*.+$/;
   const pairLines = lines.filter((l) => PAIR_RE.test(l) && !META_RE_LIGHT.test(l));
   if (pairLines.length >= 2) {
@@ -224,7 +311,7 @@ export function parseMarkdownSeparated(content: string): ParseResult {
   const allQuestions: ParsedQuestion[] = [];
   const allWarnings: ParseWarning[] = [];
 
-  const blocks = content.split(/^(?:---+|===+|___+|\*\*\*+|⸻+|—+)\s*$/m);
+  const blocks = content.split(/\n(?:---+|===+|___+|\*\*\*+|⸻+|—+)\s*(?:\n|$)/);
   let lineOffset = 0;
 
   for (const block of blocks) {
@@ -232,7 +319,8 @@ export function parseMarkdownSeparated(content: string): ParseResult {
     lineOffset += block.split('\n').length;
     if (!trimmed) continue;
 
-    if (/^#\s+/m.test(trimmed)) {
+    // H1 başlıqla başlayan blok → Format1
+    if (/^#\s+/m.test(trimmed) && !/^#{2,}\s/m.test(trimmed.split('\n')[0])) {
       const r = parseMarkdownFormat1(trimmed);
       allQuestions.push(...r.questions);
       allWarnings.push(...r.warnings);
@@ -247,6 +335,72 @@ export function parseMarkdownSeparated(content: string): ParseResult {
     }
 
     const r = parseSingleBlock(trimmed, lineOffset);
+    allQuestions.push(...r.questions);
+    allWarnings.push(...r.warnings);
+  }
+
+  return { questions: allQuestions, warnings: allWarnings };
+}
+
+// ─── parseMarkdownOneLinePerQuestion ─────────────────────────────────────────
+
+/**
+ * Hər sətirin (və ya boş sətir ilə ayrılan qrupun) ayrı sual olduğu formatı
+ * parse edir. konst-quiz.md kimi real-world fayllar üçündür.
+ *
+ * Format nümunəsi:
+ *   Azərbaycan dövləti: A) Dünyəvi... B) Demokratik... Düzgün cavab: B
+ *   Xalqın suverenliyi dedikdə nə nəzərdə tutulur? A) ... B) ... Düzgün cavab: A
+ */
+export function parseMarkdownOneLinePerQuestion(content: string): ParseResult {
+  const allQuestions: ParsedQuestion[] = [];
+  const allWarnings: ParseWarning[] = [];
+
+  const rawLines = content.split(/\r?\n/);
+  let i = 0;
+
+  while (i < rawLines.length) {
+    const line = rawLines[i].trim();
+
+    // Boş sətir — keç
+    if (!line) { i++; continue; }
+
+    // Tək sətirlik inline format yoxla
+    const inlineParsed = parseInlineLine(line);
+    if (inlineParsed) {
+      const result: Partial<ParsedQuestion> = {
+        question_text: inlineParsed.questionText,
+        question_type: 'multiple_choice',
+        difficulty: 'orta',
+        options: inlineParsed.options,
+      };
+      extractMetadata(inlineParsed.metaLines, result);
+
+      if (!result.correct_answer) {
+        allWarnings.push({
+          line: i + 1,
+          type: 'missing_answer',
+          message: `"${inlineParsed.questionText.slice(0, 30)}..." — cavab tapılmadı`,
+          severity: 'error',
+        });
+      }
+      allQuestions.push(result as ParsedQuestion);
+      i++;
+      continue;
+    }
+
+    // Çox sətirlik qrup: boş sətirə və ya növbəti inline sualına qədər topla
+    const groupLines: string[] = [line];
+    i++;
+    while (i < rawLines.length) {
+      const next = rawLines[i].trim();
+      if (!next) { i++; break; }            // boş sətir = qrup sonu
+      if (parseInlineLine(next)) break;      // növbəti inline sual = qrup sonu
+      groupLines.push(next);
+      i++;
+    }
+
+    const r = parseSingleBlock(groupLines.join('\n'), 0);
     allQuestions.push(...r.questions);
     allWarnings.push(...r.warnings);
   }
