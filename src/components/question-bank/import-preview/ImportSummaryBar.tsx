@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Loader2,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 
 interface ImportSummaryBarProps {
@@ -19,6 +20,7 @@ interface ImportSummaryBarProps {
   isBulkEnhancing?: boolean;
   onCheckDuplicates?: () => void;
   isCheckingDuplicates?: boolean;
+  onClearInvalid?: () => void;
 }
 
 export function ImportSummaryBar({
@@ -31,6 +33,7 @@ export function ImportSummaryBar({
   isBulkEnhancing,
   onCheckDuplicates,
   isCheckingDuplicates,
+  onClearInvalid,
 }: ImportSummaryBarProps) {
   return (
     <div className="flex items-center justify-between text-sm flex-wrap gap-2">
@@ -47,6 +50,17 @@ export function ImportSummaryBar({
         )}
       </div>
       <div className="flex items-center gap-2">
+        {invalidCount > 0 && onClearInvalid && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClearInvalid}
+            className="h-7 px-2 text-[10px] gap-1.5 bg-rose-500/5 text-rose-600 border-rose-500/20 hover:bg-rose-500/10 transition-all font-bold"
+          >
+            <Trash2 className="h-3 w-3" />
+            Xətalıları sil
+          </Button>
+        )}
         {onBulkEnhance && (
           <Button
             variant="outline"

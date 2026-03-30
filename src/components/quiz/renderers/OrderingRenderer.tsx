@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, Check, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { RendererProps } from './types';
 
 export const OrderingRenderer: React.FC<RendererProps> = ({
@@ -32,43 +33,87 @@ export const OrderingRenderer: React.FC<RendererProps> = ({
     onChange(newSeq.join('|||'));
   };
 
+  const getCorrectSequence = () => (
+    question.sequence_items?.length
+      ? question.sequence_items
+      : (question.correct_answer || '').split('|||')
+  ).map(s => s.trim());
+
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground italic mb-1">
-        ↕ Elementləri düzgün ardıcıllıqla düzün
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground italic mb-1 flex items-center gap-1">
+        <span className="text-primary font-bold">↕</span> Elementləri düzgün ardıcıllıqla düzün
       </p>
-      <div className="space-y-1.5">
-        {sequence.map((item, idx) => (
-          <div
-            key={idx}
-            className="flex items-center gap-2 p-3 rounded-xl bg-card border border-border/60 shadow-sm"
-          >
-            <div className="flex flex-col gap-0.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => handleMove(idx, -1)}
-                disabled={disabled || showFeedback || idx === 0}
-                className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-25 transition-colors"
-                aria-label="Yuxarı"
-              >
-                <ArrowUp className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleMove(idx, 1)}
-                disabled={disabled || showFeedback || idx === sequence.length - 1}
-                className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted disabled:opacity-25 transition-colors"
-                aria-label="Aşağı"
-              >
-                <ArrowDown className="h-3 w-3" />
-              </button>
+      <div className="space-y-2">
+        {sequence.map((item, idx) => {
+          const correctSeq = getCorrectSequence();
+          const isCorrectPos = showFeedback && item.trim() === (correctSeq[idx] || '').trim();
+          
+          let statusClass = "border-border/60 bg-card";
+          if (showFeedback) {
+            statusClass = isCorrectPos 
+              ? "border-green-500 bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-300" 
+              : "border-red-400 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-300";
+          }
+
+          return (
+            <div
+              key={idx}
+              className={cn(
+                "flex items-center gap-3 p-3 rounded-2xl border shadow-sm transition-all duration-200",
+                statusClass,
+                !disabled && !showFeedback && "hover:border-primary/40 hover:shadow-md"
+              )}
+            >
+              {!showFeedback && (
+                <div className="flex flex-col gap-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleMove(idx, -1)}
+                    disabled={disabled || idx === 0}
+                    className="h-6 w-6 flex items-center justify-center rounded-lg hover:bg-muted disabled:opacity-25 transition-colors border border-transparent hover:border-border"
+                    aria-label="Yuxarı"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMove(idx, 1)}
+                    disabled={disabled || idx === sequence.length - 1}
+                    className="h-6 w-6 flex items-center justify-center rounded-lg hover:bg-muted disabled:opacity-25 transition-colors border border-transparent hover:border-border"
+                    aria-label="Aşağı"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+              
+              <div className={cn(
+                "h-8 w-8 flex items-center justify-center rounded-xl font-bold text-sm shrink-0",
+                showFeedback 
+                  ? isCorrectPos ? "bg-green-200/50 text-green-800" : "bg-red-200/50 text-red-800"
+                  : "bg-primary/10 text-primary"
+              )}>
+                {idx + 1}
+              </div>
+              
+              <span className="flex-1 text-sm font-medium leading-snug">{item}</span>
+
+              {showFeedback && (
+                <div className="shrink-0 ml-2">
+                  {isCorrectPos ? (
+                    <Check className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <div className="flex items-center gap-1 text-[10px] bg-white/50 px-2 py-1 rounded-full border border-red-200">
+                      <X className="h-3 w-3 text-red-500" />
+                      <span className="text-red-600 font-bold whitespace-nowrap">Düzgün: {correctSeq.indexOf(item) + 1}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="h-7 w-7 flex items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-sm shrink-0">
-              {idx + 1}
-            </div>
-            <span className="flex-1 text-sm leading-snug">{item}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

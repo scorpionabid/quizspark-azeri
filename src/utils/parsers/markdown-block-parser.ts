@@ -27,7 +27,7 @@ type BlockResult = { questions: ParsedQuestion[]; warnings: ParseWarning[] };
  */
 function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
   const META_RE =
-    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün|Cavab|Doğru cavab)\s*[:-]/iu;
+    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[:-]/iu;
   const ANSWER_LINE_RE = /^(ANSWER|Düzgün cavab|Doğru cavab|Cavab|Doğru)\s*[:-]/i;
 
   const allQuestions: ParsedQuestion[] = [];
@@ -39,8 +39,18 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
   let parsingOptions = false;
 
   const finalizeQuestion = (currentLineIndex: number) => {
-    const questionText = currentQuestionLines.join('\n').trim();
-    if (!questionText) return;
+    let questionText = currentQuestionLines.join('\n').trim();
+    
+    // Yalnızca tamamilə boş blokları ignore et
+    if (!questionText && currentOptions.length === 0 && currentMetaLines.length === 0) {
+      return;
+    }
+
+    // Smart option detection: if no explicit options found but multiple lines exist
+    if (currentOptions.length === 0 && currentQuestionLines.length > 1) {
+      currentOptions.push(...currentQuestionLines.slice(1).map((l) => l.trim()).filter(Boolean));
+      questionText = currentQuestionLines[0].trim();
+    }
 
     const isTrueFalse =
       currentOptions.length === 2 && currentOptions.every((o) => TRUE_FALSE_RE.test(o.trim()));
@@ -57,6 +67,7 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
     };
 
     extractMetadata(currentMetaLines, result);
+
 
     const warnOffset = lineOffset + currentLineIndex - (currentQuestionLines.length + currentOptions.length + currentMetaLines.length);
 
@@ -83,20 +94,21 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
 
-    // Check for inline metadata: "Question text... Cavab: A"
-    const inlineMetaMatch = line.match(
-      /(.+?)\s*((?:İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün|Cavab|Doğru cavab)\s*[:-].+)$/iu,
-    );
-
-    let remainingAfterMeta = '';
-    if (inlineMetaMatch) {
-      line = inlineMetaMatch[1];
-      remainingAfterMeta = inlineMetaMatch[2];
-    }
-
     const aikenOpt = line.match(/^([A-Za-z\d]+)\s*[).]\s+(.+)/);
     const bulletOpt = line.match(/^[-•*]\s+(?!\[)(.+)/);
     const isMeta = META_RE.test(line);
+
+    let remainingAfterMeta = '';
+    // Yalnız sətir tam olaraq meta sözü ilə başlamırsa (yəni əvvəlində mətn varsa) inline meta axtar
+    if (!isMeta) {
+      const inlineMetaMatch = line.match(
+        /(.+?)\s*((?:İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[:-].+)$/iu,
+      );
+      if (inlineMetaMatch) {
+        line = inlineMetaMatch[1];
+        remainingAfterMeta = inlineMetaMatch[2];
+      }
+    }
 
     if (isMeta) {
       parsingOptions = false;
@@ -227,7 +239,7 @@ export function parseMarkdownSeparated(content: string): ParseResult {
       continue;
     }
 
-    if (/^\d+[.):]\s/m.test(trimmed)) {
+    if (/^\d+[.):]\s/.test(trimmed)) {
       const r = parseMarkdownFormat2(trimmed);
       allQuestions.push(...r.questions);
       allWarnings.push(...r.warnings);

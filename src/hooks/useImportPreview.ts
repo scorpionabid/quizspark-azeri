@@ -16,6 +16,7 @@ import {
 } from '@/utils/import-parsers';
 import { formatQuestionsForImport } from '@/components/question-bank/import-export/utils';
 import { ImportFormat } from '@/components/question-bank/import-export/constants';
+import { isValidQuestion } from '@/components/question-bank/import-preview/utils';
 
 /**
  * Converts a base64 data URI to a File, uploads it to the question-images
@@ -291,10 +292,11 @@ export function useImportPreview(): UseImportPreviewReturn {
 
   const handleImport = useCallback(
     (onImport: (questions: Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'>[]) => void): void => {
-      onImport(formatQuestionsForImport(importPreview));
+      const validQuestions = importPreview.filter(q => isValidQuestion(q, importWarnings));
+      onImport(formatQuestionsForImport(validQuestions));
       resetImportState();
     },
-    [importPreview, resetImportState],
+    [importPreview, importWarnings, resetImportState],
   );
 
   return {

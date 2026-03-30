@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -7,11 +8,13 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
-import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box } from 'lucide-react';
+import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box, ListChecks, GitMerge, ListOrdered, Underline, Hash } from 'lucide-react';
 import { QUESTION_TYPES } from '@/types/question';
 import { QuestionVideoPlayer } from './QuestionVideoPlayer';
 import { Question3DViewer } from './Question3DViewer';
+import { normalizePairs, parseMatchingValue } from '../quiz/renderers/utils';
 
 interface QuestionViewDialogProps {
   open: boolean;
@@ -54,7 +57,8 @@ export function QuestionViewDialog({
   if (!question) return null;
 
   const options = parseOptions(question.options);
-  const showOptions = question.question_type === 'multiple_choice' || question.question_type === 'true_false';
+  const showStandardOptions = ['multiple_choice', 'true_false', 'multiple_select'].includes(question.question_type);
+  const isMultipleSelect = question.question_type === 'multiple_select';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,25 +191,37 @@ export function QuestionViewDialog({
             </div>
           )}
 
-          {/* Options */}
-          {showOptions && options.length > 0 && (
+          {/* Standard Options (MCQ, Multi-select, T/F) */}
+          {showStandardOptions && options.length > 0 && (
             <div>
               <h4 className="font-medium mb-2">Variantlar</h4>
               <div className="space-y-2">
                 {options.map((option, index) => {
                   const optionLetter = String.fromCharCode(65 + index);
-                  const isCorrect = question.correct_answer.toUpperCase() === optionLetter;
+                  
+                  // Check if this option is correct
+                  let isCorrect = false;
+                  if (isMultipleSelect) {
+                    const correctAnswers = question.correct_answer.split(',').map(s => s.trim().toLowerCase());
+                    isCorrect = correctAnswers.includes(option.toLowerCase()) || 
+                                correctAnswers.includes(optionLetter.toLowerCase());
+                  } else {
+                    isCorrect = question.correct_answer.toUpperCase() === optionLetter || 
+                                question.correct_answer === option;
+                  }
 
                   return (
                     <div
                       key={index}
-                      className={`flex items-center gap-2 p-2 rounded-md border ${isCorrect
-                        ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
-                        : 'bg-muted/30'
-                        }`}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-md border",
+                        isCorrect
+                          ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                          : 'bg-muted/30 border-transparent'
+                      )}
                     >
-                      <span className="font-medium w-6">{optionLetter}.</span>
-                      <span className="flex-1">{option}</span>
+                      <span className="font-medium w-6 text-xs text-muted-foreground">{optionLetter}.</span>
+                      <span className="flex-1 text-sm">{option}</span>
                       {isCorrect && (
                         <Check className="h-4 w-4 text-green-600" />
                       )}
@@ -216,13 +232,94 @@ export function QuestionViewDialog({
             </div>
           )}
 
-          {/* Correct Answer (for non-multiple choice) */}
-          {!showOptions && (
+          {/* Matching Pairs */}
+          {question.question_type === 'matching' && (
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <GitMerge className="w-4 h-4" /> Düzgün Uyğunluqlar
+              </h4>
+              <div className="space-y-2">
+                {Object.entries(parseMatchingValue(question.correct_answer)).map(([left, rights], idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg border border-dashed text-sm">
+                    <div className="flex-1 font-medium">{left}</div>
+                    <div className="text-muted-foreground">→</div>
+                    <div className="flex-1 text-primary">{rights.join(', ')}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Ordering Sequence */}
+          {question.question_type === 'ordering' && (
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <ListOrdered className="w-4 h-4" /> Düzgün Ardıcıllıq
+              </h4>
+              <div className="space-y-2">
+                {(question.sequence_items || question.correct_answer.split('|||')).map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-2 bg-green-50/50 dark:bg-green-900/10 rounded-lg border border-green-100 dark:border-green-900/30 text-sm">
+                    <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-xs font-bold text-green-700">
+                      {idx + 1}
+                    </span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Fill in the Blanks */}
+          {question.question_type === 'fill_blank' && (
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <Underline className="w-4 h-4" /> Cümlə Hazırla (Boşluqlar doldurulub)
+              </h4>
+              <div className="p-4 bg-muted/30 rounded-xl border italic text-sm leading-relaxed">
+                {(() => {
+                  const parts = (question.fill_blank_template || question.question_text).split('___');
+                  const answers = question.correct_answer.split('|');
+                  return parts.map((part, i) => (
+                    <React.Fragment key={i}>
+                      {part}
+                      {i < parts.length - 1 && (
+                        <span className="px-2 py-0.5 mx-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded font-bold not-italic border-b-2 border-green-500">
+                          {answers[i] || '___'}
+                        </span>
+                      )}
+                    </React.Fragment>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Numerical */}
+          {question.question_type === 'numerical' && (
+            <div>
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <Hash className="w-4 h-4" /> Rəqəmsal Cavab
+              </h4>
+              <div className="flex items-center gap-4 p-3 bg-green-50/50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                  {question.numerical_answer || question.correct_answer}
+                </div>
+                {question.numerical_tolerance !== undefined && (
+                  <div className="text-xs text-muted-foreground">
+                    Tolerans (Xəta payı): ±{question.numerical_tolerance}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Correct Answer (for other types like short_answer, essay, code) */}
+          {!showStandardOptions && !['matching', 'ordering', 'fill_blank', 'numerical'].includes(question.question_type) && (
             <div>
               <h4 className="font-medium mb-2">Düzgün Cavab</h4>
-              <p className="p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800">
+              <div className="p-3 bg-green-50/50 dark:bg-green-900/10 rounded-md border border-green-200 dark:border-green-800 font-mono text-sm">
                 {question.correct_answer}
-              </p>
+              </div>
             </div>
           )}
 

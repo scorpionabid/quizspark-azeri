@@ -34,54 +34,117 @@ function buildQuestionText(lines: string[]): string {
 // ─── Matching ─────────────────────────────────────────────────────────────────
 
 export function parseMatchingBlock(lines: string[], lineOffset: number): BlockResult {
-  const PAIR_RE = /^(.+?)\s*(?:→|->|=|::)\s*(.+)$/;
+  const LEFT_RE = /^(\d+)[:.]?\s+(.+)$/;
+  const RIGHT_LABEL_RE = /^([a-z])\)\s+(.+)$/i;
 
   const questionLines: string[] = [];
-  const pairs: Array<{ left: string; right: string }> = [];
+  const leftItems: Array<{ id: string; text: string }> = [];
+  const rightItems: Array<{ id: string; text: string }> = [];
   const metaLines: string[] = [];
 
   for (const line of lines) {
     const clean = line.trim();
-    if (!clean) continue;
-    const pairMatch = clean.match(PAIR_RE);
-    if (pairMatch && !BASE_META_RE.test(clean)) {
-      pairs.push({ left: pairMatch[1].trim(), right: pairMatch[2].trim() });
-    } else if (BASE_META_RE.test(clean)) {
+    if (!clean || TIP_LINE_RE.test(clean)) continue;
+    
+    if (BASE_META_RE.test(clean)) {
       metaLines.push(clean);
-    } else if (pairs.length === 0) {
+      continue;
+    }
+
+    const rightMatch = clean.match(RIGHT_LABEL_RE);
+    if (rightMatch) {
+      rightItems.push({ id: rightMatch[1].toLowerCase(), text: rightMatch[2].trim() });
+      continue;
+    }
+
+    const inlineRights = extractInlineOptions(clean);
+    if (inlineRights.length > 0) {
+      // If we find inline options like "a) ... b) ...", use them as right items
+      // extractInlineOptions might need to be adjusted for matching, 
+      // but usually these are labeled with letters.
+      inlineRights.forEach((text, idx) => {
+        const label = String.fromCharCode(97 + idx); // a, b, c...
+        rightItems.push({ id: label, text });
+      });
+      continue;
+    }
+
+    const leftMatch = clean.match(LEFT_RE);
+    if (leftMatch) {
+      leftItems.push({ id: leftMatch[1], text: leftMatch[2].trim() });
+    } else if (leftItems.length === 0 && rightItems.length === 0) {
       questionLines.push(clean);
     } else {
-      metaLines.push(clean);
+      // Check if it's a plain line that should be a left item
+      leftItems.push({ id: (leftItems.length + 1).toString(), text: clean });
     }
   }
 
-  const questionText = buildQuestionText(questionLines) || 'Uyğunlaşdırın';
-  const pairsRecord: Record<string, string> = Object.fromEntries(
-    pairs.map((p) => [p.left, p.right]),
-  );
-
   const result: Partial<ParsedQuestion> = {
-    question_text: questionText,
+    question_text: buildQuestionText(questionLines) || 'Uyğunluğu müəyyən edin',
     question_type: 'matching',
     difficulty: 'orta',
-    matching_pairs: pairsRecord,
-    correct_answer: pairs.map((p) => `${p.left}:${p.right}`).join('|||'),
   };
 
   extractMetadata(metaLines, result);
 
+  // If we have a complex answer string like "1-b, d; 2-a", parse it
+  if (result.correct_answer && result.correct_answer.includes('-')) {
+    const pairs: string[] = [];
+    const segments = result.correct_answer.split(';').map(s => s.trim());
+    
+    segments.forEach(seg => {
+      const parts = seg.split(/[-:]/);
+      if (parts.length === 2) {
+        const leftId = parts[0].trim();
+        const rightLabels = parts[1].split(',').map(l => l.trim().toLowerCase());
+        
+        const leftItem = leftItems.find(l => l.id === leftId);
+        if (leftItem) {
+          const matchedRights = rightItems
+            .filter(r => rightLabels.includes(r.id))
+            .map(r => r.text);
+          
+          if (matchedRights.length > 0) {
+            pairs.push(`${leftItem.text}:${matchedRights.join(',')}`);
+          }
+        }
+      }
+    });
+
+    if (pairs.length > 0) {
+      result.correct_answer = pairs.join('|||');
+    }
+  }
+
+  // Populate matching_pairs for the UI (this shows all left and right options)
+  const finalPairs: Record<string, string> = {};
+  leftItems.forEach(l => {
+    finalPairs[l.text] = rightItems.map(r => r.text).join(',');
+  });
+  result.matching_pairs = finalPairs;
+
   const warnings: ParseWarning[] = [];
-  if (pairs.length < 2) {
+  if (leftItems.length === 0 || rightItems.length === 0) {
     warnings.push({
       line: lineOffset,
       type: 'missing_answer',
-      message: 'Uyğunlaşdırma sualında ən azı 2 cüt lazımdır',
+      message: 'Uyğunlaşdırma sualında həm sol, həm də sağ tərəf elementləri olmalıdır',
       severity: 'error',
     });
   }
 
   return { questions: [result as ParsedQuestion], warnings };
 }
+
+// ── Helpers for the new logic ──
+function extractInlineOptions(line: string): string[] {
+  // Simple extraction for matching: finds "a) text b) text"
+  const regex = /([a-z]\))\s+((?:(?![a-z]\)\s+).)+)/gi;
+  const matches = [...line.matchAll(regex)];
+  return matches.map(m => m[2].trim());
+}
+
 
 // ─── Ordering ─────────────────────────────────────────────────────────────────
 

@@ -15,13 +15,15 @@ export function normalizePairs(
   return pairs;
 }
 
-export function parseMatchingValue(value: string): Record<string, string> {
-  const result: Record<string, string> = {};
+export function parseMatchingValue(value: string): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
   if (!value) return result;
   value.split('|||').forEach(m => {
     const colonIdx = m.indexOf(':');
     if (colonIdx > -1) {
-      result[m.slice(0, colonIdx)] = m.slice(colonIdx + 1);
+      const left = m.slice(0, colonIdx);
+      const right = m.slice(colonIdx + 1);
+      result[left] = right.split(',').map(r => r.trim()).filter(Boolean);
     }
   });
   return result;
@@ -57,10 +59,19 @@ export function isAnswerCorrect(question: Question, value: string): boolean {
   }
 
   if (qt === 'matching') {
-    const pairsRecord = normalizePairs(question.matching_pairs ?? null);
     const studentPairs = parseMatchingValue(value);
-    return Object.entries(pairsRecord).every(([l, r]) => studentPairs[l] === r);
+    const correctPairs = parseMatchingValue(question.correct_answer);
+    
+    const leftKeys = new Set([...Object.keys(studentPairs), ...Object.keys(correctPairs)]);
+    
+    return Array.from(leftKeys).every(l => {
+      const sRights = (studentPairs[l] || []).sort();
+      const cRights = (correctPairs[l] || []).sort();
+      if (sRights.length !== cRights.length) return false;
+      return sRights.every((r, i) => r === cRights[i]);
+    });
   }
+
 
   if (qt === 'hotspot') {
     const parts = question.correct_answer.split(':');

@@ -51,15 +51,15 @@ export function ImportExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl w-[95vw] h-[90vh] flex flex-col p-4 md:p-6 overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Import / Export</DialogTitle>
           <DialogDescription>
             Sualları müxtəlif formatlarda import/export edin və ya AI ilə sürətli analiz aparın
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex flex-col flex-1 overflow-hidden">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="import">
               <Upload className="h-4 w-4 mr-2" />
@@ -75,7 +75,7 @@ export function ImportExportDialog({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="import">
+          <TabsContent value="import" className="flex-1 overflow-y-auto">
             <ImportTab
               importPreview={importPreview}
               importError={importError}
@@ -93,11 +93,11 @@ export function ImportExportDialog({
             />
           </TabsContent>
 
-          <TabsContent value="export">
+          <TabsContent value="export" className="flex-1 overflow-y-auto">
             <ExportTab questions={questions} />
           </TabsContent>
 
-          <TabsContent value="ai_import">
+          <TabsContent value="ai_import" className="flex-1 overflow-y-auto">
             <AIImportTab
               importPreview={importPreview}
               isImporting={isImporting}

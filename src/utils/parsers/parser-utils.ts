@@ -65,6 +65,25 @@ export function detectFormat(
 }
 
 /**
+ * Markdown mətni daxilindəki şəkilləri avtomatik tanıyıb ayırır.
+ */
+export function extractMedia(target: Partial<ParsedQuestion>) {
+  if (!target.question_text) return;
+  
+  // Look for ![alt](url) or just (url) if it looks like an image
+  const imgRegex = /!\[.*?\]\((https?:\/\/[^\s\)]+\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^)]+)?)\)/i;
+  const match = target.question_text.match(imgRegex);
+  
+  if (match) {
+    if (!target.question_image_url) {
+      target.question_image_url = match[1];
+    }
+    // Remove the markdown image from the text to clean up
+    target.question_text = target.question_text.replace(match[0], '').trim();
+  }
+}
+
+/**
  * Metadata satırlarını oxuyur.
  */
 export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>) {
@@ -154,4 +173,7 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
       }
     }
   }
+
+  // Final step: attempt to extract media from question_text if not already set
+  extractMedia(target);
 }

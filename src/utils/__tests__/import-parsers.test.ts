@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseMarkdownFull, parseAiken, parseGIFT } from '../import-parsers';
+import { parseMatchingValue } from '../../components/quiz/renderers/utils';
 
 describe('import-parsers', () => {
   describe('parseMarkdownFull', () => {
@@ -229,7 +230,36 @@ Düzgün cavab: B`;
       expect(result.questions[1].question_text).toBe('Sual 2:');
       expect(result.questions[1].correct_answer).toBe('X2');
     });
+
+    it('should parse Format 10 (prefix-less multiple select with numeric answers)', () => {
+      const content = `Xalqımızın ülvi niyyətləri:
+vətəndaş cəmiyyəti
+hüquqi dövlət
+Düzgün cavab: 1, 2`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_text).toBe('Xalqımızın ülvi niyyətləri:');
+      expect(result.questions[0].options).toHaveLength(2);
+      expect(result.questions[0].question_type).toBe('multiple_select');
+      expect(result.questions[0].correct_answer).toBe('vətəndaş cəmiyyəti,hüquqi dövlət');
+    });
+
+    it('should parse Format 11 (complex matching one-to-many)', () => {
+      const content = `Uyğunluğu müəyyən edin:
+1. Prinsip
+2. Müdafiə
+a) Dövlət b) Məsuliyyət
+Düzgün cavab: 1-b; 2-a`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].question_type).toBe('matching');
+      const pairs = parseMatchingValue(result.questions[0].correct_answer);
+      expect(pairs['Prinsip']).toEqual(['Məsuliyyət']);
+      expect(pairs['Müdafiə']).toEqual(['Dövlət']);
+    });
   });
+
+
 
 
   describe('parseAiken', () => {

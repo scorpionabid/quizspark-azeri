@@ -3,6 +3,7 @@ import { TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -16,7 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Trash2, AlertTriangle, Pencil, X, Check } from 'lucide-react';
+import { Trash2, AlertTriangle, Pencil, X, Check, Eye, Copy, Plus, Minus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { PreviewQuestion } from '@/utils/parsers/types';
 import { ParseWarning } from '@/utils/parsers/types';
@@ -34,6 +35,7 @@ interface QuestionTableRowProps {
   onDelete: (idx: number) => void;
   onSave: (idx: number, updated: PreviewQuestion) => void;
   onCancel: () => void;
+  onView?: (idx: number) => void;
 }
 
 export function QuestionTableRow({
@@ -45,8 +47,16 @@ export function QuestionTableRow({
   onDelete,
   onSave,
   onCancel,
+  onView,
 }: QuestionTableRowProps) {
   const [localDraft, setLocalDraft] = useState<PreviewQuestion | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(q.question_text || '');
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
 
   useEffect(() => {
     if (isEditing) setLocalDraft({ ...q });
@@ -61,7 +71,9 @@ export function QuestionTableRow({
     const qt = q.question_text?.slice(0, 35) ?? '';
     return w.message.includes(qt);
   });
-  const hasError = qWarnings.some(w => w.severity === 'error') || !isValidQuestion(q, warnings);
+  
+  const currentQ = isEditing && localDraft ? localDraft : q;
+  const hasError = qWarnings.some(w => w.severity === 'error') || !isValidQuestion(currentQ, isEditing ? [] : warnings);
   const hasWarning = qWarnings.some(w => w.severity === 'warning');
 
   return (
@@ -74,38 +86,156 @@ export function QuestionTableRow({
       className={`border-b border-border/30 ${hasError ? 'bg-rose-500/5 dark:bg-rose-500/10' : hasWarning ? 'bg-amber-500/5' : ''}`}
     >
       {/* # */}
-      <TableCell className="text-xs text-muted-foreground font-mono align-top pt-3">
+      <TableCell className="text-xs text-muted-foreground font-mono align-top pt-1.5 pb-1">
         {globalIdx + 1}
       </TableCell>
 
       {/* Sual */}
-      <TableCell className="align-top py-2">
+      <TableCell className="align-top py-1">
         {isEditing ? (
-          <div className="space-y-2">
-            <Input
-              value={localDraft?.question_text ?? ''}
-              onChange={e => setLocalDraft(d => d ? { ...d, question_text: e.target.value } : d)}
-              placeholder="Sual mətni"
-              className="h-8 text-sm"
-            />
-            <Input
-              value={localDraft?.correct_answer ?? ''}
-              onChange={e => setLocalDraft(d => d ? { ...d, correct_answer: e.target.value } : d)}
-              placeholder="Düzgün cavab"
-              className="h-8 text-sm"
-            />
-            <Input
-              value={localDraft?.category ?? ''}
-              onChange={e => setLocalDraft(d => d ? { ...d, category: e.target.value } : d)}
-              placeholder="Kateqoriya (ixtiyari)"
-              className="h-8 text-sm"
-            />
-            <Input
-              value={localDraft?.explanation ?? ''}
-              onChange={e => setLocalDraft(d => d ? { ...d, explanation: e.target.value } : d)}
-              placeholder="İzahat (ixtiyari)"
-              className="h-8 text-sm"
-            />
+          <div className="space-y-3 p-1">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="col-span-2">
+                <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Sual Mətni</Label>
+                <Input
+                  value={localDraft?.question_text ?? ''}
+                  onChange={e => setLocalDraft(d => d ? { ...d, question_text: e.target.value } : d)}
+                  placeholder="Sual mətni"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Düzgün Cavab</Label>
+                <Input
+                  value={localDraft?.correct_answer ?? ''}
+                  onChange={e => setLocalDraft(d => d ? { ...d, correct_answer: e.target.value } : d)}
+                  placeholder="Düzgün cavab"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Kateqoriya</Label>
+                <Input
+                  value={localDraft?.category ?? ''}
+                  onChange={e => setLocalDraft(d => d ? { ...d, category: e.target.value } : d)}
+                  placeholder="Kateqoriya"
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Options Editing (MCQ / Multi-select) */}
+            {(localDraft?.question_type === 'multiple_choice' || localDraft?.question_type === 'multiple_select') && (
+              <div className="space-y-1.5 border-t pt-2 mt-2">
+                <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Variantlar</Label>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {Array.isArray(localDraft.options) && localDraft.options.map((opt, i) => (
+                    <div key={i} className="flex gap-1 items-center">
+                      <span className="text-[10px] font-mono text-muted-foreground w-4">{String.fromCharCode(65 + i)}.</span>
+                      <Input
+                        value={opt}
+                        onChange={e => {
+                          const nextOpts = [...(localDraft.options as string[])];
+                          nextOpts[i] = e.target.value;
+                          setLocalDraft({ ...localDraft, options: nextOpts });
+                        }}
+                        className="h-7 text-xs flex-1"
+                      />
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          const nextOpts = (localDraft.options as string[]).filter((_, idx) => idx !== i);
+                          setLocalDraft({ ...localDraft, options: nextOpts });
+                        }}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 text-[10px] w-full border-dashed"
+                    onClick={() => {
+                      const nextOpts = [...(Array.isArray(localDraft.options) ? localDraft.options : []), ''];
+                      setLocalDraft({ ...localDraft, options: nextOpts });
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> Variant əlavə et
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Matching Pairs Editing */}
+            {localDraft?.question_type === 'matching' && (
+              <div className="space-y-1.5 border-t pt-2 mt-2">
+                <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Uyğunlaşdırma Cütlükləri</Label>
+                <div className="space-y-1.5">
+                  {Object.entries(localDraft.matching_pairs || {}).map(([left, right], i) => (
+                    <div key={i} className="flex gap-1 items-center">
+                      <Input
+                        value={left}
+                        onChange={e => {
+                          const nextPairs = { ...(localDraft.matching_pairs || {}) };
+                          delete nextPairs[left];
+                          nextPairs[e.target.value] = right;
+                          setLocalDraft({ ...localDraft, matching_pairs: nextPairs });
+                        }}
+                        placeholder="Sol"
+                        className="h-7 text-xs flex-1"
+                      />
+                      <span className="text-muted-foreground">→</span>
+                      <Input
+                        value={right}
+                        onChange={e => {
+                          const nextPairs = { ...(localDraft.matching_pairs || {}) };
+                          nextPairs[left] = e.target.value;
+                          setLocalDraft({ ...localDraft, matching_pairs: nextPairs });
+                        }}
+                        placeholder="Sağ"
+                        className="h-7 text-xs flex-1"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+             {/* Ordering Items Editing */}
+             {localDraft?.question_type === 'ordering' && (
+              <div className="space-y-1.5 border-t pt-2 mt-2">
+                <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Ardıcıllıq Elementləri</Label>
+                <div className="space-y-1.5">
+                  {Array.isArray(localDraft.sequence_items) && localDraft.sequence_items.map((item, i) => (
+                    <div key={i} className="flex gap-1 items-center">
+                      <span className="text-[10px] font-bold text-muted-foreground w-4">{i + 1}.</span>
+                      <Input
+                        value={item}
+                        onChange={e => {
+                          const nextItems = [...(localDraft.sequence_items as string[])];
+                          nextItems[i] = e.target.value;
+                          setLocalDraft({ ...localDraft, sequence_items: nextItems });
+                        }}
+                        className="h-7 text-xs flex-1"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="border-t pt-2">
+              <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">İzahat</Label>
+              <Input
+                value={localDraft?.explanation ?? ''}
+                onChange={e => setLocalDraft(d => d ? { ...d, explanation: e.target.value } : d)}
+                placeholder="İzahat (ixtiyari)"
+                className="h-8 text-sm"
+              />
+            </div>
           </div>
         ) : (
           <div className="space-y-1">
@@ -202,7 +332,7 @@ export function QuestionTableRow({
       </TableCell>
 
       {/* Tip */}
-      <TableCell className="align-top pt-3">
+      <TableCell className="align-top pt-1.5 pb-1">
         {isEditing ? (
           <Select
             value={localDraft?.question_type ?? 'multiple_choice'}
@@ -227,7 +357,7 @@ export function QuestionTableRow({
       </TableCell>
 
       {/* Çətinlik */}
-      <TableCell className="align-top pt-3">
+      <TableCell className="align-top pt-1.5 pb-1">
         {isEditing ? (
           <Select
             value={localDraft?.difficulty ?? 'orta'}
@@ -255,7 +385,7 @@ export function QuestionTableRow({
       </TableCell>
 
       {/* Əməliyyat */}
-      <TableCell className="align-top pt-2 text-right">
+      <TableCell className="align-top pt-1.5 pb-1 text-right">
         {isEditing ? (
           <div className="flex justify-end gap-1">
             <TooltipProvider>
@@ -292,6 +422,29 @@ export function QuestionTableRow({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Redaktə et</TooltipContent>
+              </Tooltip>
+              {onView && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-500 hover:text-blue-600" onClick={() => onView(globalIdx)}>
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Vizual Baxış</TooltipContent>
+                </Tooltip>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className={`h-7 w-7 transition-colors ${isCopied ? 'text-emerald-500' : 'text-muted-foreground'}`}
+                    onClick={handleCopy}
+                  >
+                    {isCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{isCopied ? 'Kopyalandı!' : 'Kopyala'}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>

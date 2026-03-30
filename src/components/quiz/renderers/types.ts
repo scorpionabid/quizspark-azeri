@@ -6,4 +6,5 @@ export interface RendererProps {
   onChange: (val: string) => void;
   disabled?: boolean;
   showFeedback?: boolean;
+  placeholder?: string;
 }

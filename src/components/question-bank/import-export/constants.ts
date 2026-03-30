@@ -55,7 +55,41 @@ Kateqoriya: Tarix
 Azərbaycanın paytaxtı Bakı şəhəridir?
 A) Doğru
 B) Yanlış
-Cavab: A`,
+Cavab: A
+
+---
+
+### Format 9: Sıxlaşdırılmış (Yerli) Format
+Bu formatda suallar arasında boş sətir olması kifayətdir və variantlar yan-yana düzülə bilər:
+
+1: Azərbaycan dövləti: A) Dünyəvi B) Demokratik C) Unitar Düzgün cavab: B
+
+2: Xalqın suverenliyi dedikdə nə nəzərdə tutulur?
+A) Xalqın sərbəst müəyyənləşdirmək hüququ
+B) Dövlət hakimiyyətinin yeganə mənbəyi olmaq hüququ
+Düzgün cavab: A
+
+---
+
+### Format 10: Çoxlu Seçim (Prefiksiz)
+Variantların qarşısında A), B) və ya rəqəm yazmağa ehtiyac yoxdur. Sistem sətirləri avtomatik variant kimi tanıyacaq:
+
+Xalqımızın ülvi niyyətlərinə aiddir:
+vətəndaş cəmiyyətinin bərqərar edilməsi
+hüquqi, dünyəvi dövlət qurmaq
+layiqli həyat səviyyəsini təmin etmək
+öz müqəddəratını sərbəst müəyyən etmək
+Düzgün cavab: 1, 3
+---
+
+### Format 11: Mürəkkəb Uyğunluq (Çox-çoxlu)
+Bir bəndə bir neçə variantın uyğun gəldiyi hallar üçün:
+
+Konstitusiyaya əsasən uyğunluğu müəyyən edin:
+1. İnsan hüquqlarının əsas prinsipi
+2. İnsan hüquqlarının müdafiəsi
+a) Dövlət təminat verir b) Məsuliyyəti əhatə edir c) Sui-istifadəyə yol verilmir
+Düzgün cavab: 1-b, c; 2-a`,
   csv: `question_text,question_type,variant_a,variant_b,variant_c,variant_d,correct_answer,explanation,category,difficulty,bloom_level,tags\n"Sual mətni",multiple_choice,"Var A","Var B","Var C","Var D","Var A","İzah","Riyaziyyat","orta","anlama","tag1;tag2"`,
   json: `[\n  {\n    "question_text": "Sual mətni",\n    "question_type": "multiple_choice",\n    "options": ["A", "B", "C"],\n    "correct_answer": "A",\n    "explanation": "İzah",\n    "category": "Kateqoriya",\n    "difficulty": "orta",\n    "tags": ["tag1"]\n  }\n]`,
   moodle_xml: `<?xml version="1.0" encoding="UTF-8"?>
@@ -104,7 +138,7 @@ export const FORMAT_INFO: Record<string, string> = {
   aiken: 'Sadə çoxseçimli suallar üçün sürətli format.',
   gift: 'Moodle uyğunluğu və müxtəlif sual tipləri (MC, T/F, Short) üçün.',
   markdown:
-    'Ən çevik format — 8 fərqli üslub dəstəklənir: Çoxseçimli (Format 1), Çoxlu Cavab (Format 2), Doğru/Yanlış (Format 3), Qısa cavab (Format 4), Uyğunlaşdırma (Format 5), Boşluq doldur (Format 6), Ardıcıllıq (Format 7), Kod sualı (Format 8). Şablonu yükləyin.',
+    'Ən çevik format — 11 fərqli üslub dəstəklənir: Çoxseçimli (Format 1), Çoxlu Cavab (Format 2), Doğru/Yanlış (Format 3), Qısa cavab (Format 4), Uyğunlaşdırma (Format 5), Boşluq doldur (Format 6), Ardıcıllıq (Format 7), Kod sualı (Format 8), Sıxlaşdırılmış (Format 9), Prefiksiz çoxlu seçim (Format 10) və Mürəkkəb Uyğunluq (Format 11). Şablonu yükləyin.',
   moodle_xml:
     'Moodle LMS-dən export edilmiş XML fayllar üçün. Base64 kodlu şəkillər avtomatik Supabase-ə yüklənir. Dəstəklənən tiplər: multichoice, truefalse, shortanswer, essay, matching, numerical, cloze.',
 };

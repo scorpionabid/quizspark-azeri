@@ -28,37 +28,44 @@ export const FillBlankRenderer: React.FC<RendererProps> = ({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="leading-loose text-base p-3 rounded-xl bg-muted/20 border border-border/40">
+    <div className="space-y-4">
+      <div className="leading-relaxed text-sm md:text-base p-4 md:p-6 rounded-2xl bg-muted/10 border border-border/40 shadow-inner">
         {parts.map((part, pi) => {
           if (/^___+$/.test(part)) {
             const idx = blankIdx++;
             const ans = answers[idx] ?? '';
+            const correctAnswer = (question.correct_answer.split('|')[idx] ?? '').trim();
             const isCorrectBlank =
               showFeedback &&
-              ans.trim().toLowerCase() ===
-                (question.correct_answer.split('|')[idx] ?? '').trim().toLowerCase();
+              ans.trim().toLowerCase() === correctAnswer.toLowerCase();
+
             return (
-              <input
-                key={pi}
-                type="text"
-                value={ans}
-                onChange={e => handleBlankChange(idx, e.target.value)}
-                disabled={disabled || showFeedback}
-                placeholder="?"
-                className={cn(
-                  'inline-block w-28 h-8 min-w-0 text-center text-sm border-0 border-b-2 rounded-none bg-transparent focus:outline-none focus:ring-0 px-1 mx-0.5 align-middle transition-colors',
-                  showFeedback
-                    ? isCorrectBlank
-                      ? 'border-green-500 text-green-600'
-                      : 'border-red-400 text-red-600'
-                    : 'border-primary/40 focus:border-primary',
+              <span key={pi} className="inline-flex flex-col items-center align-middle mx-1 my-1">
+                <input
+                  type="text"
+                  value={ans}
+                  onChange={e => handleBlankChange(idx, e.target.value)}
+                  disabled={disabled || showFeedback}
+                  placeholder="..."
+                  className={cn(
+                    'w-32 h-9 text-center text-sm font-semibold border-b-2 bg-white/50 dark:bg-black/20 rounded-t-md transition-all focus:outline-none px-2',
+                    showFeedback
+                      ? isCorrectBlank
+                        ? 'border-green-500 text-green-700 bg-green-50/50'
+                        : 'border-red-500 text-red-700 bg-red-50/50'
+                      : 'border-primary/30 focus:border-primary focus:bg-white'
+                  )}
+                />
+                {showFeedback && !isCorrectBlank && (
+                  <span className="text-[10px] font-bold text-green-600 mt-0.5 animate-in fade-in slide-in-from-top-1">
+                    {correctAnswer}
+                  </span>
                 )}
-              />
+              </span>
             );
           }
           return (
-            <span key={pi} className="align-middle">
+            <span key={pi} className="opacity-90">
               {part}
             </span>
           );

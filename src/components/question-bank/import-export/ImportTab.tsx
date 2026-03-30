@@ -90,7 +90,7 @@ export function ImportTab({
   };
 
   return (
-    <div className="space-y-4 mt-4">
+    <div className="flex flex-col h-full space-y-4 mt-4">
       <div className="flex items-end gap-3">
         <div className="flex-1 space-y-2">
           <label className="text-sm font-medium">Format Seçin</label>
@@ -165,11 +165,10 @@ export function ImportTab({
       )}
 
       {importStats && importStats.invalid > 0 && (
-        <Alert variant="destructive" className="py-2">
+        <Alert variant="destructive" className="py-2 shrink-0">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="text-xs">
-            <strong>{importStats.invalid}</strong> sual xətalı olduğu üçün (boş mətn və ya cavab) süzüldü.{' '}
-            <strong>{importStats.total - importStats.invalid}</strong> sual idxal üçün hazırdır.
+            <strong>{importStats.invalid} sual</strong> xətalıdır (qırmızı sətirlər) və avtomatik kənarlaşdırılacaq. Onları idxal etmək üçün zəhmət olmasa ləğv edib cədvəldə düzəldin.
           </AlertDescription>
         </Alert>
       )}
@@ -180,7 +179,7 @@ export function ImportTab({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
-            className="space-y-3"
+            className="flex-1 flex flex-col min-h-0 space-y-3"
           >
             <ImportPreviewTable
               questions={importPreview}

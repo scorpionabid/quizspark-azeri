@@ -17,6 +17,9 @@ import { isValidQuestion, computeStats } from './import-preview/utils';
 import { ImportSummaryBar } from './import-preview/ImportSummaryBar';
 import { ImportStatsPanel } from './import-preview/ImportStatsPanel';
 import { QuestionTableRow } from './import-preview/QuestionTableRow';
+import { QuestionViewDialog } from './QuestionViewDialog';
+import { formatQuestionsForImport } from './import-export/utils';
+import { QuestionBankItem } from '@/hooks/useQuestionBank';
 
 export type { PreviewQuestion };
 
@@ -40,6 +43,7 @@ export function ImportPreviewTable({
   warnings = [],
 }: ImportPreviewTableProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [viewingIndex, setViewingIndex] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [showStats, setShowStats] = useState(false);
 
@@ -62,11 +66,18 @@ export function ImportPreviewTable({
     setEditingIndex(null);
   };
 
+  const handleClearInvalid = () => {
+    const validQuestions = questions.filter(q => isValidQuestion(q, warnings));
+    onChange(validQuestions);
+    setEditingIndex(null);
+    setPage(0);
+  };
+
   const validCount = questions.filter(q => isValidQuestion(q, warnings)).length;
   const stats = computeStats(questions);
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col h-full space-y-3 min-h-[300px]">
       <ImportSummaryBar
         validCount={validCount}
         invalidCount={questions.length - validCount}
@@ -77,6 +88,7 @@ export function ImportPreviewTable({
         isBulkEnhancing={isBulkEnhancing}
         onCheckDuplicates={onCheckDuplicates}
         isCheckingDuplicates={isCheckingDuplicates}
+        onClearInvalid={handleClearInvalid}
       />
 
       <ImportStatsPanel
@@ -85,7 +97,7 @@ export function ImportPreviewTable({
         totalQuestions={questions.length}
       />
 
-      <ScrollArea className="h-[340px] rounded-lg border border-border/50">
+      <ScrollArea className="flex-1 rounded-lg border border-border/50">
         <Table>
           <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10">
             <TableRow>
@@ -111,6 +123,7 @@ export function ImportPreviewTable({
                     onDelete={handleDelete}
                     onSave={handleSave}
                     onCancel={() => setEditingIndex(null)}
+                    onView={setViewingIndex}
                   />
                 );
               })}
@@ -148,6 +161,21 @@ export function ImportPreviewTable({
             </Button>
           </div>
         </div>
+      )}
+
+      {viewingIndex !== null && (
+        <QuestionViewDialog
+          open={viewingIndex !== null}
+          onOpenChange={(isOpen) => !isOpen && setViewingIndex(null)}
+          question={
+            {
+              ...formatQuestionsForImport([questions[viewingIndex!]])[0],
+              id: 'preview-id',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            } as QuestionBankItem
+          }
+        />
       )}
     </div>
   );
