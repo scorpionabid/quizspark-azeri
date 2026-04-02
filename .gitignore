@@ -51,3 +51,10 @@ supabase-docker/volumes/snippets/
 /playwright-report/
 /test-results/
 /test-results-sharding/
+
+# İdxal edilmiş şəxsi AI skilləri (Layihə repozitoriyasına getməməlidir)
+.agent/skills/ai-engineer.md
+.agent/skills/backend-security-coder.md
+.agent/skills/frontend-security-coder.md
+.agent/skills/database-optimizer.md
+.agent/skills/error-detective.md

@@ -21,6 +21,7 @@ import { VisualTimer } from "./VisualTimer";
 
 import { Quiz } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
+import { QUESTION_TYPES } from "@/types/question";
 
 interface QuizPlayingProps {
   quiz: Quiz;
@@ -251,6 +252,19 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                         <p>{question.hint}</p>
                     </div>
                     )}
+
+                    <div className="flex flex-wrap items-center gap-2 mb-6">
+                      <Badge variant="secondary" className="bg-muted/50 text-muted-foreground font-medium border-none px-2.5 py-0.5 text-[10px] sm:text-xs">
+                        {QUESTION_TYPES.find(t => t.value === question.question_type)?.label || question.question_type}
+                      </Badge>
+                      
+                      {question.question_type === 'multiple_select' && (
+                        <div className="flex items-center gap-1.5 text-primary/80 font-bold text-[10px] sm:text-xs animate-pulse bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
+                          <Info className="w-3.5 h-3.5" />
+                          <span>Bir və ya bir neçə cavab seçə bilərsiniz</span>
+                        </div>
+                      )}
+                    </div>
 
                     <QuestionRenderer
                     question={question}
