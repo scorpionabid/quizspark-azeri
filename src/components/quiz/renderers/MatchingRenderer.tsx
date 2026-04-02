@@ -98,7 +98,7 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
                       onClick={() => handleToggleMatch(leftKey, rVal)}
                     >
                       <Checkbox
-                        id={`match-${i}-${ri}`}
+                        id={`${question.id}-match-${i}-${ri}`}
                         checked={isSelected}
                         onCheckedChange={() => handleToggleMatch(leftKey, rVal)}
                         disabled={disabled || showFeedback}
@@ -107,7 +107,7 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
                         )}
                       />
                       <Label
-                        htmlFor={`match-${i}-${ri}`}
+                        htmlFor={`${question.id}-match-${i}-${ri}`}
                         className="text-xs font-medium cursor-pointer leading-none"
                       >
                         {rVal}

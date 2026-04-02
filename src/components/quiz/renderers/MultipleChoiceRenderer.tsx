@@ -52,7 +52,7 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
           >
             <RadioGroupItem 
               value={opt} 
-              id={`opt-${i}`} 
+              id={`${question.id}-opt-${i}`} 
               disabled={disabled}
               className={cn(
                 "h-5 w-5",
@@ -61,7 +61,7 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
               )}
             />
             <Label 
-              htmlFor={`opt-${i}`} 
+              htmlFor={`${question.id}-opt-${i}`} 
               className="flex-1 cursor-pointer font-medium text-sm md:text-base"
               onClick={(e) => e.stopPropagation()}
             >

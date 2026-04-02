@@ -54,7 +54,7 @@ export const MultipleSelectRenderer: React.FC<RendererProps> = ({
             onClick={() => !disabled && handleToggle(opt, !isSelected)}
           >
             <Checkbox 
-              id={`ms-opt-${i}`} 
+              id={`${question.id}-ms-opt-${i}`} 
               checked={isSelected}
               onCheckedChange={(checked) => handleToggle(opt, !!checked)}
               disabled={disabled}
@@ -66,7 +66,7 @@ export const MultipleSelectRenderer: React.FC<RendererProps> = ({
               onClick={(e) => e.stopPropagation()}
             />
             <Label 
-              htmlFor={`ms-opt-${i}`} 
+              htmlFor={`${question.id}-ms-opt-${i}`} 
               className="flex-1 cursor-pointer font-medium text-sm"
               onClick={(e) => e.stopPropagation()}
             >
