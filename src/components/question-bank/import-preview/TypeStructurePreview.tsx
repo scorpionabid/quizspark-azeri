@@ -4,6 +4,32 @@ import { PreviewQuestion } from '@/utils/parsers/types';
 export function TypeStructurePreview({ q }: { q: PreviewQuestion }) {
   const qt = q.question_type;
 
+  if (qt === 'multiple_select' && Array.isArray(q.options) && q.options.length > 0) {
+    const correctSet = new Set(
+      (q.correct_answer || '').split(',').map(s => s.trim().toLowerCase()),
+    );
+    return (
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {q.options.map((opt, i) => {
+          const isCorrect = correctSet.has(opt.trim().toLowerCase());
+          return (
+            <span
+              key={i}
+              className={`text-[10px] px-1.5 py-0.5 rounded-md border ${
+                isCorrect
+                  ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40 font-semibold'
+                  : 'bg-muted/40 text-muted-foreground border-border/30'
+              }`}
+            >
+              {isCorrect ? '✓' : '·'}{' '}
+              {opt.length > 20 ? opt.slice(0, 20) + '…' : opt}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (qt === 'matching' && q.matching_pairs) {
     const pairs = Array.isArray(q.matching_pairs)
       ? (q.matching_pairs as unknown as Array<{ left: string; right: string }>)
@@ -11,11 +37,18 @@ export function TypeStructurePreview({ q }: { q: PreviewQuestion }) {
     if (!pairs.length) return null;
     return (
       <div className="mt-1.5 flex flex-wrap gap-1">
-        {pairs.slice(0, 3).map((p, i) => (
-          <span key={i} className="text-[10px] bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800/40 px-1.5 py-0.5 rounded-md font-mono">
-            {p.left} ↔ {p.right}
-          </span>
-        ))}
+        {pairs.slice(0, 3).map((p, i) => {
+          // N:M üçün vergüllə ayrılmış sağ tərəfləri aydın göstər
+          const rightDisplay = p.right.includes(',')
+            ? p.right.split(',').map(r => r.trim()).join(', ')
+            : p.right;
+          const label = `${p.left.length > 14 ? p.left.slice(0, 14) + '…' : p.left} ↔ ${rightDisplay.length > 18 ? rightDisplay.slice(0, 18) + '…' : rightDisplay}`;
+          return (
+            <span key={i} className="text-[10px] bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800/40 px-1.5 py-0.5 rounded-md font-mono">
+              {label}
+            </span>
+          );
+        })}
         {pairs.length > 3 && (
           <span className="text-[10px] text-muted-foreground">+{pairs.length - 3} cüt</span>
         )}

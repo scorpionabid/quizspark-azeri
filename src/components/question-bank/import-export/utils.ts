@@ -59,6 +59,16 @@ export function formatQuestionsForImport(
     fill_blank_template: q.fill_blank_template ?? null,
     numerical_answer: q.numerical_answer ?? null,
     numerical_tolerance: q.numerical_tolerance ?? null,
+    correct_option_indices:
+      q.question_type === 'multiple_select' && Array.isArray(q.options) && q.correct_answer
+        ? q.correct_answer.split(',').reduce<number[]>((acc, ca) => {
+            const idx = (q.options as string[]).findIndex(
+              (opt) => opt.trim() === ca.trim(),
+            );
+            if (idx >= 0) acc.push(idx);
+            return acc;
+          }, [])
+        : null,
     feedback_enabled: null,
     quality_score: null,
     usage_count: null,

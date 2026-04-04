@@ -39,6 +39,7 @@ export interface QuestionBankItem {
   fill_blank_template: string | null;
   numerical_answer: number | null;
   numerical_tolerance: number | null;
+  correct_option_indices: number[] | null;
   feedback_enabled: boolean | null;
   quality_score: number | null;
   usage_count: number | null;

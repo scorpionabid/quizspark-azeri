@@ -1,7 +1,8 @@
-import React from 'react';
-import { ArrowLeft, Trophy, RotateCcw, CheckCircle } from "lucide-react";
+import React, { useState } from 'react';
+import { ArrowLeft, Trophy, RotateCcw, CheckCircle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { QuizRating } from "./QuizRating";
 import { QuizComments } from "./QuizComments";
@@ -36,6 +37,31 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
   isPending,
   isPreview,
 }) => {
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+
+  const handleStart = () => {
+    if (quiz.access_password?.trim()) {
+      if (passwordInput.trim().toLowerCase() !== quiz.access_password.trim().toLowerCase()) {
+        setPasswordError(true);
+        return;
+      }
+    }
+    setPasswordError(false);
+    onStart();
+  };
+
+  const handleResume = (attempt: QuizAttempt) => {
+    if (quiz.access_password?.trim()) {
+      if (passwordInput.trim().toLowerCase() !== quiz.access_password.trim().toLowerCase()) {
+        setPasswordError(true);
+        return;
+      }
+    }
+    setPasswordError(false);
+    onResume?.(attempt);
+  };
+
   // M3.3: Tamamlanmamış aktiv cəhdi tap
   const incompleteAttempt = !isPreview ? myAttempts.find(a => !a.completed_at) : undefined;
   const now = new Date();
@@ -176,6 +202,30 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
             </div>
           ) : (
             <div className="space-y-3">
+              {/* Access password input */}
+              {quiz.access_password?.trim() && (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                    Giriş şifrəsi
+                  </label>
+                  <Input
+                    type="password"
+                    placeholder="Şifrəni daxil edin..."
+                    value={passwordInput}
+                    onChange={e => { setPasswordInput(e.target.value); setPasswordError(false); }}
+                    className={cn(
+                      "rounded-xl",
+                      passwordError && "border-destructive focus-visible:ring-destructive"
+                    )}
+                    onKeyDown={e => { if (e.key === 'Enter') handleStart(); }}
+                  />
+                  {passwordError && (
+                    <p className="text-xs text-destructive font-medium">Şifrə yanlışdır. Yenidən cəhd edin.</p>
+                  )}
+                </div>
+              )}
+
               {/* M3.3: Yarımçıq cəhd varsa "Davam Et" düyməsi */}
               {incompleteAttempt && onResume && !isDisabled && (
                 <div className="rounded-xl bg-warning/10 border border-warning/30 p-4 text-center space-y-2">
@@ -191,7 +241,7 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                     variant="outline"
                     size="lg"
                     className="w-full border-warning/50 text-warning hover:bg-warning/10"
-                    onClick={() => onResume(incompleteAttempt)}
+                    onClick={() => handleResume(incompleteAttempt)}
                     disabled={isPending}
                   >
                     <RotateCcw className="mr-2 h-4 w-4" />
@@ -203,7 +253,7 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                 variant="game"
                 size="xl"
                 className="w-full"
-                onClick={onStart}
+                onClick={handleStart}
                 disabled={isPending || isDisabled}
               >
                 {isPending ? "Yüklənir..." : (isDisabled ? "Giriş qapalıdır" : incompleteAttempt ? "Yenidən Başla" : "Quizə Başla")}

@@ -12,15 +12,15 @@ export const FeedbackRenderer: React.FC<FeedbackRendererProps> = ({
   question,
   value,
 }) => {
-  // Essay sualları avtomatik qiymətləndirilə bilməz
-  if (question.question_type === 'essay') {
+  // Essay və kod sualları avtomatik qiymətləndirilə bilməz
+  if (question.question_type === 'essay' || question.question_type === 'code') {
     return (
       <div className="p-4 mt-4 rounded-xl border border-muted-foreground/30 bg-muted/30 text-muted-foreground animate-scale-in">
         <h4 className="font-black mb-1 flex items-center gap-2">
           <span>📋</span> Cavabınız alındı
         </h4>
         <p className="text-sm opacity-80">
-          Esse sualları müəllim tərəfindən yoxlanılacaq.
+          {question.question_type === 'code' ? 'Kod sualları müəllim tərəfindən yoxlanılacaq.' : 'Esse sualları müəllim tərəfindən yoxlanılacaq.'}
         </p>
         {question.explanation && (
           <div className="text-sm mt-3 bg-background/40 p-3 rounded-lg border border-border/20">

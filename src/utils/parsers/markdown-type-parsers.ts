@@ -96,6 +96,17 @@ export function parseMatchingBlock(lines: string[], lineOffset: number): BlockRe
     }
   }
 
+  // ── Xam cavab sətirini extractMetadata-dan əvvəl çıxart ─────────────────────
+  // extractMetadata "Cavab: 1-a; 2-b; 3-c" sətirini split(/[,;]/) ilə parçalayıb
+  // "1-a,2-b,3-c" kimi yenidən birləşdirir. Bu, matching üçün lazım olan
+  // nöqtəli vergülü məhv edir. Ona görə xam dəyəri əvvəlcədən saxlayırıq.
+  const CAVAB_RE = /^(?:Cavab|Düzgün\s*cavab|Doğru\s*cavab|ANSWER)\s*[-:]\s*(.+)$/i;
+  let rawMatchingAnswer = '';
+  for (const ml of metaLines) {
+    const m = ml.match(CAVAB_RE);
+    if (m) { rawMatchingAnswer = m[1].trim(); break; }
+  }
+
   const result: Partial<ParsedQuestion> = {
     question_text: buildQuestionText(questionLines) || 'Uyğunluğu müəyyən edin',
     question_type: 'matching',
@@ -129,22 +140,24 @@ export function parseMatchingBlock(lines: string[], lineOffset: number): BlockRe
     return { questions: [result as ParsedQuestion], warnings };
   }
 
-  // correct_answer-dan cütlər parse et: "1-a; 2-b, c" → { "1": ["a","b"] }
+  // Xam cavab sətirindən cüt-map qur: "1-a; 2-b, c" → { "1": ["a","c"], "2": ["b"] }
+  // NOT: result.correct_answer-ı deyil rawMatchingAnswer-ı istifadə edirik —
+  // çünki extractMetadata nöqtəli vergülü artıq məhv edib.
   const answerMap: Record<string, string[]> = {};
-  if (result.correct_answer) {
-    const segments = result.correct_answer.split(/[;，]/).map(s => s.trim());
+  if (rawMatchingAnswer) {
+    const segments = rawMatchingAnswer.split(/[;،]/).map(s => s.trim()).filter(Boolean);
     for (const seg of segments) {
       // "1-a, c" → leftId="1", rightLabels=["a","c"]
       const dashMatch = seg.match(/^(\d+)\s*[-:]\s*(.+)$/);
       if (dashMatch) {
         const leftId = dashMatch[1].trim();
-        const rightLabels = dashMatch[2].split(',').map(l => l.trim().toLowerCase());
+        const rightLabels = dashMatch[2].split(/[,،]/).map(l => l.trim().toLowerCase()).filter(Boolean);
         answerMap[leftId] = rightLabels;
       }
     }
   }
 
-  // matching_pairs: { leftText: rightText } — ilk eşleşmə əsasında
+  // matching_pairs: { leftText: rightText } — cavab xəritəsinə əsasən
   const finalPairs: Record<string, string> = {};
   const correctParts: string[] = [];
 
@@ -165,6 +178,22 @@ export function parseMatchingBlock(lines: string[], lineOffset: number): BlockRe
   result.matching_pairs = finalPairs;
   if (correctParts.length > 0) {
     result.correct_answer = correctParts.join('|||');
+  } else if (rawMatchingAnswer) {
+    // Cavab xəritəsi quruldu amma uyğun elementlər tapılmadı — xəbərdarlıq
+    warnings.push({
+      line: lineOffset,
+      type: 'invalid_correct_answer',
+      message: `"Cavab: ${rawMatchingAnswer}" — göstərilən işarələr sağ tərəf siyahısındakı həriflərlə uyğunlaşmır (a, b, c, ... istifadə edin)`,
+      severity: 'warning',
+    });
+  } else {
+    // Ümumiyyətlə Cavab: sətiri yoxdur
+    warnings.push({
+      line: lineOffset,
+      type: 'missing_answer',
+      message: 'Uyğunlaşdırma sualında "Cavab: 1-a; 2-b; 3-c" formatında düzgün cavab göstərilməyib',
+      severity: 'error',
+    });
   }
 
   return { questions: [result as ParsedQuestion], warnings };

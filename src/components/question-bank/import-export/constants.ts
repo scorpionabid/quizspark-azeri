@@ -27,14 +27,16 @@ Taqlar: paytaxt, coğrafiya
 ---
 
 ## ── FORMAT 2: Çoxseçimli — çoxlu düzgün cavab ───────
+## NOT: Hərf (A, C) VƏ YA rəqəm (1, 3, 4) ilə cavab vermək olar — hər ikisi işləyir.
 
 # Aşağıdakılardan hansılar Azərbaycan dövlət rəmzləridir?
-1. Dövlət bayrağı
-2. Milli valyuta
-3. Dövlət gerbi
-4. Dövlət himni
+A) Dövlət bayrağı
+B) Milli valyuta
+C) Dövlət gerbi
+D) Dövlət himni
 
-Cavab: 1, 3, 4
+Cavab: A, C, D
+## Alternativ: Cavab: 1, 3, 4 — eyni nəticəni verir
 Kateqoriya: Ümumi Bilik
 Çətinlik: orta
 
@@ -62,6 +64,7 @@ Kateqoriya: Tarix
 ---
 
 ## ── FORMAT 5: Uyğunlaşdırma — arrow formatı ────────
+## NOT: "Tip: matching" olmadan da → işarəsi avtomatik aşkarlanır.
 
 Tip: matching
 # Əsərləri müəllifləri ilə uyğunlaşdırın:
@@ -75,6 +78,9 @@ Kateqoriya: Ədəbiyyat
 ---
 
 ## ── FORMAT 6: Uyğunlaşdırma — siyahı formatı ───────
+## MÜTLƏQ: Bu format üçün "Tip: matching" sətri lazımdır!
+## Cavab formatı: "1-a; 2-b; 3-c" (nöqtəli vergüllə ayırın)
+## N:M nümunəsi: 1 sol element → birdən çox sağa uyğundursa: "1-a, c; 2-b"
 
 Tip: matching
 # Anlayışları izahları ilə uyğunlaşdırın:
@@ -148,7 +154,9 @@ Kateqoriya: Proqramlaşdırma
 ## ══════════════════════════════════════════════════
 ## METADATA AÇAR SÖZLƏRİ (hamısı ixtiyaridir)
 ## ══════════════════════════════════════════════════
-## Cavab:        Düzgün cavab (hərf: A, B, C / mətn / rəqəm)
+## Cavab:        Düzgün cavab (hərf: A, B, C / rəqəm: 1, 2, 3 / mətn)
+##               Çoxlu cavab: "A, C, D" və ya "1, 3, 4" (vergüllə)
+##               Matching: "1-a; 2-b; 3-c" (nöqtəli vergüllə)
 ## Kateqoriya:   Sualın kateqoriyası
 ## Çətinlik:     asan / orta / çətin
 ## İzahat:       Sualın izahı

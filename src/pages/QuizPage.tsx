@@ -51,6 +51,7 @@ export default function QuizPage() {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [showHint, setShowHint] = useState<Record<string, boolean>>({});
   const [earnedXP, setEarnedXP] = useState(0);
+  const [timeSpent, setTimeSpent] = useState(0);
   const [bookmarkedQuestions, setBookmarkedQuestions] = useState<Set<string>>(new Set());
   
   const { updateXPAsync } = useGamification();
@@ -62,6 +63,7 @@ export default function QuizPage() {
   const totalTimeUpRef = useRef(false);
   const answersRef = useRef<Answer[]>([]);
   const draftLoadedRef = useRef(false);
+  const strictViolationsRef = useRef(0);
 
   // Auto-Save Draft to LocalStorage
   useEffect(() => {
@@ -90,18 +92,28 @@ export default function QuizPage() {
 
   const isLoading = quizLoading || questionsLoading;
 
-  // Strict Mode
+  // Strict Mode — tab violations tracked; 3 violations → auto-submit
   useEffect(() => {
     if (quizState === 'playing' && quiz?.strict_mode && !isPreview) {
       const handleVisibilityChange = () => {
         if (document.hidden) {
-          toast.warning('Təhlükəsizlik: Səhifəni tərk etdiyiniz üçün xəbərdarlıq qeydə alındı.', { duration: 5000 });
+          strictViolationsRef.current += 1;
+          const count = strictViolationsRef.current;
+          if (count >= 3) {
+            toast.error('Qaydalar pozuldu: Səhifəni 3 dəfə tərk etdiniz. Quiz avtomatik tamamlandı.', { duration: 8000 });
+            void completeQuizWithAnswers(answersRef.current);
+          } else {
+            toast.warning(
+              `Xəbərdarlıq (${count}/3): Səhifəni tərk etdiniz. Daha ${3 - count} pozuntu olsa quiz avtomatik bitəcək.`,
+              { duration: 5000 },
+            );
+          }
         }
       };
       document.addEventListener("visibilitychange", handleVisibilityChange);
       return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
     }
-  }, [quizState, quiz, isPreview]);
+  }, [quizState, quiz, isPreview, completeQuizWithAnswers]);
 
   useEffect(() => {
     answersRef.current = answers;
@@ -110,6 +122,7 @@ export default function QuizPage() {
   const completeQuizWithAnswers = useCallback(async (latestAnswers: Answer[]) => {
     if (!isPreview && attemptId && startTime && user && quiz) {
       const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+      setTimeSpent(timeSpent);
       const earnedPoints = latestAnswers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
       const maxPoints = displayQuestions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
       const weightedScore = maxPoints > 0 ? Math.round((earnedPoints / maxPoints) * 100) : 0;
@@ -173,7 +186,7 @@ export default function QuizPage() {
       const finalVal = localAnswers[currentQ.id] || '';
       let isCorrect = false;
 
-      if (currentQ.question_type === 'essay') {
+      if (currentQ.question_type === 'essay' || currentQ.question_type === 'code') {
         isCorrect = false;
       } else if (currentQ.question_type === 'ordering') {
         const studentSeq = finalVal.split('|||').map(s => s.trim());
@@ -224,7 +237,7 @@ export default function QuizPage() {
         isCorrect,
         pointsEarned: isCorrect ? (currentQ.weight || 1) : 0,
         selectedOptionIndex: currentQ.options ? currentQ.options.indexOf(finalVal) : undefined,
-        needsReview: currentQ.question_type === 'essay',
+        needsReview: currentQ.question_type === 'essay' || currentQ.question_type === 'code',
       };
 
       newAnswers.push(answer);
@@ -348,7 +361,15 @@ export default function QuizPage() {
       setCurrentPage(0);
       setAnswers([]);
       setLocalAnswers({});
+      setTimeSpent(0);
       draftLoadedRef.current = false;
+      strictViolationsRef.current = 0;
+      // Load persisted bookmarks for this quiz
+      try {
+        const saved = localStorage.getItem(`quiz_bookmarks_${quiz.id}`);
+        if (saved) setBookmarkedQuestions(new Set(JSON.parse(saved) as string[]));
+        else setBookmarkedQuestions(new Set());
+      } catch { setBookmarkedQuestions(new Set()); }
       const totalDurationSecs = (quiz.duration || 20) * 60;
       setTotalTimeLeft(totalDurationSecs);
       setTimeLeft(totalDurationSecs);
@@ -425,6 +446,9 @@ export default function QuizPage() {
       const newSet = new Set(prev);
       if (newSet.has(id)) newSet.delete(id);
       else newSet.add(id);
+      if (quiz) {
+        localStorage.setItem(`quiz_bookmarks_${quiz.id}`, JSON.stringify([...newSet]));
+      }
       return newSet;
     });
   };
@@ -479,9 +503,7 @@ export default function QuizPage() {
             setCurrentPage(idx);
             setShowFeedback(false);
         }}
-        onExit={() => {
-          if (confirm('Quizi tərk etmək istəyirsiniz? İrəliləyişiniz itiriləcək.')) navigate('/');
-        }}
+        onExit={() => navigate('/')}
         feedbackEnabled={feedbackEnabled}
         bookmarkedQuestions={bookmarkedQuestions}
         toggleBookmark={toggleBookmark}
@@ -500,6 +522,9 @@ export default function QuizPage() {
       pendingReviews={pendingReviews}
       earnedPoints={totalPoints}
       maxPoints={maxPoints}
+      timeSpent={timeSpent}
+      answers={answers}
+      questions={activeQuestions}
       onRetry={() => {
         setQuizState('intro');
         setAttemptId(null);
@@ -507,6 +532,7 @@ export default function QuizPage() {
         setAnswers([]);
         setCurrentPage(0);
         setLocalAnswers({});
+        setTimeSpent(0);
         setBookmarkedQuestions(new Set());
         totalTimeUpRef.current = false;
       }}

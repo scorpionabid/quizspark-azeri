@@ -67,12 +67,13 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   getPageStatus
 }) => {
   const [showConfirm, setShowConfirm] = React.useState(false);
+  const [showExitConfirm, setShowExitConfirm] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const progress = ((currentPage + 1) / totalPages) * 100;
   
-  const hasUnanswered = pageQuestions.some(q => 
-    q.question_type !== 'essay' && !localAnswers[q.id]
+  const hasUnanswered = pageQuestions.some(q =>
+    q.question_type !== 'essay' && q.question_type !== 'code' && !localAnswers[q.id]
   );
 
   const onCheckSubmitClick = () => {
@@ -150,7 +151,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
             <Button
                 variant="ghost"
                 size="sm"
-                onClick={onExit}
+                onClick={() => setShowExitConfirm(true)}
                 className="text-muted-foreground hover:text-foreground -ml-2"
             >
                 <ArrowLeft className="mr-1 h-4 w-4" />
@@ -194,7 +195,14 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
 
             <div className="mb-6 sm:mb-8 bg-background/50 p-4 rounded-2xl border shadow-sm backdrop-blur-sm">
             <div className="mb-2 flex items-center justify-between text-xs sm:text-sm text-foreground">
-                <span className="font-medium">Səhifə {currentPage + 1} / {totalPages}</span>
+                <span className="font-medium">
+                  Səhifə {currentPage + 1} / {totalPages}
+                  {pageQuestions.length > 0 && (
+                    <span className="text-muted-foreground ml-1.5">
+                      · Sual {currentPage * pageQuestions.length + 1}–{Math.min((currentPage + 1) * pageQuestions.length, pageQuestions.length * totalPages)}
+                    </span>
+                  )}
+                </span>
                 <span className="font-bold text-primary">{Math.round(progress)}%</span>
             </div>
             <div className="h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-muted/50 border border-border/30">
@@ -367,6 +375,29 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
         )}
 
       </div>
+
+      <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Quizi tərk et?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Quizi tərk etsəniz irəliləyişiniz itiriləcək. Davam etmək istədiyinizə əminsiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Qal</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive hover:bg-destructive/90 text-white"
+              onClick={onExit}
+            >
+              Bəli, Çıx
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent className="rounded-2xl">
