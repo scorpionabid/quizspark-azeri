@@ -25,6 +25,7 @@ import { QuizActionHeader } from '@/components/teacher/quiz-creation/QuizActionH
 import { QuizMetadataForm } from '@/components/teacher/quiz-creation/QuizMetadataForm';
 import { QuizQuickActions } from '@/components/teacher/quiz-creation/QuizQuickActions';
 import { QuizQuestionList } from '@/components/teacher/quiz-creation/QuizQuestionList';
+import { DirectImportDialog } from '@/components/teacher/quiz-creation/DirectImportDialog';
 
 // Types & Utils
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
@@ -33,6 +34,7 @@ import { quizMetadataSchema, QuizMetadataFormData } from '@/lib/validations/quiz
 import { validateDraftQuestion } from '@/lib/validations/question';
 import { GeneratedQuestion } from '@/components/quiz/EditableQuestionCard';
 import { DraftQuestion } from '@/components/teacher/quiz-creation/SortableQuestionCard';
+import { PreviewQuestion } from '@/utils/parsers/types';
 
 // ─── Adapter Functions ─────────────────────────────────────────────────────────
 function draftToDialogQuestion(d: DraftQuestion): QuestionBankItem {
@@ -42,6 +44,7 @@ function draftToDialogQuestion(d: DraftQuestion): QuestionBankItem {
     question_type: d.question_type,
     options: d.options,
     correct_answer: d.correct_answer,
+    correct_option_indices: d.correct_option_indices ?? null,
     explanation: d.explanation,
     title: d.title ?? null,
     weight: d.weight ?? null,
@@ -84,6 +87,7 @@ function dialogSaveToDraft(saved: Partial<QuestionBankItem>, existing: DraftQues
     question_type: (saved.question_type as QuestionType) ?? existing.question_type,
     options: (saved.options as string[] | null) ?? existing.options,
     correct_answer: saved.correct_answer ?? existing.correct_answer,
+    correct_option_indices: saved.correct_option_indices ?? existing.correct_option_indices,
     explanation: saved.explanation ?? existing.explanation,
     title: saved.title ?? existing.title,
     weight: saved.weight ?? existing.weight,
@@ -112,6 +116,7 @@ function bankItemToDraft(item: QuestionBankItem, orderIndex: number): DraftQuest
     question_type: item.question_type as QuestionType,
     options: Array.isArray(item.options) ? item.options : null,
     correct_answer: item.correct_answer,
+    correct_option_indices: item.correct_option_indices ?? null,
     explanation: item.explanation,
     order_index: orderIndex,
     title: item.title,
@@ -287,6 +292,8 @@ export default function CreateQuizPage() {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [newQuestionType, setNewQuestionType] = useState<QuestionType>('multiple_choice');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [draftRecoveryInfo, setDraftRecoveryInfo] = useState<{ raw: string; mins: number } | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -318,24 +325,34 @@ export default function CreateQuizPage() {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return;
     try {
-      const draft = JSON.parse(raw);
-      const mins = Math.round((Date.now() - draft.savedAt) / 60000);
-      if (mins < 60 * 24) {
-        toast.info(`${mins} dəq əvvəlki qaralama tapıldı`, {
-          action: {
-            label: 'Bərpa et',
-            onClick: () => {
-              form.reset(draft.metadata);
-              setQuestions(draft.questions ?? []);
-              localStorage.removeItem(DRAFT_KEY);
-            },
-          },
-        });
+        const draft = JSON.parse(raw);
+        const mins = Math.round((Date.now() - draft.savedAt) / 60000);
+        if (mins < 60 * 24) {
+          setDraftRecoveryInfo({ raw, mins });
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  
+    const handleRestoreDraft = () => {
+      if (!draftRecoveryInfo) return;
+      try {
+        const draft = JSON.parse(draftRecoveryInfo.raw);
+        form.reset(draft.metadata);
+        setQuestions(draft.questions ?? []);
+        localStorage.removeItem(DRAFT_KEY);
+        setDraftRecoveryInfo(null);
+        toast.success('Qaralama uğurla bərpa edildi');
+      } catch {
+        toast.error('Qaralamanı bərpa etmək mümkün olmadı');
+      }
+    };
+  
+    const handleDiscardDraft = () => {
+      localStorage.removeItem(DRAFT_KEY);
+      setDraftRecoveryInfo(null);
+    };
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const addQuestion = useCallback((type: QuestionType) => {
@@ -354,6 +371,7 @@ export default function CreateQuizPage() {
           question_type: (saved.question_type as QuestionType) ?? newQuestionType,
           options: (saved.options as string[] | null) ?? null,
           correct_answer: saved.correct_answer ?? '',
+          correct_option_indices: saved.correct_option_indices ?? null,
           explanation: saved.explanation ?? null,
           order_index: questions.length,
           title: saved.title ?? null,
@@ -415,6 +433,39 @@ export default function CreateQuizPage() {
       );
       setQuestions((prev) => [...prev, ...newDrafts]);
       toast.success(`${items.length} sual əlavə edildi`);
+    },
+    [questions.length]
+  );
+  
+  const handleImportFromFile = useCallback(
+    (items: PreviewQuestion[]) => {
+      const newDrafts: DraftQuestion[] = items.map((item, i) => {
+        const optionsArray = Array.isArray(item.options) ? item.options : null;
+        
+        return {
+          localId: crypto.randomUUID(),
+          question_text: item.question_text,
+          question_type: (item.question_type ?? 'multiple_choice') as QuestionType,
+          options: optionsArray,
+          correct_answer: item.correct_answer != null ? String(item.correct_answer) : '',
+          correct_option_indices: null, // Since PreviewQuestion doesn't have it directly mapped this way, fallback.
+          explanation: item.explanation ?? null,
+          order_index: questions.length + i,
+          title: item.title,
+          weight: item.weight,
+          hint: item.hint,
+          time_limit: null,
+          question_image_url: item.question_image_url,
+          media_type: null, // item.mediaType not in PreviewQuestion standard, mapped to null
+          media_url: null,
+          matching_pairs: item.matching_pairs,
+          numerical_answer: item.numerical_answer,
+          numerical_tolerance: item.numerical_tolerance,
+          sequence_items: item.sequence_items,
+          fill_blank_template: item.fill_blank_template,
+      };
+    });
+      setQuestions((prev) => [...prev, ...newDrafts]);
     },
     [questions.length]
   );
@@ -577,11 +628,30 @@ export default function CreateQuizPage() {
           </Alert>
         )}
 
+        {draftRecoveryInfo && (
+          <Alert className="mb-6 border-2 border-primary/20 bg-primary/5">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            <AlertTitle className="text-primary font-semibold">Bərpa Edilməmiş Qaralama</AlertTitle>
+            <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
+              <p className="text-sm">Sizin təxminən {draftRecoveryInfo.mins} dəqiqə əvvəl yadda saxlanmamış işiniz (qaralama) var.</p>
+              <div className="flex gap-2 shrink-0">
+                <Button variant="outline" size="sm" onClick={handleDiscardDraft}>
+                  Ləğv et
+                </Button>
+                <Button variant="default" size="sm" onClick={handleRestoreDraft}>
+                  Bərpa et
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <QuizMetadataForm form={form} isEditMode={!!id} />
 
         <QuizQuickActions
           onAddQuestion={addQuestion}
           onOpenPicker={() => setPickerOpen(true)}
+          onOpenImport={() => setImportOpen(true)}
           onAiAssistant={() => { saveDraftNow(); navigate('/teacher/ai-assistant'); }}
         />
 
@@ -615,6 +685,12 @@ export default function CreateQuizPage() {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         onConfirm={handleImportFromBank}
+      />
+
+      <DirectImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImport={handleImportFromFile}
       />
     </div>
   );

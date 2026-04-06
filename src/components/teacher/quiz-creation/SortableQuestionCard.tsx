@@ -11,6 +11,7 @@ export interface DraftQuestion {
     question_type: QuestionType;
     options: string[] | null;
     correct_answer: string;
+    correct_option_indices?: number[] | null;
     explanation: string | null;
     order_index: number;
     title?: string | null;

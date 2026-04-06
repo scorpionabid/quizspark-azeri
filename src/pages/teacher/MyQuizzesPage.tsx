@@ -16,6 +16,8 @@ import {
   TrendingUp,
   Clock,
   ArrowUpDown,
+  Share2,
+  FileDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +47,7 @@ import { PageLoader } from '@/components/ui/loading-spinner';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { QuizStatsSheet } from '@/components/teacher/quiz-stats/QuizStatsSheet';
+import { ShareQuizDialog } from '@/components/teacher/quiz-creation/ShareQuizDialog';
 import { toast } from 'sonner';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -98,6 +101,10 @@ export default function MyQuizzesPage() {
   const [statsQuizId, setStatsQuizId] = useState<string | null>(null);
   const [statsQuizTitle, setStatsQuizTitle] = useState('');
   const [statsPassPct, setStatsPassPct] = useState(60);
+  
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareQuizId, setShareQuizId] = useState<string | null>(null);
+  const [shareQuizTitle, setShareQuizTitle] = useState('');
 
   // ── debounce search ──
   useEffect(() => {
@@ -180,6 +187,17 @@ export default function MyQuizzesPage() {
     setStatsQuizId(quizId);
     setStatsQuizTitle(title);
     setStatsPassPct(passPct ?? 60);
+  };
+
+  const handleShare = (quizId: string, title: string) => {
+    setShareQuizId(quizId);
+    setShareQuizTitle(title);
+    setShareDialogOpen(true);
+  };
+
+  const handleExport = (quizId: string) => {
+    // Placeholder - Export logic exists in Question Bank, can be imported later
+    toast.info('İxrac modulu yaxın zamanda aktivləşdiriləcək.');
   };
 
   // ── loading / error ──
@@ -469,6 +487,16 @@ export default function MyQuizzesPage() {
                               Kopyala
                             </DropdownMenuItem>
                           )}
+                          {!showArchived && (
+                            <DropdownMenuItem onClick={() => handleShare(quiz.id, quiz.title)}>
+                              <Share2 className="mr-2 h-4 w-4" />
+                              Tələbələrlə Paylaş
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => handleExport(quiz.id)}>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Formatda İxrac Et
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() =>
                               handleOpenStats(quiz.id, quiz.title, quiz.pass_percentage)
@@ -547,6 +575,13 @@ export default function MyQuizzesPage() {
         quizTitle={statsQuizTitle}
         passPercentage={statsPassPct}
         onClose={() => setStatsQuizId(null)}
+      />
+
+      <ShareQuizDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        quizId={shareQuizId}
+        quizTitle={shareQuizTitle}
       />
     </div>
   );

@@ -11,10 +11,11 @@ import { QUESTION_TYPES, QuestionType } from '@/types/question';
 interface QuizQuickActionsProps {
     onAddQuestion: (type: QuestionType) => void;
     onOpenPicker: () => void;
+    onOpenImport: () => void;
     onAiAssistant: () => void;
 }
 
-export function QuizQuickActions({ onAddQuestion, onOpenPicker, onAiAssistant }: QuizQuickActionsProps) {
+export function QuizQuickActions({ onAddQuestion, onOpenPicker, onOpenImport, onAiAssistant }: QuizQuickActionsProps) {
     const quickTypes: QuestionType[] = ['multiple_choice', 'true_false', 'short_answer'];
     const moreTypes = QUESTION_TYPES.filter((t) => !quickTypes.includes(t.value as QuestionType));
 
@@ -57,8 +58,15 @@ export function QuizQuickActions({ onAddQuestion, onOpenPicker, onAiAssistant }:
 
             <Button
                 variant="outline"
-                onClick={onOpenPicker}
+                onClick={onOpenImport}
                 className="border-primary/50 text-primary hover:bg-primary/5 hover:text-primary transition-all shadow-sm"
+            >
+                <Upload className="mr-2 h-4 w-4" />
+                Fayldan İdxal Et
+            </Button>
+            <Button
+                variant="outline"
+                onClick={onOpenPicker}
             >
                 <Upload className="mr-2 h-4 w-4" />
                 Sual Bankından İdxal
