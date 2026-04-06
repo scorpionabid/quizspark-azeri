@@ -213,8 +213,16 @@ export function useImportPreview(): UseImportPreviewReturn {
     setIsCheckingDuplicates(true);
 
     try {
+      const checkCount = importPreview.length;
+      if (checkCount > 20) {
+        const proceed = window.confirm(`Diqqət: Sistemdə ${checkCount} sual mövcuddur. Onların hamısını eyni anda dublikat yoxlamasından keçirmək çox vaxt apara bilər. Davam etmək istəyirsiniz?`);
+        if (!proceed) {
+          setIsCheckingDuplicates(false);
+          return;
+        }
+      }
+
       const updatedPreview = [...importPreview];
-      const checkCount = Math.min(importPreview.length, 20);
       toast.info(`${checkCount} sual üçün dublikat yoxlanışı aparılır...`);
 
       for (let i = 0; i < checkCount; i++) {
@@ -250,9 +258,17 @@ export function useImportPreview(): UseImportPreviewReturn {
     setIsBulkEnhancing(true);
 
     try {
+      const targetCount = importPreview.length;
+      if (targetCount > 10) {
+        const proceed = window.confirm(`Diqqət: Sistemdə ${targetCount} sual mövcuddur. İdxal olunan bütün sualları eyni anda Süni İntellektlə təkmilləşdirmək API xərci yarada bilər və proses gecikəcək. Yenə də davam etmək istəyirsiniz?`);
+        if (!proceed) {
+          setIsBulkEnhancing(false);
+          return;
+        }
+      }
+
       const updatedPreview = [...importPreview];
-      const targetCount = Math.min(importPreview.length, 10);
-      toast.info(`${targetCount} sual üçün AI təkmilləşdirilməsi aparılır...`);
+      toast.info(`${targetCount} sual üçün AI təkmilləşdirilməsi aparılır (bu bölmə vaxt apara bilər)...`);
 
       for (let i = 0; i < targetCount; i++) {
         const q = updatedPreview[i];

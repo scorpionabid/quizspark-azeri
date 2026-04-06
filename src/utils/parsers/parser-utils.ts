@@ -134,10 +134,16 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
     } else if (['dil', 'language'].includes(key)) {
       target.hint = `lang:${value.toLowerCase()}`;
     } else if (['answer', 'düzgün', 'cavab', 'doğru', 'doğru cavab', 'düzgün cavab'].includes(key)) {
+      // Matching suallarında Cavab dəyərini `,` və ya `;` ilə kəsmirik
+      if (target.question_type === 'matching') {
+        target.correct_answer = value;
+        continue;
+      }
+
       const values = value.split(/[,;]/).map(v => v.trim()).filter(Boolean);
       const opts = target.options as string[] | null;
       
-      if (values.length > 1) {
+      if (values.length > 1 && target.question_type !== 'matching') {
         target.question_type = 'multiple_select';
       }
 

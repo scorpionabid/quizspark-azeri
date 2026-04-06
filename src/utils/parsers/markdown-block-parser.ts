@@ -213,7 +213,11 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
       } else if (!parsingOptions) {
         currentQuestionLines.push(line);
       } else {
-        currentMetaLines.push(line);
+        if (currentOptions.length > 0) {
+          currentOptions[currentOptions.length - 1] += '\n' + line;
+        } else {
+          currentMetaLines.push(line);
+        }
       }
     }
 

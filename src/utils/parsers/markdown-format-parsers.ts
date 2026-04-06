@@ -5,7 +5,10 @@ import {
   warnDuplicateOptions,
   warnIfMissingText,
   warnIfMissingAnswer,
+  buildMetaRE,
 } from './markdown-utils';
+
+const FORMAT_META_RE = buildMetaRE();
 
 // ─── Format 1: `# Sual mətni` ─────────────────────────────────────────────────
 //
@@ -68,7 +71,12 @@ export function parseMarkdownFormat1(content: string): ParseResult {
             result.per_option_explanations[optionIndex.toString()] = feedback;
           }
         } else {
-          metaLines.push(clean);
+          if ((result.options as string[]).length > 0 && !FORMAT_META_RE.test(clean)) {
+            const opts = result.options as string[];
+            opts[opts.length - 1] += '\n' + clean;
+          } else {
+            metaLines.push(clean);
+          }
         }
       }
 
@@ -155,7 +163,11 @@ export function parseMarkdownFormat2(content: string): ParseResult {
       if (optMatch) {
         optLines.push(optMatch[2].trim());
       } else {
-        metaLines.push(l);
+        if (optLines.length > 0 && !FORMAT_META_RE.test(l)) {
+          optLines[optLines.length - 1] += '\n' + l;
+        } else {
+          metaLines.push(l);
+        }
       }
     }
 

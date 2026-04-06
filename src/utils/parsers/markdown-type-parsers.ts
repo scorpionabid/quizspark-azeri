@@ -96,16 +96,6 @@ export function parseMatchingBlock(lines: string[], lineOffset: number): BlockRe
     }
   }
 
-  // ── Xam cavab sətirini extractMetadata-dan əvvəl çıxart ─────────────────────
-  // extractMetadata "Cavab: 1-a; 2-b; 3-c" sətirini split(/[,;]/) ilə parçalayıb
-  // "1-a,2-b,3-c" kimi yenidən birləşdirir. Bu, matching üçün lazım olan
-  // nöqtəli vergülü məhv edir. Ona görə xam dəyəri əvvəlcədən saxlayırıq.
-  const CAVAB_RE = /^(?:Cavab|Düzgün\s*cavab|Doğru\s*cavab|ANSWER)\s*[-:]\s*(.+)$/i;
-  let rawMatchingAnswer = '';
-  for (const ml of metaLines) {
-    const m = ml.match(CAVAB_RE);
-    if (m) { rawMatchingAnswer = m[1].trim(); break; }
-  }
 
   const result: Partial<ParsedQuestion> = {
     question_text: buildQuestionText(questionLines) || 'Uyğunluğu müəyyən edin',
@@ -140,12 +130,11 @@ export function parseMatchingBlock(lines: string[], lineOffset: number): BlockRe
     return { questions: [result as ParsedQuestion], warnings };
   }
 
-  // Xam cavab sətirindən cüt-map qur: "1-a; 2-b, c" → { "1": ["a","c"], "2": ["b"] }
-  // NOT: result.correct_answer-ı deyil rawMatchingAnswer-ı istifadə edirik —
-  // çünki extractMetadata nöqtəli vergülü artıq məhv edib.
+  // Cavab sətirindən cüt-map qur: "1-a; 2-b, c" → { "1": ["a","c"], "2": ["b"] }
   const answerMap: Record<string, string[]> = {};
-  if (rawMatchingAnswer) {
-    const segments = rawMatchingAnswer.split(/[;،]/).map(s => s.trim()).filter(Boolean);
+  const matchingAnswer = result.correct_answer || '';
+  if (matchingAnswer) {
+    const segments = matchingAnswer.split(/[;،]/).map(s => s.trim()).filter(Boolean);
     for (const seg of segments) {
       // "1-a, c" → leftId="1", rightLabels=["a","c"]
       const dashMatch = seg.match(/^(\d+)\s*[-:]\s*(.+)$/);
@@ -178,12 +167,12 @@ export function parseMatchingBlock(lines: string[], lineOffset: number): BlockRe
   result.matching_pairs = finalPairs;
   if (correctParts.length > 0) {
     result.correct_answer = correctParts.join('|||');
-  } else if (rawMatchingAnswer) {
+  } else if (matchingAnswer) {
     // Cavab xəritəsi quruldu amma uyğun elementlər tapılmadı — xəbərdarlıq
     warnings.push({
       line: lineOffset,
       type: 'invalid_correct_answer',
-      message: `"Cavab: ${rawMatchingAnswer}" — göstərilən işarələr sağ tərəf siyahısındakı həriflərlə uyğunlaşmır (a, b, c, ... istifadə edin)`,
+      message: `"Cavab: ${matchingAnswer}" — göstərilən işarələr sağ tərəf siyahısındakı həriflərlə uyğunlaşmır (a, b, c, ... istifadə edin)`,
       severity: 'warning',
     });
   } else {
