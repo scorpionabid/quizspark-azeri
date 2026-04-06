@@ -150,34 +150,24 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
 
         {/* Actions */}
         <div className="flex gap-2 mt-auto">
-          {isGuest ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 rounded-xl h-10"
-                onClick={() => onPreview?.(quiz)}
-              >
-                Baxış
-              </Button>
-              <Button
-                variant="game"
-                size="sm"
-                className="flex-1 rounded-xl h-10 shadow-sm"
-                onClick={() => onPlay(quiz)}
-              >
-                Başla
-              </Button>
-            </>
-          ) : (
+          {onPreview && (
             <Button
-              variant="game"
-              className="w-full rounded-xl h-11 shadow-md hover:shadow-lg transition-all"
-              onClick={() => onPlay(quiz)}
+              variant="outline"
+              size={isGuest ? "sm" : "default"}
+              className="flex-1 rounded-xl h-10"
+              onClick={() => onPreview(quiz)}
             >
-              Quizə Başla
+              Baxış
             </Button>
           )}
+          <Button
+            variant="game"
+            size={isGuest ? "sm" : "default"}
+            className="flex-1 rounded-xl h-10 shadow-sm"
+            onClick={() => onPlay(quiz)}
+          >
+            {isGuest ? 'Başla' : 'Quizə Başla'}
+          </Button>
         </div>
       </div>
     </div>

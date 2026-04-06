@@ -92,28 +92,7 @@ export default function QuizPage() {
 
   const isLoading = quizLoading || questionsLoading;
 
-  // Strict Mode — tab violations tracked; 3 violations → auto-submit
-  useEffect(() => {
-    if (quizState === 'playing' && quiz?.strict_mode && !isPreview) {
-      const handleVisibilityChange = () => {
-        if (document.hidden) {
-          strictViolationsRef.current += 1;
-          const count = strictViolationsRef.current;
-          if (count >= 3) {
-            toast.error('Qaydalar pozuldu: Səhifəni 3 dəfə tərk etdiniz. Quiz avtomatik tamamlandı.', { duration: 8000 });
-            void completeQuizWithAnswers(answersRef.current);
-          } else {
-            toast.warning(
-              `Xəbərdarlıq (${count}/3): Səhifəni tərk etdiniz. Daha ${3 - count} pozuntu olsa quiz avtomatik bitəcək.`,
-              { duration: 5000 },
-            );
-          }
-        }
-      };
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-      return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-    }
-  }, [quizState, quiz, isPreview, completeQuizWithAnswers]);
+  // Moved Strict Mode hook down to avoid block-scoped reference error
 
   useEffect(() => {
     answersRef.current = answers;
@@ -149,6 +128,29 @@ export default function QuizPage() {
     }
     setQuizState('result');
   }, [isPreview, attemptId, startTime, user, quiz, displayQuestions, completeAttempt, updateXPAsync]);
+
+  // Strict Mode — tab violations tracked; 3 violations → auto-submit
+  useEffect(() => {
+    if (quizState === 'playing' && quiz?.strict_mode && !isPreview) {
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          strictViolationsRef.current += 1;
+          const count = strictViolationsRef.current;
+          if (count >= 3) {
+            toast.error('Qaydalar pozuldu: Səhifəni 3 dəfə tərk etdiniz. Quiz avtomatik tamamlandı.', { duration: 8000 });
+            void completeQuizWithAnswers(answersRef.current);
+          } else {
+            toast.warning(
+              `Xəbərdarlıq (${count}/3): Səhifəni tərk etdiniz. Daha ${3 - count} pozuntu olsa quiz avtomatik bitəcək.`,
+              { duration: 5000 },
+            );
+          }
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    }
+  }, [quizState, quiz, isPreview, completeQuizWithAnswers]);
 
   const questionsPerPage = quiz?.questions_per_page && quiz.questions_per_page > 0 
     ? quiz.questions_per_page 
@@ -487,6 +489,7 @@ export default function QuizPage() {
         currentPage={currentPage}
         totalPages={totalPages}
         pageQuestions={pageQuestions}
+        totalQuestions={questions.length}
         totalTimeLeft={totalTimeLeft}
         localAnswers={localAnswers}
         setLocalAnswers={setLocalAnswers}

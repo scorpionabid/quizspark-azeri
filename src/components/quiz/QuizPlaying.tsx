@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle } from "lucide-react";
+import React, { useEffect, useRef } from 'react';
+import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle, Maximize, Minimize } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -28,6 +28,7 @@ interface QuizPlayingProps {
   currentPage: number;
   totalPages: number;
   pageQuestions: Question[];
+  totalQuestions: number;
   totalTimeLeft: number;
   localAnswers: Record<string, string>;
   setLocalAnswers: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
@@ -50,6 +51,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   currentPage,
   totalPages,
   pageQuestions,
+  totalQuestions,
   totalTimeLeft,
   localAnswers,
   setLocalAnswers,
@@ -65,24 +67,61 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   bookmarkedQuestions,
   toggleBookmark,
   getPageStatus
-}) => {
+  }) => {
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [showExitConfirm, setShowExitConfirm] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  
+  const [attemptedSubmit, setAttemptedSubmit] = React.useState(false);
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const progress = ((currentPage + 1) / totalPages) * 100;
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen().catch(err => console.error(err));
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    }
+  };
+
+  const answeredCount = Object.keys(localAnswers).filter(k => localAnswers[k]?.trim()?.length > 0).length;
+  const progress = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+
+  // Auto-scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentPage]);
   
   const hasUnanswered = pageQuestions.some(q =>
     q.question_type !== 'essay' && q.question_type !== 'code' && !localAnswers[q.id]
   );
 
-  const onCheckSubmitClick = () => {
+  const onCheckSubmitClick = React.useCallback(() => {
     if (hasUnanswered) {
+      setAttemptedSubmit(true);
       setShowConfirm(true);
+      // Auto-scroll to first unanswered question
+      const firstUnanswered = pageQuestions.find(q => q.question_type !== 'essay' && q.question_type !== 'code' && !localAnswers[q.id]);
+      if (firstUnanswered && questionRefs.current[firstUnanswered.id]) {
+        setTimeout(() => {
+          questionRefs.current[firstUnanswered.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
     } else {
+      setAttemptedSubmit(false);
       handlePageSubmit();
     }
-  };
+  }, [hasUnanswered, handlePageSubmit, pageQuestions, localAnswers]);
 
   // Keyboard Navigation
   useEffect(() => {
@@ -101,7 +140,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showFeedback, currentPage, quiz.allow_backtracking, hasUnanswered, localAnswers, pageQuestions]);
+  }, [showFeedback, currentPage, quiz.allow_backtracking, hasUnanswered, localAnswers, pageQuestions, onCheckSubmitClick, handleNextPage, handlePrevPage]);
 
   const MapGrid = () => (
     <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 gap-2">
@@ -131,10 +170,13 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
     </div>
   );
 
+  const totalTime = (quiz.duration || 20) * 60;
+  const isTimerDanger = totalTimeLeft > 0 && totalTimeLeft <= totalTime * 0.2;
+
   return (
     <div 
       className="flex-1 bg-background relative min-h-screen"
-      style={quiz.background_image_url ? {
+      style={(quiz.background_image_url && !isFullscreen) ? {
         backgroundImage: `url(${quiz.background_image_url})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
@@ -159,7 +201,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
             </Button>
 
             <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
                   {/* Mobile Map Trigger */}
                   {quiz.show_question_nav && (
                    <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -181,11 +223,26 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                    </Sheet>
                   )}
 
-                  <div className="flex flex-col items-end bg-background/80 backdrop-blur-md px-3 py-1.5 rounded-xl border shadow-sm">
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">İmtahan Vaxtı</span>
+                   <Button
+                     variant="outline"
+                     size="icon"
+                     onClick={toggleFullscreen}
+                     className="hidden sm:flex h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground rounded-xl border-dashed bg-background/50 backdrop-blur-md"
+                     title={isFullscreen ? "Kiçilt" : "Tam Ekran"}
+                   >
+                     {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                   </Button>
+
+                  <div className={cn(
+                    "flex flex-col items-end px-3 py-1.5 rounded-xl border shadow-sm transition-all duration-500",
+                    isTimerDanger ? "bg-destructive/10 border-destructive/30 animate-pulse ring-1 ring-destructive/20" : "bg-background/80 backdrop-blur-md"
+                  )}>
+                    <span className={cn("text-[10px] uppercase font-bold tracking-tighter", isTimerDanger ? "text-destructive" : "text-muted-foreground")}>
+                        İmtahan Vaxtı
+                    </span>
                     <VisualTimer
                         timeLeft={totalTimeLeft}
-                        totalTime={(quiz.duration || 20) * 60}
+                        totalTime={totalTime}
                         size={36}
                     />
                   </div>
@@ -199,7 +256,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                   Səhifə {currentPage + 1} / {totalPages}
                   {pageQuestions.length > 0 && (
                     <span className="text-muted-foreground ml-1.5">
-                      · Sual {currentPage * pageQuestions.length + 1}–{Math.min((currentPage + 1) * pageQuestions.length, pageQuestions.length * totalPages)}
+                      · Sual {quiz.questions_per_page! * currentPage + 1}–{Math.min((currentPage + 1) * quiz.questions_per_page!, totalQuestions)}
                     </span>
                   )}
                 </span>
@@ -225,15 +282,22 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                {pageQuestions.map((question, idx) => (
+                {pageQuestions.map((question, idx) => {
+                  const isUnanswered = attemptedSubmit && question.question_type !== 'essay' && question.question_type !== 'code' && !localAnswers[question.id];
+                  
+                  return (
                 <div 
                     key={question.id}
-                    className="rounded-2xl sm:rounded-3xl bg-card border border-border/50 p-4 sm:p-8 shadow-elevated relative overflow-hidden"
+                    ref={el => questionRefs.current[question.id] = el}
+                    className={cn(
+                      "rounded-2xl sm:rounded-3xl bg-card border p-4 sm:p-8 relative overflow-hidden transition-all duration-300",
+                      isUnanswered ? "border-destructive/60 bg-destructive/5 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)]" : "border-border/50 shadow-elevated"
+                    )}
                 >
                     <div className="flex justify-between items-start mb-6 gap-4">
                     <h2 className="font-display text-base sm:text-xl md:text-2xl font-bold text-foreground">
                         {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest">{question.title}</span>}
-                        <span className="mr-2 text-muted-foreground">{idx + 1}.</span> {question.question_text}
+                        <span className="mr-2 text-muted-foreground">{quiz.questions_per_page! * currentPage + idx + 1}.</span> {question.question_text}
                     </h2>
                     
                     <div className="flex flex-col items-end gap-2 shrink-0">
@@ -300,7 +364,8 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     </div>
                     )}
                 </div>
-                ))}
+                );
+                })}
               </motion.div>
             </AnimatePresence>
             </div>

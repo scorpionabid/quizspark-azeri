@@ -1,13 +1,12 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Filter, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { QuizCard, Quiz } from "@/components/quiz/QuizCard";
+import { QuizCard } from "@/components/quiz/QuizCard";
 import { CategoryFilter } from "@/components/quiz/CategoryFilter";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePublicQuizzes } from "@/hooks/useQuizzes";
-import { categories } from "@/data/sampleQuizzes";
+import { usePublicQuizzes, useQuizzesMeta, Quiz as DbQuiz } from "@/hooks/useQuizzes";
 import { PageLoader } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -27,34 +26,33 @@ export default function QuizzesPage() {
   const [sortBy, setSortBy] = useState<string>("popular");
 
   const { data: quizzes = [], isLoading, error } = usePublicQuizzes();
+  const quizIds = React.useMemo(() => quizzes.map(q => q.id), [quizzes]);
+  const { data: quizzesMeta } = useQuizzesMeta(quizIds);
 
   const isGuest = !user || user.role === 'guest';
 
-  // Transform database quizzes to Quiz type
-  const transformedQuizzes: Quiz[] = quizzes.map((quiz) => ({
-    id: quiz.id,
-    title: quiz.title,
-    description: quiz.description || "",
-    subject: quiz.subject || "Digər",
-    grade: quiz.grade || "",
-    difficulty: (quiz.difficulty as "easy" | "medium" | "hard") || "medium",
-    questionCount: 0, // Will be fetched separately if needed
-    duration: quiz.duration || 20,
-    playCount: quiz.play_count || 0,
-    rating: Number(quiz.rating) || 0,
-    isPopular: quiz.is_popular || false,
-    isNew: quiz.is_new || false,
-    availableFrom: quiz.available_from,
-    availableTo: quiz.available_to,
-  }));
+  const dynamicCategories = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    quizzes.forEach(q => {
+      const subj = q.subject || 'Digər';
+      counts[subj] = (counts[subj] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, count], index) => ({
+      id: `cat-${index}`,
+      name,
+      icon: '📚', // Default icon, could map further if needed
+      count
+    })).sort((a, b) => b.count - a.count);
+  }, [quizzes]);
 
-  const filteredQuizzes = transformedQuizzes
+  // No mapping needed since DbQuiz satisfies QuizCard
+  const filteredQuizzes = quizzes
     .filter((quiz) => {
       const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        quiz.description.toLowerCase().includes(searchQuery.toLowerCase());
+        (quiz.description && quiz.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesCategory = !selectedCategory ||
-        quiz.subject.toLowerCase().includes(selectedCategory.toLowerCase());
+        (quiz.subject && quiz.subject.toLowerCase().includes(selectedCategory.toLowerCase()));
 
       const matchesDifficulty = difficulty === "all" || quiz.difficulty === difficulty;
 
@@ -63,23 +61,26 @@ export default function QuizzesPage() {
     .sort((a, b) => {
       switch (sortBy) {
         case "popular":
-          return b.playCount - a.playCount;
+          return (b.play_count || 0) - (a.play_count || 0);
         case "rating":
-          return b.rating - a.rating;
+          return (Number(b.rating) || 0) - (Number(a.rating) || 0);
         case "newest":
-          return b.isNew ? 1 : -1;
-        case "questions":
-          return b.questionCount - a.questionCount;
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        case "questions": {
+          const qb = quizzesMeta?.[b.id]?.question_count || 0;
+          const qa = quizzesMeta?.[a.id]?.question_count || 0;
+          return qb - qa;
+        }
         default:
           return 0;
       }
     });
 
-  const handlePlayQuiz = (quiz: Quiz) => {
+  const handlePlayQuiz = (quiz: DbQuiz) => {
     navigate(`/quiz/${quiz.id}`);
   };
 
-  const handlePreviewQuiz = (quiz: Quiz) => {
+  const handlePreviewQuiz = (quiz: DbQuiz) => {
     navigate(`/quiz/${quiz.id}?preview=true`);
   };
 
@@ -162,7 +163,7 @@ export default function QuizzesPage() {
 
           {/* Categories */}
           <CategoryFilter
-            categories={categories}
+            categories={dynamicCategories}
             selected={selectedCategory}
             onSelect={setSelectedCategory}
           />
@@ -182,6 +183,7 @@ export default function QuizzesPage() {
               <QuizCard
                 key={quiz.id}
                 quiz={quiz}
+                questionCount={quizzesMeta?.[quiz.id]?.question_count || 0}
                 onPlay={handlePlayQuiz}
                 onPreview={handlePreviewQuiz}
                 isGuest={isGuest}
