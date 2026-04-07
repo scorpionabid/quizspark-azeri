@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap } from "lucide-react";
+import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap, PlayCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { QuizCard } from "@/components/quiz/QuizCard";
@@ -23,6 +24,11 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [filters, setFilters] = useState<QuizFilterValues>(defaultFilters);
+  const [visibleCount, setVisibleCount] = useState(8);
+
+  useEffect(() => {
+    setVisibleCount(8);
+  }, [searchQuery, selectedCategory, filters]);
 
   const { data: quizzes = [], isLoading: quizzesLoading } = usePublicQuizzes();
   const quizIds = useMemo(() => quizzes.map(q => q.id), [quizzes]);
@@ -122,8 +128,22 @@ export default function Index() {
       <section className="relative overflow-hidden px-4 py-16 sm:px-6 lg:px-8">
         {/* Decorative elements */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 h-96 w-96 rounded-full bg-accent/10 blur-3xl" />
+          <motion.div 
+            animate={{ 
+              y: [0, -20, 0],
+              x: [0, 10, 0]
+            }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl flex-none" 
+          />
+          <motion.div 
+            animate={{ 
+              y: [0, 20, 0],
+              x: [0, -10, 0]
+            }}
+            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute -bottom-20 -left-20 h-96 w-96 rounded-full bg-accent/10 blur-3xl flex-none" 
+          />
         </div>
 
         <div className="relative mx-auto max-w-4xl text-center">
@@ -140,6 +160,27 @@ export default function Index() {
             Müxtəlif fənlər üzrə interaktiv quizlərlə biliklərini test et,
             yeni şeylər öyrən və liderlik lövhəsində yarış!
           </p>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
+            <Button 
+                size="lg" 
+                className="h-14 px-8 rounded-full shadow-lg hover:shadow-primary/25 transition-all text-base"
+                onClick={() => document.getElementById('all-quizzes')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <PlayCircle className="mr-2 h-5 w-5" />
+              Həmən Başla
+            </Button>
+            <Button 
+                variant="outline"
+                size="lg" 
+                className="h-14 px-8 rounded-full bg-background/50 backdrop-blur text-base"
+                onClick={() => navigate('/leaderboard')}
+            >
+              <Trophy className="mr-2 h-5 w-5" />
+              Liderlər Lövhəsi
+            </Button>
+          </div>
 
           {/* Search */}
           <div className="mx-auto mb-8 max-w-xl">
@@ -193,20 +234,18 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Advanced Filters - Show for logged in users */}
-      {isLoggedIn && (
-        <section className="px-4 pb-8 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl">
-            <div className="rounded-2xl border border-border/50 bg-card/30 p-4 backdrop-blur-sm">
-              <QuizFilters
-                filters={filters}
-                onFiltersChange={setFilters}
-                onClearFilters={handleClearFilters}
-              />
-            </div>
+      {/* Advanced Filters - Show for everyone to improve discovery */}
+      <section className="px-4 pb-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-2xl border border-border/50 bg-card/30 p-4 backdrop-blur-sm">
+            <QuizFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              onClearFilters={handleClearFilters}
+            />
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* Popular Quizzes */}
       {!searchQuery && !selectedCategory && popularQuizzes.length > 0 && (
@@ -261,7 +300,7 @@ export default function Index() {
       )}
 
       {/* All Quizzes */}
-      <section className="px-4 pb-16 sm:px-6 lg:px-8">
+      <section id="all-quizzes" className="px-4 pb-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">
@@ -276,18 +315,43 @@ export default function Index() {
           </div>
 
           {filteredQuizzes.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredQuizzes.map((quiz) => (
-                <QuizCard
-                  key={quiz.id}
-                  quiz={quiz}
-                  questionCount={quizMeta[quiz.id]?.question_count}
-                  onPlay={handlePlayQuiz}
-                  onPreview={handlePreviewQuiz}
-                  isGuest={isGuest}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <AnimatePresence mode="popLayout">
+                  {filteredQuizzes.slice(0, visibleCount).map((quiz, idx) => (
+                    <motion.div
+                      key={quiz.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3, delay: Math.min(idx * 0.05, 0.5) }}
+                      layout
+                    >
+                      <QuizCard
+                        quiz={quiz}
+                        questionCount={quizMeta[quiz.id]?.question_count}
+                        onPlay={handlePlayQuiz}
+                        onPreview={handlePreviewQuiz}
+                        isGuest={isGuest}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+
+              {visibleCount < filteredQuizzes.length && (
+                <div className="mt-10 flex justify-center">
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    onClick={() => setVisibleCount(prev => prev + 8)}
+                    className="rounded-full px-8 h-12 shadow-sm"
+                  >
+                    Daha Çox Göstər
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex flex-col items-center justify-center rounded-2xl bg-card/50 py-16 text-center border border-dashed border-border/50">
               <div className="mb-4 text-6xl opacity-50">🔍</div>
