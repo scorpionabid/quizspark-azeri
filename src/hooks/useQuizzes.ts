@@ -125,6 +125,7 @@ export function useQuiz(quizId: string | undefined) {
       return data as Quiz | null;
     },
     enabled: !!quizId,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 }
 

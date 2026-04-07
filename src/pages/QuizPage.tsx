@@ -261,10 +261,15 @@ export default function QuizPage() {
     setAnswers(updatedAnswers);
 
     if (attemptId && !isPreview && newAnswers.length > 0) {
-      updateAttempt.mutate({
-        attemptId,
-        answers: updatedAnswers as unknown as Record<string, string>[],
-      });
+      // Optimizasiya: DB yüklənməməsi üçün yalnız hər 5 sualdan bir aralıq yaddaş (draft) göndəririk.
+      // Sonda onsuz da completeAttempt hamısını birdən göndərir. 
+      // Qısa fasilələrdə local storage ehtiyat kimi çalışır.
+      if (updatedAnswers.length % 5 === 0) {
+        updateAttempt.mutate({
+          attemptId,
+          answers: updatedAnswers as unknown as Record<string, string>[],
+        });
+      }
     }
 
     if (quiz?.auto_advance && quiz.questions_per_page === 1) {

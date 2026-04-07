@@ -304,7 +304,7 @@ export function useActiveQuizAttempts(quizId: string | undefined) {
       return count || 0;
     },
     enabled: !!quizId,
-    refetchInterval: 10000,
+    refetchInterval: 30000, // Reduced frequency to prevent DB overload (was 10s)
   });
 }
 
@@ -365,6 +365,6 @@ export function useQuizDetailedStats(quizId: string | undefined, passPercentage 
       return { results, summary: { total, avg_score, pass_rate, avg_time } };
     },
     enabled: !!quizId,
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes cache (was 1 minute)
   });
 }

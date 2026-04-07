@@ -61,6 +61,7 @@ export function useQuestions(quizId: string | undefined) {
       return data as Question[];
     },
     enabled: !!quizId,
+    staleTime: 10 * 60 * 1000, // 10 minutes cache
   });
 }
 
