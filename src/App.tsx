@@ -1,3 +1,4 @@
+import React, { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,8 +11,9 @@ import { OAuthRoleDialog } from "@/components/auth/OAuthRoleDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseHealth } from "@/hooks/useSupabaseHealth";
 import { ThemeProvider } from "next-themes";
+import { PageLoader } from "@/components/ui/loading-spinner";
 
-// Pages
+// Core Pages (statik — tez yüklənməlidir)
 import Index from "./pages/Index";
 import QuizPage from "./pages/QuizPage";
 import QuizzesPage from "./pages/QuizzesPage";
@@ -23,20 +25,20 @@ import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import PendingApprovalPage from "./pages/auth/PendingApprovalPage";
 import SupportChatPage from "./pages/chat/SupportChatPage";
 
-// Teacher Pages
-import TeacherDashboard from "./pages/teacher/TeacherDashboard";
-import CreateQuizPage from "./pages/teacher/CreateQuizPage";
-import MyQuizzesPage from "./pages/teacher/MyQuizzesPage";
-import AIAssistantPage from "./pages/teacher/AIAssistantPage";
-import QuestionBankPage from "./pages/teacher/QuestionBankPage";
+// Teacher Pages — lazy (dnd-kit ayrı chunk-da olsun, quiz path-ına qarışmasın)
+const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));
+const CreateQuizPage = lazy(() => import("./pages/teacher/CreateQuizPage"));
+const MyQuizzesPage = lazy(() => import("./pages/teacher/MyQuizzesPage"));
+const AIAssistantPage = lazy(() => import("./pages/teacher/AIAssistantPage"));
+const QuestionBankPage = lazy(() => import("./pages/teacher/QuestionBankPage"));
 
-// Admin Pages
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import UsersPage from "./pages/admin/UsersPage";
-import PermissionsPage from "./pages/admin/PermissionsPage";
-import AIConfigPage from "./pages/admin/AIConfigPage";
-import SettingsPage from "./pages/admin/SettingsPage";
-import AdminChatPage from "./pages/admin/AdminChatPage";
+// Admin Pages — lazy
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const UsersPage = lazy(() => import("./pages/admin/UsersPage"));
+const PermissionsPage = lazy(() => import("./pages/admin/PermissionsPage"));
+const AIConfigPage = lazy(() => import("./pages/admin/AIConfigPage"));
+const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
+const AdminChatPage = lazy(() => import("./pages/admin/AdminChatPage"));
 
 const queryClient = new QueryClient();
 
@@ -66,68 +68,92 @@ function AppRoutes() {
         <Route path="/support" element={<MainLayout><SupportChatPage /></MainLayout>} />
         <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
 
-        {/* Teacher Routes - Protected */}
+        {/* Teacher Routes - Protected + lazy */}
         <Route path="/teacher/dashboard" element={
-          <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-            <MainLayout><TeacherDashboard /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <MainLayout><TeacherDashboard /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/teacher/create" element={
-          <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-            <MainLayout><CreateQuizPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <MainLayout><CreateQuizPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/teacher/my-quizzes" element={
-          <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-            <MainLayout><MyQuizzesPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <MainLayout><MyQuizzesPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/teacher/ai-assistant" element={
-          <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-            <MainLayout><AIAssistantPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <MainLayout><AIAssistantPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/teacher/question-bank" element={
-          <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-            <MainLayout><QuestionBankPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <MainLayout><QuestionBankPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/teacher/edit/:id" element={
-          <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-            <MainLayout><CreateQuizPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <MainLayout><CreateQuizPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
 
-        {/* Admin Routes - Protected */}
+        {/* Admin Routes - Protected + lazy */}
         <Route path="/admin/dashboard" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <MainLayout><AdminDashboard /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><AdminDashboard /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/admin/users" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <MainLayout><UsersPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><UsersPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/admin/permissions" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <MainLayout><PermissionsPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><PermissionsPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/admin/ai-config" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <MainLayout><AIConfigPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><AIConfigPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/admin/settings" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <MainLayout><SettingsPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><SettingsPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
         <Route path="/admin/chat" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <MainLayout><AdminChatPage /></MainLayout>
-          </ProtectedRoute>
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><AdminChatPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
         } />
 
         {/* Catch-all */}
