@@ -48,6 +48,13 @@ server {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
 
+    # Service worker — heç vaxt cache edilməməlidir (yeni SW dərhal tətbiq olunsun)
+    location ~* (sw\.js|workbox-.*\.js)$ {
+        expires off;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+    }
+
     # Static assets - uzun müddətli cache
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         expires 30d;
