@@ -20,10 +20,31 @@
 
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#8B5CF6" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Sınaq" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Stale service worker cleanup: köhnə SW-ləri sil ki precache 404 xətası verməsin -->
+    <script>
+      (function () {
+        var SW_VERSION = '2';
+        var key = 'sw_version';
+        if ('serviceWorker' in navigator && localStorage.getItem(key) !== SW_VERSION) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            var unregisterAll = regs.map(function (r) { return r.unregister(); });
+            return Promise.all(unregisterAll);
+          }).then(function () {
+            return caches.keys();
+          }).then(function (names) {
+            return Promise.all(names.map(function (n) { return caches.delete(n); }));
+          }).then(function () {
+            localStorage.setItem(key, SW_VERSION);
+          });
+        }
+      })();
+    </script>
   </head>
 
   <body>
