@@ -21,6 +21,11 @@ export default defineConfig(({ mode }) => ({
         short_name: 'Sınaq',
         description: 'İnteraktiv quizlərlə biliklərini test et və yeni şeylər öyrən',
         theme_color: '#8B5CF6',
+        background_color: '#0F172A',
+        display: 'standalone',
+        orientation: 'portrait-primary',
+        start_url: '/',
+        categories: ['education', 'quiz'],
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -37,6 +42,22 @@ export default defineConfig(({ mode }) => ({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
+          }
+        ],
+        shortcuts: [
+          {
+            name: 'Bütün Quizlər',
+            short_name: 'Quizlər',
+            description: 'Bütün aktiv quizləri göstər',
+            url: '/quizzes',
+            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
+          },
+          {
+            name: 'Liderlik Lövhəsi',
+            short_name: 'Liderlər',
+            description: 'Ən yüksək nəticələri gör',
+            url: '/leaderboard',
+            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
           }
         ]
       },

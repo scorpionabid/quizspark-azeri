@@ -124,130 +124,57 @@ export function QuestionTable({
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/50">
-            <TableHead className="w-12">
-              <Checkbox
-                checked={someSelected ? "indeterminate" : allSelected}
-                onCheckedChange={(checked) => onSelectAll(!!checked)}
-              />
-            </TableHead>
-            <TableHead className="min-w-[300px]">Başlıq & Sual</TableHead>
-            <TableHead className="w-20 text-center">Xal/Çəki</TableHead>
-            <TableHead className="w-24 text-center">
-              <SortButton column="quality_score" label="Keyfiyyət" />
-            </TableHead>
-            <TableHead className="w-32">
-              <SortButton column="category" label="Kateqoriya" />
-            </TableHead>
-            <TableHead className="w-24">
-              <SortButton column="difficulty" label="Çətinlik" />
-            </TableHead>
-            <TableHead className="w-32">
-              <SortButton column="question_type" label="Tip" />
-            </TableHead>
-            <TableHead className="w-32">
-              <SortButton column="created_at" label="Tarix" />
-            </TableHead>
-            <TableHead className="w-20 text-right">Əməliyyatlar</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {questions.map((question) => (
-            <TableRow
+    <div>
+      {/* Mobile Card View (shown on screens < md) */}
+      <div className="block md:hidden space-y-3">
+        <div className="flex items-center justify-between px-2 py-1.5 bg-muted/40 rounded-lg border border-border/50 text-xs">
+          <label className="flex items-center gap-2 cursor-pointer font-medium">
+            <Checkbox
+              checked={someSelected ? "indeterminate" : allSelected}
+              onCheckedChange={(checked) => onSelectAll(!!checked)}
+            />
+            <span>Hamısını seç ({questions.length})</span>
+          </label>
+          {selectedIds.size > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {selectedIds.size} seçilib
+            </Badge>
+          )}
+        </div>
+
+        {questions.map((question) => {
+          const isSelected = selectedIds.has(question.id);
+          return (
+            <div
               key={question.id}
-              className={selectedIds.has(question.id) ? 'bg-primary/5' : ''}
+              className={cn(
+                "rounded-xl border border-border/70 bg-card p-3.5 shadow-sm transition-all space-y-2.5",
+                isSelected && "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
+              )}
             >
-              <TableCell>
-                <Checkbox
-                  checked={selectedIds.has(question.id)}
-                  onCheckedChange={(checked) => onSelectChange(question.id, !!checked)}
-                />
-              </TableCell>
-              <TableCell>
-                <div className="space-y-1">
-                  <div className="flex items-start gap-2">
-                    {question.question_image_url && (
-                      <img
-                        src={question.question_image_url}
-                        alt=""
-                        className="h-10 w-10 rounded border object-cover flex-shrink-0 mt-0.5"
-                      />
+              {/* Card Header: Checkbox + Title + Actions */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={(checked) => onSelectChange(question.id, !!checked)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1 min-w-0">
+                    {question.title && (
+                      <h4 className="text-sm font-semibold text-foreground truncate">
+                        {question.title}
+                      </h4>
                     )}
-                    <div>
-                      {question.title && <p className="font-semibold text-sm mb-1">{question.title}</p>}
-                      <p className="font-medium line-clamp-2 text-muted-foreground text-sm">
-                        {truncateText(question.question_text, 120)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-1 flex-wrap mt-1">
-                    {question.media_type && (
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <Image className="h-3 w-3" />
-                        {question.media_type === 'image' ? 'Şəkil' : question.media_type === 'video' ? 'Video' : 'Audio'}
-                      </Badge>
-                    )}
-                    {question.video_url && (
-                      <Badge variant="outline" className="text-xs gap-1 border-red-200 text-red-700 bg-red-50">Video Klip</Badge>
-                    )}
-                    {question.model_3d_url && (
-                      <Badge variant="outline" className="text-xs gap-1 border-blue-200 text-blue-700 bg-blue-50">3D Model</Badge>
-                    )}
-                    {question.tags && question.tags.length > 0 && question.tags.slice(0, 3).map((tag, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                    {question.tags && question.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{question.tags.length - 3}
-                      </Badge>
-                    )}
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                      {question.question_text}
+                    </p>
                   </div>
                 </div>
-              </TableCell>
-              <TableCell className="text-center">
-                <Badge variant="outline" className="font-mono">
-                  ×{question.weight ?? 1.0}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-center whitespace-nowrap">
-                {question.quality_score ? (
-                  <span className="flex justify-center items-center text-sm font-medium gap-1 text-yellow-600">
-                    <Star className="w-3 h-3 fill-current" /> {Number(question.quality_score).toFixed(1)}
-                    <span className="text-xs text-muted-foreground ml-1">({question.usage_count || 0})</span>
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">-</span>
-                )}
-              </TableCell>
-              <TableCell>
-                <Badge variant="secondary" className="font-normal">
-                  {question.category || 'Kateqoriyasız'}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge className={getDifficultyColor(question.difficulty)}>
-                  {question.difficulty || 'N/A'}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <span className="text-sm text-muted-foreground flex items-center gap-1">
-                  {getTypeInfo(question.question_type).label}
-                </span>
-              </TableCell>
-              <TableCell>
-                <span className="text-sm text-muted-foreground">
-                  {new Date(question.created_at).toLocaleDateString('az-AZ')}
-                </span>
-              </TableCell>
-              <TableCell>
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 -mr-1 text-muted-foreground">
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -289,11 +216,221 @@ export function QuestionTable({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </TableCell>
+              </div>
+
+              {/* Media Thumbnail if any */}
+              {question.question_image_url && (
+                <div className="rounded-lg overflow-hidden border border-border/40 max-h-32 bg-muted">
+                  <img
+                    src={question.question_image_url}
+                    alt=""
+                    className="w-full h-24 object-cover"
+                  />
+                </div>
+              )}
+
+              {/* Card Meta Badges */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+                <Badge className={cn('text-[11px] px-2 py-0.5', getDifficultyColor(question.difficulty))}>
+                  {question.difficulty || 'N/A'}
+                </Badge>
+
+                <Badge variant="secondary" className="text-[11px] px-2 py-0.5 font-normal">
+                  {question.category || 'Kateqoriyasız'}
+                </Badge>
+
+                <span className="text-muted-foreground text-[11px]">
+                  {getTypeInfo(question.question_type).label}
+                </span>
+
+                <span className="text-muted-foreground text-[11px] font-mono ml-auto">
+                  ×{question.weight ?? 1.0} xal
+                </span>
+
+                {question.quality_score && (
+                  <span className="flex items-center text-[11px] font-medium gap-0.5 text-yellow-600 dark:text-yellow-500">
+                    <Star className="w-3 h-3 fill-current" />
+                    {Number(question.quality_score).toFixed(1)}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Table View (shown on md+) */}
+      <div className="hidden md:block border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={someSelected ? "indeterminate" : allSelected}
+                  onCheckedChange={(checked) => onSelectAll(!!checked)}
+                />
+              </TableHead>
+              <TableHead className="min-w-[300px]">Başlıq & Sual</TableHead>
+              <TableHead className="w-20 text-center">Xal/Çəki</TableHead>
+              <TableHead className="w-24 text-center">
+                <SortButton column="quality_score" label="Keyfiyyət" />
+              </TableHead>
+              <TableHead className="w-32">
+                <SortButton column="category" label="Kateqoriya" />
+              </TableHead>
+              <TableHead className="w-24">
+                <SortButton column="difficulty" label="Çətinlik" />
+              </TableHead>
+              <TableHead className="w-32">
+                <SortButton column="question_type" label="Tip" />
+              </TableHead>
+              <TableHead className="w-32">
+                <SortButton column="created_at" label="Tarix" />
+              </TableHead>
+              <TableHead className="w-20 text-right">Əməliyyatlar</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {questions.map((question) => (
+              <TableRow
+                key={question.id}
+                className={selectedIds.has(question.id) ? 'bg-primary/5' : ''}
+              >
+                <TableCell>
+                  <Checkbox
+                    checked={selectedIds.has(question.id)}
+                    onCheckedChange={(checked) => onSelectChange(question.id, !!checked)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="space-y-1">
+                    <div className="flex items-start gap-2">
+                      {question.question_image_url && (
+                        <img
+                          src={question.question_image_url}
+                          alt=""
+                          className="h-10 w-10 rounded border object-cover flex-shrink-0 mt-0.5"
+                        />
+                      )}
+                      <div>
+                        {question.title && <p className="font-semibold text-sm mb-1">{question.title}</p>}
+                        <p className="font-medium line-clamp-2 text-muted-foreground text-sm">
+                          {truncateText(question.question_text, 120)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 flex-wrap mt-1">
+                      {question.media_type && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <Image className="h-3 w-3" />
+                          {question.media_type === 'image' ? 'Şəkil' : question.media_type === 'video' ? 'Video' : 'Audio'}
+                        </Badge>
+                      )}
+                      {question.video_url && (
+                        <Badge variant="outline" className="text-xs gap-1 border-red-200 text-red-700 bg-red-50">Video Klip</Badge>
+                      )}
+                      {question.model_3d_url && (
+                        <Badge variant="outline" className="text-xs gap-1 border-blue-200 text-blue-700 bg-blue-50">3D Model</Badge>
+                      )}
+                      {question.tags && question.tags.length > 0 && question.tags.slice(0, 3).map((tag, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {question.tags && question.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{question.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Badge variant="outline" className="font-mono">
+                    ×{question.weight ?? 1.0}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-center whitespace-nowrap">
+                  {question.quality_score ? (
+                    <span className="flex justify-center items-center text-sm font-medium gap-1 text-yellow-600">
+                      <Star className="w-3 h-3 fill-current" /> {Number(question.quality_score).toFixed(1)}
+                      <span className="text-xs text-muted-foreground ml-1">({question.usage_count || 0})</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary" className="font-normal">
+                    {question.category || 'Kateqoriyasız'}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge className={getDifficultyColor(question.difficulty)}>
+                    {question.difficulty || 'N/A'}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                    {getTypeInfo(question.question_type).label}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(question.created_at).toLocaleDateString('az-AZ')}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onView(question)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        Bax
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEdit(question)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Redaktə et
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onDuplicate(question)}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Dublikat et
+                      </DropdownMenuItem>
+                      <SubscriptionGate feature="ai_question_generation" variant="inline">
+                        <DropdownMenuItem
+                          onClick={() => onEnhance(question)}
+                          className="text-primary hover:text-primary focus:text-primary group"
+                        >
+                          <Sparkles className="h-4 w-4 mr-2 animate-pulse group-hover:scale-110 transition-transform" />
+                          AI Asistent
+                        </DropdownMenuItem>
+                      </SubscriptionGate>
+                      {onShare && (
+                        <DropdownMenuItem onClick={() => onShare(question)}>
+                          <Share2 className="h-4 w-4 mr-2" />
+                          Paylaş
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => onDelete(question.id)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Sil
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
