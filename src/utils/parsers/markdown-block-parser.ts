@@ -151,7 +151,7 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
       continue;
     }
 
-    const aikenOpt = line.match(/^([A-Za-z\d]+)\s*[).]\s+(.+)/);
+    const aikenOpt = line.match(/^([A-Ha-h])\s*[).]\s+(.+)/);
     const bulletOpt = line.match(/^[-•*]\s+(?!\[)(.+)/);
     const isMeta = META_RE.test(line);
 

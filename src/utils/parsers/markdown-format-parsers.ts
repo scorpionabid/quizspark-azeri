@@ -55,7 +55,7 @@ export function parseMarkdownFormat1(content: string): ParseResult {
       extractMetadata(rest.join('\n').split('\n'), result);
     } else {
       // ── b) Universal sintaksis: `A) Variant # İzah` + `Cavab: C` ───────────
-      const optionRE = /^([A-Za-z\d]+)[).]\s+(.+)/;
+      const optionRE = /^([A-Ha-h])[).]\s+(.+)/;
       const metaLines: string[] = [];
 
       for (const line of rest) {
@@ -71,6 +71,8 @@ export function parseMarkdownFormat1(content: string): ParseResult {
             if (!result.per_option_explanations) result.per_option_explanations = {};
             result.per_option_explanations[optionIndex.toString()] = feedback;
           }
+        } else if ((result.options as string[]).length === 0 && !FORMAT_META_RE.test(clean)) {
+          result.question_text += '\n' + clean;
         } else {
           if ((result.options as string[]).length > 0 && !FORMAT_META_RE.test(clean)) {
             const opts = result.options as string[];
