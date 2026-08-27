@@ -135,7 +135,8 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
       target.hint = `lang:${value.toLowerCase()}`;
     } else if (['answer', 'düzgün', 'cavab', 'doğru', 'doğru cavab', 'düzgün cavab'].includes(key)) {
       // Matching suallarında Cavab dəyərini `,` və ya `;` ilə kəsmirik
-      if (target.question_type === 'matching') {
+      if (target.question_type === 'matching' || /\d+\s*-\s*[a-zA-Z]/.test(value)) {
+        target.question_type = 'matching';
         target.correct_answer = value;
         continue;
       }

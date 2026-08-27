@@ -6,9 +6,10 @@ import {
   warnIfMissingText,
   warnIfMissingAnswer,
   buildMetaRE,
+  ANSWER_META,
 } from './markdown-utils';
 
-const FORMAT_META_RE = buildMetaRE();
+const FORMAT_META_RE = buildMetaRE(ANSWER_META);
 
 // ─── Format 1: `# Sual mətni` ─────────────────────────────────────────────────
 //
@@ -97,11 +98,7 @@ export function parseMarkdownFormat1(content: string): ParseResult {
       warnings.push(...warnDuplicateOptions(result.options as string[], lineOffset));
     }
 
-    if (
-      result.options &&
-      (result.options as string[]).length === 0 &&
-      result.question_type !== 'short_answer'
-    ) {
+    if (result.options && (result.options as string[]).length === 0) {
       warnings.push({
         line: lineOffset,
         type: 'no_options',
@@ -110,11 +107,11 @@ export function parseMarkdownFormat1(content: string): ParseResult {
       });
     }
 
-    if (!result.correct_answer && result.question_type !== 'essay') {
+    if (!result.correct_answer && result.question_type !== 'matching') {
       warnings.push(warnIfMissingAnswer(questionText, lineOffset));
     }
 
-    if (questionText) questions.push(result as ParsedQuestion);
+    questions.push(result as ParsedQuestion);
   }
 
   return { questions, warnings };
@@ -128,10 +125,9 @@ export function parseMarkdownFormat2(content: string): ParseResult {
   const questions: ParsedQuestion[] = [];
   const warnings: ParseWarning[] = [];
 
-  // Həm boş sətir, həm də ardıcıl (boş sətir olmayan) numbered sualları ayır.
-  // Lookahead: növbəti sətir rəqəmlə + separator-la başlayır.
+  // Həm boş sətir ilə ayrılan rəqəmli sualları ayır.
   const blocks = content
-    .split(/\n(?:\s*\n(?=\d+[.):]\s)|\s*(?=\d+[.):]\s))/)
+    .split(/\n\s*\n(?=\d+[.):]\s)/)
     .map((b) => b.trim())
     .filter(Boolean);
 

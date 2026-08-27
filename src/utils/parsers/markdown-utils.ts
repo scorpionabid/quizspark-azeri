@@ -127,11 +127,11 @@ export function parseInlineLine(line: string): {
   const firstPos = firstMarker.index ?? 0;
 
   // Sual mətni: ilk variant işarəsindən əvvəlki hissə
-  let questionText = line.slice(0, firstPos).trim();
+  const rawQuestionText = line.slice(0, firstPos).trim();
 
   // Sual mətnini prefix-lərdən təmizlə
-  questionText = questionText.replace(QUESTION_PREFIX_RE, '').trim();
-  // Sonda qalan sual işarəsini sil (? saxla)
+  const cleanedText = rawQuestionText.replace(QUESTION_PREFIX_RE, '').trim();
+  const questionText = cleanedText || rawQuestionText;
   if (!questionText) return null;
 
   // Optionlar + trailing meta hissəsini ayır
