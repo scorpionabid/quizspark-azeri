@@ -22,7 +22,7 @@ export const FeedbackRenderer: React.FC<FeedbackRendererProps> = ({
         <p className="text-sm opacity-80">
           {question.question_type === 'code' ? 'Kod sualları müəllim tərəfindən yoxlanılacaq.' : 'Esse sualları müəllim tərəfindən yoxlanılacaq.'}
         </p>
-        {question.explanation && (
+        {question.explanation && question.explanation.trim().length > 1 && question.explanation.trim() !== ':' && (
           <div className="text-sm mt-3 bg-background/40 p-3 rounded-lg border border-border/20">
             <strong className="block mb-1 uppercase text-[10px] font-black tracking-widest opacity-70">Açıqlama</strong>
             {question.explanation}
@@ -90,7 +90,7 @@ export const FeedbackRenderer: React.FC<FeedbackRendererProps> = ({
         </div>
       )}
 
-      {question.explanation && (
+      {question.explanation && question.explanation.trim().length > 1 && question.explanation.trim() !== ':' && (
         <div className="text-sm mt-2 opacity-90 leading-relaxed bg-background/40 p-3 rounded-lg border border-border/20">
           <strong className="block mb-1 uppercase text-[10px] font-black tracking-widest opacity-70">
             Açıqlama
