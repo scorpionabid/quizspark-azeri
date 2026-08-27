@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
 import { Sparkles } from 'lucide-react';
 import { QUESTION_TYPES } from '@/types/question';
+import { cn } from '@/lib/utils';
 
 interface QuestionTableProps {
   questions: QuestionBankItem[];
