@@ -46,7 +46,7 @@ function isSectionLabel(line: string): boolean {
  */
 function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
   const META_RE =
-    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans)\s*[:-]/iu;
+    /^(İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans)\s*[:-]/iu;
   const ANSWER_LINE_RE = /^(ANSWER|Düzgün cavab|Doğru cavab|Cavab|Doğru)\s*[:-]/i;
   const QUESTION_START_RE = /^(?:#{1,6}\s*|(?:Sual|Q|Question)\s*(?:\d+\s*)?[:.-]\s*)/i;
 

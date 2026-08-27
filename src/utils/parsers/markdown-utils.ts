@@ -6,7 +6,7 @@ import { ParseWarning } from './types';
  * Bütün blok parser-lərin paylaşdığı baza keyword dəsti.
  */
 const BASE_META =
-  'İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type';
+  'İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type';
 
 /**
  * Cavab keyword-ləri — fill_blank, numerical, code, generic bloklar üçün.

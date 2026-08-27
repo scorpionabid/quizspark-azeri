@@ -90,7 +90,7 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
   for (const line of lines) {
     const clean = line.trim();
     const metaMatch = clean.match(
-      /^(İzahat\s*\(?[A-Z\d]\)?|Izahat\s*\(?[A-Z\d]\)?|Explanation\s*\(?[A-Z\d]\)?|Açıqlama\s*\(?[A-Z\d]\)?|İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language)\s*[-:]?\s*(.+)$/i,
+      /^(İzahat\s*\(?[A-Z\d]\)?|Izahat\s*\(?[A-Z\d]\)?|Explanation\s*\(?[A-Z\d]\)?|Açıqlama\s*\(?[A-Z\d]\)?|İpucu|Ipucu|Hint|İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language)\s*[-:]?\s*(.+)$/i,
     );
     if (!metaMatch) continue;
     const keyRaw = metaMatch[1];
@@ -117,6 +117,8 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
 
     if (['izahat', 'açıqlama', 'explanation'].includes(key)) {
       target.explanation = value;
+    } else if (['ipucu', 'hint'].includes(key)) {
+      target.hint = value;
     } else if (['kateqoriya', 'category'].includes(key)) {
       target.category = value;
     } else if (['çətinlik', 'difficulty'].includes(key)) {
