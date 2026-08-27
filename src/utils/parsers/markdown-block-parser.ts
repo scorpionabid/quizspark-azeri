@@ -46,7 +46,7 @@ function isSectionLabel(line: string): boolean {
  */
 function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
   const META_RE =
-    /^(İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans)\s*[:-]/iu;
+    /^(İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans)\s*[:-]/iu;
   const ANSWER_LINE_RE = /^(ANSWER|Düzgün cavab|Doğru cavab|Cavab|Doğru)\s*[:-]/i;
   const QUESTION_START_RE = /^(?:#{1,6}\s*|(?:Sual|Q|Question)\s*(?:\d+\s*)?[:.-]\s*)/i;
 
@@ -158,7 +158,7 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
     let remainingAfterMeta = '';
     if (!isMeta) {
       const inlineMetaMatch = line.match(
-        /(.+?)\s*((?:İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[:-].+)$/iu,
+        /(.+?)\s*((?:İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[:-].+)$/iu,
       );
       if (inlineMetaMatch) {
         line = inlineMetaMatch[1];
@@ -288,7 +288,7 @@ export function parseSingleBlock(block: string, lineOffset: number): BlockResult
 
   // 2 — Arrow cütlər və ya 1-a matching cavab formatı → matching
   const META_RE_LIGHT =
-    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Cavab|Düzgün|Düzgün cavab|Doğru cavab|ANSWER|Tolerans|Dil)\s*[-:]/iu;
+    /^(İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Cavab|Düzgün|Düzgün cavab|Doğru cavab|ANSWER|Tolerans|Dil)\s*[-:]/iu;
   const PAIR_RE = /^.+\s*(?:→|->|::)\s*.+$/;
   const pairLines = lines.filter((l) => PAIR_RE.test(l) && !META_RE_LIGHT.test(l));
   if (pairLines.length >= 2 || lines.some((l) => /\b\d+\s*-\s*[a-zA-Z]/.test(l))) {

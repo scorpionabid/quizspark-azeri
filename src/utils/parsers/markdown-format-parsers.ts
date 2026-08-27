@@ -157,15 +157,15 @@ export function parseMarkdownFormat2(content: string): ParseResult {
 
     for (let i = 1; i < lines.length; i++) {
       const l = lines[i];
-      const optMatch = l.match(/^[-*•]?\s*([A-Za-z\d]+)[).]\s+(.+)/);
+      const optMatch = l.match(/^[-*•]?\s*([A-Ha-h])[).]\s+(.+)/);
       if (optMatch) {
         optLines.push(optMatch[2].trim());
+      } else if (optLines.length === 0 && !FORMAT_META_RE.test(l)) {
+        result.question_text += '\n' + l;
+      } else if (optLines.length > 0 && !FORMAT_META_RE.test(l)) {
+        optLines[optLines.length - 1] += '\n' + l;
       } else {
-        if (optLines.length > 0 && !FORMAT_META_RE.test(l)) {
-          optLines[optLines.length - 1] += '\n' + l;
-        } else {
-          metaLines.push(l);
-        }
+        metaLines.push(l);
       }
     }
 

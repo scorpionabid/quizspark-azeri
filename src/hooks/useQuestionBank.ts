@@ -452,13 +452,19 @@ export function useBulkCreateQuestionBank() {
       }
 
       const normalize = (t: string) => t.replace(/\s+/g, ' ').trim().toLowerCase();
+      const normalizeFirstLine = (t: string) => (t.split('\n')[0] || '').replace(/\s+/g, ' ').trim().toLowerCase();
       const existingMap = new Map<string, string>();
+      const firstLineMap = new Map<string, string>();
       if (existingData) {
         for (const item of existingData) {
           if (item.question_text) {
             const key = normalize(item.question_text);
+            const flKey = normalizeFirstLine(item.question_text);
             if (!existingMap.has(key)) {
               existingMap.set(key, item.id);
+            }
+            if (!firstLineMap.has(flKey)) {
+              firstLineMap.set(flKey, item.id);
             }
           }
         }
@@ -470,8 +476,10 @@ export function useBulkCreateQuestionBank() {
 
       for (const q of questionsWithUser) {
         const key = normalize(q.question_text || '');
-        if (existingMap.has(key)) {
-          toUpdate.push({ id: existingMap.get(key)!, item: q });
+        const flKey = normalizeFirstLine(q.question_text || '');
+        const matchedId = existingMap.get(key) || firstLineMap.get(flKey);
+        if (matchedId) {
+          toUpdate.push({ id: matchedId, item: q });
         } else {
           toInsert.push(q);
         }

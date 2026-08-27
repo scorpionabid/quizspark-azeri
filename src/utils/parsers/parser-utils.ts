@@ -90,15 +90,15 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
   for (const line of lines) {
     const clean = line.trim();
     const metaMatch = clean.match(
-      /^(İzahat\s*\(?[A-Z\d]\)?|Izahat\s*\(?[A-Z\d]\)?|Explanation\s*\(?[A-Z\d]\)?|Açıqlama\s*\(?[A-Z\d]\)?|İpucu|Ipucu|Hint|İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language)\s*[-:]?\s*(.+)$/i,
+      /^(İzah\s*\(?[A-Z\d]\)?|Izah\s*\(?[A-Z\d]\)?|İzahat\s*\(?[A-Z\d]\)?|Izahat\s*\(?[A-Z\d]\)?|Explanation\s*\(?[A-Z\d]\)?|Açıqlama\s*\(?[A-Z\d]\)?|İpucu|Ipucu|Hint|İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language)\s*[-:]?\s*(.+)$/i,
     );
     if (!metaMatch) continue;
     const keyRaw = metaMatch[1];
     const key = keyRaw.replace(/[\u0130\u0131]/g, 'i').toLowerCase();
     const value = metaMatch[2].trim();
 
-    // Check for per-option explanation: "İzahat A", "İzahat (B)", etc.
-    const perOptMatch = keyRaw.match(/^(?:İzahat|Izahat|Explanation|Açıqlama)\s*\(?([A-Z\d])\)?$/i);
+    // Check for per-option explanation: "İzah A", "İzahat A", "İzah (B)", etc.
+    const perOptMatch = keyRaw.match(/^(?:İzah|Izah|İzahat|Izahat|Explanation|Açıqlama)\s*\(?([A-Z\d])\)?$/i);
     if (perOptMatch) {
       const optionRef = perOptMatch[1].toUpperCase();
       let indexKey = '';
@@ -115,7 +115,7 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
       }
     }
 
-    if (['izahat', 'açıqlama', 'explanation'].includes(key)) {
+    if (['izah', 'izahat', 'açıqlama', 'explanation'].includes(key)) {
       target.explanation = value;
     } else if (['ipucu', 'hint'].includes(key)) {
       target.hint = value;
