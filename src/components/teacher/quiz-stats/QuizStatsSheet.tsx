@@ -2,7 +2,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, Users, Target, Clock, TrendingUp } from 'lucide-react';
+import { Download, Users, Target, Clock, TrendingUp, MessageSquare } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -12,6 +12,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useQuizDetailedStats } from '@/hooks/useQuizAttempts';
+import { useQuizFeedbacks } from '@/hooks/useQuizFeedback';
+import { QuizFeedbacksTab } from './QuizFeedbacksTab';
 import { PageLoader } from '@/components/ui/loading-spinner';
 
 interface QuizStatsSheetProps {
@@ -45,6 +47,7 @@ export function QuizStatsSheet({
   onClose,
 }: QuizStatsSheetProps) {
   const { data, isLoading } = useQuizDetailedStats(quizId ?? undefined, passPercentage);
+  const { data: feedbacks = [] } = useQuizFeedbacks(quizId ?? undefined);
 
   // Last 7 days bar chart data
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -81,23 +84,31 @@ export function QuizStatsSheet({
 
   return (
     <Sheet open={!!quizId} onOpenChange={open => !open && onClose()}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader className="mb-5">
           <SheetTitle className="text-base leading-tight pr-6">{quizTitle}</SheetTitle>
-          <p className="text-xs text-muted-foreground">Statistika paneli</p>
+          <p className="text-xs text-muted-foreground">Statistika və rəy paneli</p>
         </SheetHeader>
 
         {isLoading && <PageLoader text="Statistika yüklənir..." />}
 
         {!isLoading && data && (
           <Tabs defaultValue="overview">
-            <TabsList className="mb-4 w-full grid grid-cols-2">
-              <TabsTrigger value="overview">Ümumi Baxış</TabsTrigger>
-              <TabsTrigger value="students">
+            <TabsList className="mb-4 w-full grid grid-cols-3">
+              <TabsTrigger value="overview" className="text-xs">Ümumi Baxış</TabsTrigger>
+              <TabsTrigger value="students" className="text-xs">
                 Tələbələr
                 {data.summary.total > 0 && (
-                  <span className="ml-1.5 text-[10px] bg-primary/10 text-primary rounded px-1">
+                  <span className="ml-1 text-[10px] bg-primary/10 text-primary rounded px-1">
                     {data.summary.total}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="feedbacks" className="text-xs">
+                Rəylər
+                {feedbacks.length > 0 && (
+                  <span className="ml-1 text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold rounded px-1">
+                    {feedbacks.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -218,6 +229,11 @@ export function QuizStatsSheet({
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            {/* ── Tab: Rəylər (Feedback) ── */}
+            <TabsContent value="feedbacks" className="space-y-3">
+              {quizId && <QuizFeedbacksTab quizId={quizId} />}
             </TabsContent>
           </Tabs>
         )}

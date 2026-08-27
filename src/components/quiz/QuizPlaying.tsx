@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle, Maximize, Minimize } from "lucide-react";
+import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle, Maximize, Minimize, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { QuestionRenderer } from "./QuestionRenderer";
 import { VisualTimer } from "./VisualTimer";
+import { QuestionFeedbackDialog } from "./QuestionFeedbackDialog";
+import { QuestionTimerBar } from "./QuestionTimerBar";
 
 import { Quiz } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
@@ -30,6 +32,7 @@ interface QuizPlayingProps {
   pageQuestions: Question[];
   totalQuestions: number;
   totalTimeLeft: number;
+  questionTimeLeft?: number | null;
   localAnswers: Record<string, string>;
   setLocalAnswers: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
   showFeedback: boolean;
@@ -53,6 +56,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   pageQuestions,
   totalQuestions,
   totalTimeLeft,
+  questionTimeLeft,
   localAnswers,
   setLocalAnswers,
   showFeedback,
@@ -74,6 +78,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   
   const [attemptedSubmit, setAttemptedSubmit] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [feedbackQuestion, setFeedbackQuestion] = React.useState<{ question: Question; index: number } | null>(null);
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
@@ -294,6 +299,12 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                       isUnanswered ? "border-destructive/60 bg-destructive/5 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)]" : "border-border/50 shadow-elevated"
                     )}
                 >
+                    {question.time_limit && questionTimeLeft != null && (
+                      <div className="mb-4 pb-3 border-b border-border/50">
+                        <QuestionTimerBar timeLeft={questionTimeLeft} totalTime={question.time_limit} />
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-start mb-6 gap-4">
                     <h2 className="font-display text-base sm:text-xl md:text-2xl font-bold text-foreground">
                         {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest">{question.title}</span>}
@@ -347,22 +358,36 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     feedbackEnabled={feedbackEnabled}
                     />
 
-                    {question.hint && !showFeedback && (
-                    <div className="mt-4 flex justify-end">
-                        <Button
+                    <div className="mt-4 flex items-center justify-between gap-2 pt-2 border-t border-border/40">
+                      <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setShowHint(prev => ({ ...prev, [question.id]: !prev[question.id] }))}
-                        className={cn(
-                            "text-xs transition-all rounded-full px-3",
+                        onClick={() => setFeedbackQuestion({
+                          question,
+                          index: quiz.questions_per_page! * currentPage + idx,
+                        })}
+                        className="text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full px-3 h-8"
+                        title="Bu suala rəy yaz və ya xəta bildir"
+                      >
+                        <MessageSquarePlus className="mr-1.5 h-3.5 w-3.5" />
+                        <span>Rəy / Xəta Bildir</span>
+                      </Button>
+
+                      {question.hint && !showFeedback && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowHint(prev => ({ ...prev, [question.id]: !prev[question.id] }))}
+                          className={cn(
+                            "text-xs transition-all rounded-full px-3 h-8",
                             showHint[question.id] && "text-primary bg-primary/10"
-                        )}
+                          )}
                         >
-                        <Lightbulb className={cn("mr-1.5 h-3 w-3", showHint[question.id] && "text-primary fill-primary")} />
-                        İpucu Göstər
+                          <Lightbulb className={cn("mr-1.5 h-3.5 w-3.5", showHint[question.id] && "text-primary fill-primary")} />
+                          İpucu Göstər
                         </Button>
+                      )}
                     </div>
-                    )}
                 </div>
                 );
                 })}
@@ -489,6 +514,18 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {feedbackQuestion && (
+        <QuestionFeedbackDialog
+          open={!!feedbackQuestion}
+          onOpenChange={(open) => !open && setFeedbackQuestion(null)}
+          questionId={feedbackQuestion.question.id}
+          questionIndex={feedbackQuestion.index}
+          questionTitle={feedbackQuestion.question.title}
+          questionText={feedbackQuestion.question.question_text}
+          questionBankId={feedbackQuestion.question.id}
+        />
+      )}
 
     </div>
   );

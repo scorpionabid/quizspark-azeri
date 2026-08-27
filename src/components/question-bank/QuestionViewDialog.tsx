@@ -10,11 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
-import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box, ListChecks, GitMerge, ListOrdered, Underline, Hash } from 'lucide-react';
+import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box, ListChecks, GitMerge, ListOrdered, Underline, Hash, Star, Flag, MessageSquare } from 'lucide-react';
 import { QUESTION_TYPES } from '@/types/question';
 import { QuestionVideoPlayer } from './QuestionVideoPlayer';
 import { Question3DViewer } from './Question3DViewer';
 import { normalizePairs, parseMatchingValue } from '../quiz/renderers/utils';
+import { useQuestionFeedbacks } from '@/hooks/useQuizFeedback';
 
 interface QuestionViewDialogProps {
   open: boolean;
@@ -54,6 +55,8 @@ export function QuestionViewDialog({
   onOpenChange,
   question,
 }: QuestionViewDialogProps) {
+  const { data: feedbacks = [] } = useQuestionFeedbacks(question?.id, true);
+
   if (!question) return null;
 
   const options = parseOptions(question.options);
@@ -342,6 +345,48 @@ export function QuestionViewDialog({
                   <Badge key={i} variant="outline">
                     {tag}
                   </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Student Feedbacks & Reports */}
+          {feedbacks.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium flex items-center gap-2 text-sm">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  <span>Şagird Rəyləri və Bildirişlər</span>
+                </h4>
+                <Badge variant="secondary" className="text-xs">
+                  {feedbacks.length} rəy
+                </Badge>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {feedbacks.map((f) => (
+                  <div key={f.id} className="p-2.5 rounded-lg border border-border/70 bg-card/60 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-medium text-foreground">
+                        <span className="h-4 w-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">
+                          {f.student_name?.[0]?.toUpperCase() || 'U'}
+                        </span>
+                        <span>{f.student_name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-yellow-500 font-bold">
+                        <Star className="h-3 w-3 fill-current" />
+                        <span>{f.rating}</span>
+                      </div>
+                    </div>
+                    {f.issue_type && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/20">
+                        {f.issue_type === 'error' ? '🚩 Xəta Bildirilib' : f.issue_type === 'confusing' ? '❓ Anlaşılmaz' : f.issue_type}
+                      </Badge>
+                    )}
+                    {f.comment && (
+                      <p className="text-muted-foreground italic mt-0.5">&quot;{f.comment}&quot;</p>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

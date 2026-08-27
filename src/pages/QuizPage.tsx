@@ -496,6 +496,7 @@ export default function QuizPage() {
         pageQuestions={pageQuestions}
         totalQuestions={questions.length}
         totalTimeLeft={totalTimeLeft}
+        questionTimeLeft={pageQuestions.length === 1 && pageQuestions[0]?.time_limit ? timeLeft : null}
         localAnswers={localAnswers}
         setLocalAnswers={setLocalAnswers}
         showFeedback={showFeedback}

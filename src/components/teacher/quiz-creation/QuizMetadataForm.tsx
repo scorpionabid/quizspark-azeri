@@ -477,7 +477,21 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                             onChange={(e) => field.onChange(Number(e.target.value))}
                                                         />
                                                     </FormControl>
-                                                    <FormDescription>Testin ümumi vaxtı</FormDescription>
+                                                    <div className="flex flex-wrap gap-1.5 pt-1.5">
+                                                        {[10, 15, 20, 30, 45, 60].map((mins) => (
+                                                            <button
+                                                                key={mins}
+                                                                type="button"
+                                                                onClick={() => field.onChange(mins)}
+                                                                className={`text-[11px] px-2 py-0.5 rounded-md border transition-all ${field.value === mins ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/50 hover:bg-muted text-muted-foreground'}`}
+                                                            >
+                                                                {mins} dəq
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <FormDescription className="text-xs">
+                                                        İmtahanın ümumi vaxtı. Fərdi sual vaxtları ilə birlikdə işləyir.
+                                                    </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
