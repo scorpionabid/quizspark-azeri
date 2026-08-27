@@ -427,51 +427,103 @@ export function useBulkUpdateQuestionBank() {
   });
 }
 
-// Bulk create questions (for import)
+// Bulk create or update questions (Smart Upsert for import)
 export function useBulkCreateQuestionBank() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (questions: Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'>[]) => {
       const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id || null;
 
       const questionsWithUser = questions.map((q) => ({
         ...q,
-        user_id: userData.user?.id || null,
+        user_id: userId,
       }));
 
-      // 100+ sual üçün 50-lik chunk-larla insert (timeout riskini azaldır)
-      // M3.1: Hər hansı chunk uğursuz olsa, əvvəlki chunk-lar geri silinir (best-effort atomicity)
-      const CHUNK_SIZE = 50;
-      const results: QuestionBankItem[] = [];
-      const insertedIds: string[] = [];
+      // 1. Mövcud sualları oxuyuruq (Sual mətni üzrə xəritələndirmə)
+      let fetchQuery = supabase.from('question_bank').select('id, question_text');
+      if (userId) {
+        fetchQuery = fetchQuery.eq('user_id', userId);
+      }
+      const { data: existingData, error: fetchErr } = await fetchQuery;
+      if (fetchErr) {
+        console.warn('Failed to fetch existing questions for duplicate check:', fetchErr);
+      }
 
-      for (let i = 0; i < questionsWithUser.length; i += CHUNK_SIZE) {
-        const chunk = questionsWithUser.slice(i, i + CHUNK_SIZE);
-        const { data, error } = await supabase
+      const normalize = (t: string) => t.replace(/\s+/g, ' ').trim().toLowerCase();
+      const existingMap = new Map<string, string>();
+      if (existingData) {
+        for (const item of existingData) {
+          if (item.question_text) {
+            const key = normalize(item.question_text);
+            if (!existingMap.has(key)) {
+              existingMap.set(key, item.id);
+            }
+          }
+        }
+      }
+
+      type QuestionPayload = Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'> & { user_id: string | null };
+      const toUpdate: { id: string; item: QuestionPayload }[] = [];
+      const toInsert: QuestionPayload[] = [];
+
+      for (const q of questionsWithUser) {
+        const key = normalize(q.question_text || '');
+        if (existingMap.has(key)) {
+          toUpdate.push({ id: existingMap.get(key)!, item: q });
+        } else {
+          toInsert.push(q);
+        }
+      }
+
+      // 2. Mövcud sualların üzərinə yazırıq (UPDATE)
+      const UPDATE_CHUNK = 20;
+      for (let i = 0; i < toUpdate.length; i += UPDATE_CHUNK) {
+        const chunk = toUpdate.slice(i, i + UPDATE_CHUNK);
+        await Promise.all(
+          chunk.map(({ id, item }) =>
+            supabase
+              .from('question_bank')
+              .update({
+                ...item,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', id)
+          )
+        );
+      }
+
+      // 3. Yeni sualları əlavə edirik (INSERT)
+      const CHUNK_SIZE = 50;
+      for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
+        const chunk = toInsert.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase
           .from('question_bank')
-          .insert(chunk)
-          .select();
+          .insert(chunk);
 
         if (error) {
-          // Rollback: əvvəl insert olunan sualları sil
-          if (insertedIds.length > 0) {
-            await supabase.from('question_bank').delete().in('id', insertedIds);
-          }
           throw error;
         }
-
-        const inserted = data as unknown as QuestionBankItem[];
-        insertedIds.push(...inserted.map(d => d.id));
-        results.push(...inserted);
       }
-      return results;
+
+      return {
+        updatedCount: toUpdate.length,
+        insertedCount: toInsert.length,
+        total: questions.length,
+      };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-stats'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-categories'] });
-      toast.success(`${data.length} sual import edildi`);
+      if (data.updatedCount > 0 && data.insertedCount > 0) {
+        toast.success(`${data.updatedCount} sual yeniləndi (üzərinə yazıldı), ${data.insertedCount} yeni sual əlavə edildi`);
+      } else if (data.updatedCount > 0) {
+        toast.success(`${data.updatedCount} sualın məlumatları yeniləndi (üzərinə yazıldı)`);
+      } else {
+        toast.success(`${data.insertedCount} sual import edildi`);
+      }
     },
     onError: (error: Error) => {
       toast.error(`Import xətası: ${error.message}`);
