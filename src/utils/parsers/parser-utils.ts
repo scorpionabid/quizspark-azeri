@@ -94,7 +94,7 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
     );
     if (!metaMatch) continue;
     const keyRaw = metaMatch[1];
-    const key = keyRaw.toLowerCase();
+    const key = keyRaw.replace(/[\u0130\u0131]/g, 'i').toLowerCase();
     const value = metaMatch[2].trim();
 
     // Check for per-option explanation: "İzahat A", "İzahat (B)", etc.
