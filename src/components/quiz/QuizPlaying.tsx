@@ -550,7 +550,6 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
           questionIndex={feedbackQuestion.index}
           questionTitle={feedbackQuestion.question.title}
           questionText={feedbackQuestion.question.question_text}
-          questionBankId={feedbackQuestion.question.id}
         />
       )}
 

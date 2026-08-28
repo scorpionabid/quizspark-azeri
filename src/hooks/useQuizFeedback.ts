@@ -33,7 +33,7 @@ export function useSubmitQuestionFeedback() {
   return useMutation({
     mutationFn: async (params: SubmitFeedbackParams) => {
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error("Giriş edilməyib");
+      if (!userData.user) throw new Error("Rəy bildirmək üçün hesabınıza daxil olmalısınız");
 
       const payload = {
         user_id: userData.user.id,
