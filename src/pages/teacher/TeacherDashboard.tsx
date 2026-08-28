@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useMyQuizzes, useQuizzesMeta } from "@/hooks/useQuizzes";
 import { supabase } from "@/integrations/supabase/client";
+import { ClassTopicGapAnalysis } from "@/components/teacher/ClassTopicGapAnalysis";
 
 function useTeacherTopStudents(quizIds: string[]) {
   return useQuery({
@@ -160,6 +161,11 @@ export default function TeacherDashboard() {
               <div className="text-sm text-muted-foreground">{stat.title}</div>
             </div>
           ))}
+        </div>
+
+        {/* Sinif Səviyyəsində Mövzu Zəiflikləri & Boşluq Təhlili */}
+        <div className="mb-8">
+          <ClassTopicGapAnalysis />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">

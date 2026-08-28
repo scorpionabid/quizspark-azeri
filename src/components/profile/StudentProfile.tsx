@@ -3,6 +3,7 @@ import { BookOpen, Target, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { az } from "date-fns/locale";
+import { StudentMasteryAnalytics } from "./StudentMasteryAnalytics";
 
 interface StudentProfileProps {
     stats: {
@@ -71,6 +72,11 @@ export function StudentProfile({ stats }: StudentProfileProps) {
                     </Card>
                 </motion.div>
             </div>
+
+            {/* Güclü və Zəif Mövzular üzrə Analitika Bölməsi */}
+            <motion.div variants={item}>
+                <StudentMasteryAnalytics />
+            </motion.div>
 
             {/* Main Content Areas */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

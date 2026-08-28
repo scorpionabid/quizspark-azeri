@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { syncStudentMasteryAfterQuiz } from './useStudentMastery';
 
 export interface QuizAttempt {
   id: string;
@@ -189,12 +190,28 @@ export function useCompleteAttempt() {
         // Ignore errors
       }
 
+      // Update Student Mastery in the background
+      try {
+        await syncStudentMasteryAfterQuiz({
+          userId: user.id,
+          quizId,
+          answers: answers as unknown as Array<{
+            questionId: string;
+            isCorrect?: boolean;
+            pointsEarned?: number;
+          }>,
+        });
+      } catch (masteryErr) {
+        console.error('Mənimsəmə yenilənməsində xəta:', masteryErr);
+      }
+
       return resultData as QuizResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attempts'] });
       queryClient.invalidateQueries({ queryKey: ['results'] });
       queryClient.invalidateQueries({ queryKey: ['quizzes'] });
+      queryClient.invalidateQueries({ queryKey: ['student_mastery'] });
       toast.success('Quiz tamamlandı!');
     },
     onError: (error: Error) => {
