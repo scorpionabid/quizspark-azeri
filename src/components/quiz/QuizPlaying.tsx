@@ -38,7 +38,7 @@ interface QuizPlayingProps {
   showFeedback: boolean;
   showHint: Record<string, boolean>;
   setShowHint: (updater: (prev: Record<string, boolean>) => Record<string, boolean>) => void;
-  handlePageSubmit: () => void;
+  handlePageSubmit: (overrideAnswers?: Record<string, string>) => void;
   handleNextPage: () => void;
   handlePrevPage: () => void;
   jumpToPage: (pageIndex: number) => void;
@@ -176,8 +176,9 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
     </div>
   );
 
-  const totalTime = (quiz.duration || 20) * 60;
-  const isTimerDanger = totalTimeLeft > 0 && totalTimeLeft <= totalTime * 0.2;
+  const isTimeless = !quiz.duration || quiz.duration === 0;
+  const totalTime = isTimeless ? 0 : quiz.duration * 60;
+  const isTimerDanger = !isTimeless && totalTimeLeft > 0 && totalTimeLeft <= totalTime * 0.2;
 
   return (
     <div 
@@ -244,13 +245,19 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     isTimerDanger ? "bg-destructive/10 border-destructive/30 animate-pulse ring-1 ring-destructive/20" : "bg-background/80 backdrop-blur-md"
                   )}>
                     <span className={cn("text-[10px] uppercase font-bold tracking-tighter", isTimerDanger ? "text-destructive" : "text-muted-foreground")}>
-                        İmtahan Vaxtı
+                        {isTimeless ? "Rejim" : "İmtahan Vaxtı"}
                     </span>
-                    <VisualTimer
+                    {isTimeless ? (
+                      <span className="text-xs font-semibold text-primary flex items-center gap-1 py-1">
+                        ⏱️ Zamansız
+                      </span>
+                    ) : (
+                      <VisualTimer
                         timeLeft={totalTimeLeft}
                         totalTime={totalTime}
                         size={36}
-                    />
+                      />
+                    )}
                   </div>
                 </div>
             </div>
@@ -351,12 +358,17 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     </div>
 
                     <QuestionRenderer
-                    question={question}
-                    value={localAnswers[question.id] || ''}
-                    onChange={(val) => setLocalAnswers(prev => ({ ...prev, [question.id]: val }))}
-                    showFeedback={showFeedback}
-                    disabled={showFeedback}
-                    feedbackEnabled={feedbackEnabled}
+                      question={question}
+                      value={localAnswers[question.id] || ''}
+                      onChange={(val) => {
+                        setLocalAnswers(prev => ({ ...prev, [question.id]: val }));
+                        if (isInstantFeedback && !showFeedback && (question.question_type === 'multiple_choice' || question.question_type === 'true_false')) {
+                          handlePageSubmit({ ...localAnswers, [question.id]: val });
+                        }
+                      }}
+                      showFeedback={showFeedback}
+                      disabled={showFeedback}
+                      feedbackEnabled={feedbackEnabled}
                     />
 
                     <div className="mt-4 flex items-center justify-between gap-2 pt-2 border-t border-border/40">

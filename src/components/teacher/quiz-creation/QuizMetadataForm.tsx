@@ -468,17 +468,25 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                             name="duration"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Müddət (dəq)</FormLabel>
+                                                    <FormLabel>Müddət (dəq) {field.value === 0 && <span className="text-primary font-bold">(Zamansız)</span>}</FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             type="number"
-                                                            min={1}
+                                                            min={0}
                                                             max={300}
+                                                            placeholder="0 = Zamansız"
                                                             {...field}
                                                             onChange={(e) => field.onChange(Number(e.target.value))}
                                                         />
                                                     </FormControl>
                                                     <div className="flex flex-wrap gap-1.5 pt-1.5">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => field.onChange(0)}
+                                                            className={`text-[11px] px-2 py-0.5 rounded-md border font-medium transition-all ${field.value === 0 ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/50 hover:bg-muted text-muted-foreground'}`}
+                                                        >
+                                                            ⏱️ Zamansız
+                                                        </button>
                                                         {[10, 15, 20, 30, 45, 60].map((mins) => (
                                                             <button
                                                                 key={mins}
@@ -491,7 +499,7 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                         ))}
                                                     </div>
                                                     <FormDescription className="text-xs">
-                                                        İmtahanın ümumi vaxtı. Fərdi sual vaxtları ilə birlikdə işləyir.
+                                                        0 yazdıqda imtahan zamansız (vaxt limitsiz) olur.
                                                     </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>

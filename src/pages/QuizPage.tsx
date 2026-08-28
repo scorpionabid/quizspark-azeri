@@ -172,9 +172,10 @@ export default function QuizPage() {
     }
   }, [currentPage, totalPages, completeQuizWithAnswers]);
 
-  const handlePageSubmit = useCallback(async () => {
+  const handlePageSubmit = useCallback(async (overrideAnswers?: Record<string, string>) => {
     if (showFeedback || pageQuestions.length === 0) return;
 
+    const currentAnswersMap = overrideAnswers || localAnswers;
     const newAnswers: Answer[] = [];
     let anyIncorrect = false;
     let anyCorrect = false;
@@ -185,7 +186,7 @@ export default function QuizPage() {
         return; // Already submitted
       }
 
-      const finalVal = localAnswers[currentQ.id] || '';
+      const finalVal = currentAnswersMap[currentQ.id] || '';
       let isCorrect = false;
 
       if (currentQ.question_type === 'essay' || currentQ.question_type === 'code') {
@@ -309,11 +310,12 @@ export default function QuizPage() {
     const startedAt = new Date(attempt.started_at);
     setStartTime(startedAt);
 
-    const totalDurationSecs = (quiz.duration || 20) * 60;
+    const isTimeless = !quiz.duration || quiz.duration === 0;
+    const totalDurationSecs = isTimeless ? 0 : quiz.duration * 60;
     const elapsed = (Date.now() - startedAt.getTime()) / 1000;
-    const remaining = Math.max(0, Math.floor(totalDurationSecs - elapsed));
+    const remaining = isTimeless ? 0 : Math.max(0, Math.floor(totalDurationSecs - elapsed));
 
-    if (remaining <= 0) {
+    if (!isTimeless && remaining <= 0) {
       await completeQuizWithAnswers(prevAnswers);
       return;
     }
@@ -384,7 +386,8 @@ export default function QuizPage() {
         if (saved) setBookmarkedQuestions(new Set(JSON.parse(saved) as string[]));
         else setBookmarkedQuestions(new Set());
       } catch { setBookmarkedQuestions(new Set()); }
-      const totalDurationSecs = (quiz.duration || 20) * 60;
+      const isTimeless = !quiz.duration || quiz.duration === 0;
+      const totalDurationSecs = isTimeless ? 0 : quiz.duration * 60;
       setTotalTimeLeft(totalDurationSecs);
       setTimeLeft(totalDurationSecs);
     } catch (error) {
@@ -412,19 +415,26 @@ export default function QuizPage() {
 
   useEffect(() => {
     if (quizState !== 'playing' || showFeedback || !startTime || !quiz) return;
-    const totalDuration = (quiz.duration || 20) * 60;
+    const isTimeless = !quiz.duration || quiz.duration === 0;
+    const totalDuration = isTimeless ? 0 : quiz.duration * 60;
+
     const timer = setInterval(() => {
       const now = Date.now();
       const elapsed = (now - startTime.getTime()) / 1000;
-      const totalRemaining = Math.max(0, Math.floor(totalDuration - elapsed));
-      setTotalTimeLeft(totalRemaining);
+      
+      if (!isTimeless) {
+        const totalRemaining = Math.max(0, Math.floor(totalDuration - elapsed));
+        setTotalTimeLeft(totalRemaining);
 
-      if (totalRemaining <= 0) {
-        if (!totalTimeUpRef.current) {
-          totalTimeUpRef.current = true;
-          void completeQuizWithAnswers(answersRef.current);
+        if (totalRemaining <= 0) {
+          if (!totalTimeUpRef.current) {
+            totalTimeUpRef.current = true;
+            void completeQuizWithAnswers(answersRef.current);
+          }
+          return;
         }
-        return;
+      } else {
+        setTotalTimeLeft(0);
       }
 
       const qTimeLimit = pageQuestions.length === 1 ? pageQuestions[0]?.time_limit : null;
@@ -436,8 +446,11 @@ export default function QuizPage() {
           timeUpTriggeredRef.current = true;
           handleTimeUp();
         }
-      } else {
+      } else if (!isTimeless) {
+        const totalRemaining = Math.max(0, Math.floor(totalDuration - elapsed));
         setTimeLeft(totalRemaining);
+      } else {
+        setTimeLeft(0);
       }
     }, 500);
     return () => clearInterval(timer);

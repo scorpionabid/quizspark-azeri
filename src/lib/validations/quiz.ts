@@ -18,7 +18,7 @@ export const quizMetadataSchema = z.object({
     duration: z
         .number({ invalid_type_error: 'Müddət rəqəm olmalıdır' })
         .int()
-        .min(1, 'Minimum 1 dəqiqə')
+        .min(0, 'Minimum 0 dəqiqə')
         .max(300, 'Maksimum 300 dəqiqə'),
     is_public: z.boolean(),
     // Yeni sahələr
