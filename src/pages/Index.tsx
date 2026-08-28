@@ -99,7 +99,7 @@ export default function Index() {
         result = [...result].sort((a, b) => (b.rating || 0) - (a.rating || 0));
         break;
       case "questions":
-        result = [...result].sort((a, b) => (quizMeta[b.id]?.question_count || 0) - (quizMeta[a.id]?.question_count || 0));
+        result = [...result].sort((a, b) => (b.question_count || 0) - (a.question_count || 0));
         break;
       case "newest":
       default:

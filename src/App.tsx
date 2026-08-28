@@ -13,19 +13,21 @@ import { useSupabaseHealth } from "@/hooks/useSupabaseHealth";
 import { ThemeProvider } from "next-themes";
 import { PageLoader } from "@/components/ui/loading-spinner";
 
-// Core Pages (statik — tez yüklənməlidir)
+// Core Pages
 import Index from "./pages/Index";
-import QuizPage from "./pages/QuizPage";
-import QuizzesPage from "./pages/QuizzesPage";
-import LeaderboardPage from "./pages/LeaderboardPage";
-import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
-import AuthPage from "./pages/auth/AuthPage";
-import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
-import PendingApprovalPage from "./pages/auth/PendingApprovalPage";
-import SupportChatPage from "./pages/chat/SupportChatPage";
 
-// Teacher Pages — lazy (dnd-kit ayrı chunk-da olsun, quiz path-ına qarışmasın)
+// Lazy Loaded User/Auth Pages
+const QuizPage = lazy(() => import("./pages/QuizPage"));
+const QuizzesPage = lazy(() => import("./pages/QuizzesPage"));
+const LeaderboardPage = lazy(() => import("./pages/LeaderboardPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const AuthPage = lazy(() => import("./pages/auth/AuthPage"));
+const ResetPasswordPage = lazy(() => import("./pages/auth/ResetPasswordPage"));
+const PendingApprovalPage = lazy(() => import("./pages/auth/PendingApprovalPage"));
+const SupportChatPage = lazy(() => import("./pages/chat/SupportChatPage"));
+
+// Teacher Pages — lazy
 const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));
 const CreateQuizPage = lazy(() => import("./pages/teacher/CreateQuizPage"));
 const MyQuizzesPage = lazy(() => import("./pages/teacher/MyQuizzesPage"));
@@ -41,7 +43,16 @@ const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
 const AdminChatPage = lazy(() => import("./pages/admin/AdminChatPage"));
 const AuditLogsPage = lazy(() => import("./pages/admin/AuditLogsPage"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes fresh
+      gcTime: 15 * 60 * 1000, // 15 minutes cache retention
+      refetchOnWindowFocus: false, // Avoid redundant network calls on tab switch
+      retry: 1,
+    },
+  },
+});
 
 // Inner component so it can use useAuth (must be inside AuthProvider)
 function AppRoutes() {
@@ -54,20 +65,51 @@ function AppRoutes() {
       {showOAuthDialog && <OAuthRoleDialog />}
       <Routes>
         {/* Auth Routes - No Layout */}
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/pending-approval" element={<PendingApprovalPage />} />
+        <Route path="/auth" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <AuthPage />
+          </Suspense>
+        } />
+        <Route path="/reset-password" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ResetPasswordPage />
+          </Suspense>
+        } />
+        <Route path="/pending-approval" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <PendingApprovalPage />
+          </Suspense>
+        } />
 
         {/* Profile Route */}
-        <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
+        <Route path="/profile" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <MainLayout><ProfilePage /></MainLayout>
+          </Suspense>
+        } />
 
         {/* Routes with Layout */}
         <Route path="/" element={<MainLayout><Index /></MainLayout>} />
-        <Route path="/quizzes" element={<MainLayout><QuizzesPage /></MainLayout>} />
-        <Route path="/quiz/:id" element={<MainLayout><QuizPage /></MainLayout>} />
-        <Route path="/leaderboard" element={<MainLayout><LeaderboardPage /></MainLayout>} />
-        <Route path="/support" element={<MainLayout><SupportChatPage /></MainLayout>} />
-        <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
+        <Route path="/quizzes" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <MainLayout><QuizzesPage /></MainLayout>
+          </Suspense>
+        } />
+        <Route path="/quiz/:id" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <MainLayout><QuizPage /></MainLayout>
+          </Suspense>
+        } />
+        <Route path="/leaderboard" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <MainLayout><LeaderboardPage /></MainLayout>
+          </Suspense>
+        } />
+        <Route path="/support" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <MainLayout><SupportChatPage /></MainLayout>
+          </Suspense>
+        } />
 
         {/* Teacher Routes - Protected + lazy */}
         <Route path="/teacher/dashboard" element={

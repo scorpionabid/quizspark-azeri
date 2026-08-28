@@ -68,11 +68,8 @@ export default function QuizzesPage() {
           return (Number(b.rating) || 0) - (Number(a.rating) || 0);
         case "newest":
           return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-        case "questions": {
-          const qb = quizzesMeta?.[b.id]?.question_count || 0;
-          const qa = quizzesMeta?.[a.id]?.question_count || 0;
-          return qb - qa;
-        }
+        case "questions":
+          return (b.question_count || 0) - (a.question_count || 0);
         default:
           return 0;
       }

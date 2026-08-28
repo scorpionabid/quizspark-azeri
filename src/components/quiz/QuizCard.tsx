@@ -126,7 +126,7 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
         <div className="mb-5 flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/30 pt-4">
           <div className="flex items-center gap-1.5">
             <BookOpen className="h-3.5 w-3.5" />
-            <span>{questionCount ?? 0} sual</span>
+            <span>{quiz.question_count ?? questionCount ?? 0} sual</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5" />

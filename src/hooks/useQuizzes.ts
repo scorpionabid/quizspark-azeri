@@ -26,6 +26,7 @@ export interface Quiz {
   feedback_timing?: 'end_of_quiz' | 'instant' | 'never';
   pass_percentage?: number;
   attempts_limit?: number;
+  question_count?: number;
   cover_image_url?: string | null;
   available_from?: string | null;
   available_to?: string | null;
@@ -50,6 +51,7 @@ export interface QuizFilters {
   isPublished?: boolean;
   isArchived?: boolean;
   creatorId?: string;
+  limit?: number;
 }
 
 export interface QuizMeta {
@@ -92,6 +94,9 @@ export function useQuizzes(filters?: QuizFilters) {
       }
       if (filters?.search) {
         query = query.ilike('title', `%${filters.search}%`);
+      }
+      if (filters?.limit) {
+        query = query.limit(filters.limit);
       }
 
       const { data, error } = await query;
@@ -229,25 +234,16 @@ export function useQuizzesMeta(quizIds: string[]) {
     queryFn: async (): Promise<Record<string, QuizMeta>> => {
       if (!quizIds.length) return {};
 
-      const [{ data: questionData, error: qError }, { data: resultData, error: rError }] =
-        await Promise.all([
-          supabase.from('questions').select('quiz_id').in('quiz_id', quizIds),
-          supabase
-            .from('quiz_results')
-            .select('quiz_id, percentage, completed_at')
-            .in('quiz_id', quizIds),
-        ]);
+      const { data: resultData, error: rError } = await supabase
+        .from('quiz_results')
+        .select('quiz_id, percentage, completed_at')
+        .in('quiz_id', quizIds);
 
-      if (qError) throw qError;
       if (rError) throw rError;
 
       const meta: Record<string, QuizMeta> = {};
       quizIds.forEach(id => {
         meta[id] = { question_count: 0, attempt_count: 0, avg_score: null, last_played: null };
-      });
-
-      (questionData ?? []).forEach(q => {
-        if (meta[q.quiz_id]) meta[q.quiz_id].question_count++;
       });
 
       const scoreMap: Record<string, number[]> = {};
