@@ -129,10 +129,12 @@ export function useQuestionBankList(
   pagination: PaginationParams,
   filters: QuestionFilters,
   sort?: SortParams,
-  mode: QuestionBankMode = 'my-questions'
+  mode: QuestionBankMode = 'my-questions',
+  options?: { enabled?: boolean }
 ) {
   return useQuery({
     queryKey: ['question-bank', pagination, filters, sort, mode],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const { page, pageSize } = pagination;
       const from = page * pageSize;
@@ -178,7 +180,16 @@ export function useQuestionBankList(
       // Default: 'my-questions' — own questions only (RLS handles it)
       let query = supabase
         .from('question_bank')
-        .select('*', { count: 'exact' });
+        .select(`
+          id, question_text, question_type, options, correct_answer, explanation,
+          category, difficulty, bloom_level, tags, user_id, source_document_id,
+          created_at, updated_at, question_image_url, option_images, media_type,
+          media_url, title, weight, hint, time_limit, per_option_explanations,
+          video_url, video_start_time, video_end_time, model_3d_url, model_3d_type,
+          hotspot_data, matching_pairs, sequence_items, fill_blank_template,
+          numerical_answer, numerical_tolerance, correct_option_indices,
+          feedback_enabled, quality_score, usage_count
+        `, { count: 'exact' });
 
       // Apply sorting
       if (sort) {
@@ -222,6 +233,7 @@ export function useQuestionBankList(
         totalPages: Math.ceil((count || 0) / pageSize),
       };
     },
+    staleTime: 2 * 60 * 1000,
   });
 }
 
@@ -229,74 +241,22 @@ export function useQuestionBankList(
 export function useQuestionBankStats() {
   return useQuery({
     queryKey: ['question-bank-stats'],
-    queryFn: async () => {
-      // Get total count
-      const { count: totalQuestions } = await supabase
-        .from('question_bank')
-        .select('*', { count: 'exact', head: true });
-
-      // Get category counts
-      const { data: categoryData } = await supabase
-        .from('question_bank')
-        .select('category');
-
-      const categoryCounts: Record<string, number> = {};
-      categoryData?.forEach((item) => {
-        const cat = item.category || 'Kateqoriyasız';
-        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-      });
-
-      // Get difficulty counts
-      const { data: difficultyData } = await supabase
-        .from('question_bank')
-        .select('difficulty');
-
-      const difficultyCounts: Record<string, number> = {};
-      difficultyData?.forEach((item) => {
-        const diff = item.difficulty || 'Təyin edilməyib';
-        difficultyCounts[diff] = (difficultyCounts[diff] || 0) + 1;
-      });
-
-      // Get type counts
-      const { data: typeData } = await supabase
-        .from('question_bank')
-        .select('question_type');
-
-      const typeCounts: Record<string, number> = {};
-      typeData?.forEach((item) => {
-        const type = item.question_type || 'multiple_choice';
-        typeCounts[type] = (typeCounts[type] || 0) + 1;
-      });
-
-      // Get bloom level counts
-      const { data: bloomData } = await supabase
-        .from('question_bank')
-        .select('bloom_level');
-
-      const bloomLevelCounts: Record<string, number> = {};
-      bloomData?.forEach((item) => {
-        const level = item.bloom_level || 'Təyin edilməyib';
-        bloomLevelCounts[level] = (bloomLevelCounts[level] || 0) + 1;
-      });
-
-      // Get this week's count
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-      const { count: thisWeekCount } = await supabase
-        .from('question_bank')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', oneWeekAgo.toISOString());
-
-      return {
-        totalQuestions: totalQuestions || 0,
-        categoryCounts,
-        difficultyCounts,
-        typeCounts,
-        thisWeekCount: thisWeekCount || 0,
-        bloomLevelCounts,
-      } as QuestionBankStats;
+    queryFn: async (): Promise<QuestionBankStats> => {
+      const { data, error } = await supabase.rpc('get_question_bank_stats');
+      if (error) {
+        console.error('get_question_bank_stats RPC error:', error);
+        return {
+          totalQuestions: 0,
+          categoryCounts: {},
+          difficultyCounts: {},
+          typeCounts: {},
+          thisWeekCount: 0,
+          bloomLevelCounts: {},
+        };
+      }
+      return data as unknown as QuestionBankStats;
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -305,127 +265,26 @@ export function useQuestionBankDetailedAnalytics() {
   return useQuery({
     queryKey: ['question-bank-detailed-analytics'],
     queryFn: async (): Promise<QuestionBankDetailedAnalytics> => {
-      // 1. Get all questions with category, difficulty, question_type, bloom_level
-      const { data: questions, error: qErr } = await supabase
-        .from('question_bank')
-        .select('category, difficulty, question_type, bloom_level, created_at');
-
-      if (qErr) throw qErr;
-
-      const totalQuestions = questions?.length || 0;
-
-      // 2. Get student mastery stats by category
-      const { data: masteryData } = await supabase
-        .from('student_mastery')
-        .select('category, attempt_count, correct_count');
-
-      // Aggregate mastery by category
-      const masteryMap: Record<string, { attempts: number; correct: number }> = {};
-      (masteryData || []).forEach((m) => {
-        const cat = m.category || 'Kateqoriyasız';
-        if (!masteryMap[cat]) {
-          masteryMap[cat] = { attempts: 0, correct: 0 };
-        }
-        masteryMap[cat].attempts += Number(m.attempt_count) || 0;
-        masteryMap[cat].correct += Number(m.correct_count) || 0;
-      });
-
-      // 3. Category aggregations
-      const categoryMap: Record<string, {
-        count: number;
-        easy: number;
-        medium: number;
-        hard: number;
-      }> = {};
-
-      const difficultyCounts: Record<string, number> = { asan: 0, orta: 0, çətin: 0 };
-      const bloomLevelCounts: Record<string, number> = {};
-      const typeCounts: Record<string, number> = {};
-
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      let thisWeekCount = 0;
-
-      (questions || []).forEach((q) => {
-        const cat = q.category || 'Kateqoriyasız';
-        if (!categoryMap[cat]) {
-          categoryMap[cat] = { count: 0, easy: 0, medium: 0, hard: 0 };
-        }
-        categoryMap[cat].count++;
-
-        // Difficulty
-        const diff = (q.difficulty || '').toLowerCase();
-        if (diff === 'asan') {
-          categoryMap[cat].easy++;
-          difficultyCounts['asan']++;
-        } else if (diff === 'çətin') {
-          categoryMap[cat].hard++;
-          difficultyCounts['çətin']++;
-        } else {
-          categoryMap[cat].medium++;
-          difficultyCounts['orta']++;
-        }
-
-        // Bloom
-        const bloom = q.bloom_level || 'Təyin edilməyib';
-        bloomLevelCounts[bloom] = (bloomLevelCounts[bloom] || 0) + 1;
-
-        // Type
-        const type = q.question_type || 'multiple_choice';
-        typeCounts[type] = (typeCounts[type] || 0) + 1;
-
-        // This week
-        if (q.created_at && new Date(q.created_at) >= oneWeekAgo) {
-          thisWeekCount++;
-        }
-      });
-
-      let totalAttempts = 0;
-      let totalCorrect = 0;
-
-      // Build categories list
-      const categories: CategoryStatItem[] = Object.entries(categoryMap).map(([categoryName, data]) => {
-        const m = masteryMap[categoryName] || { attempts: 0, correct: 0 };
-        const attemptsCount = m.attempts;
-        const correctCount = m.correct;
-        const incorrectCount = Math.max(0, attemptsCount - correctCount);
-        const accuracyPercentage = attemptsCount > 0 ? (correctCount / attemptsCount) * 100 : 0;
-
-        totalAttempts += attemptsCount;
-        totalCorrect += correctCount;
-
+      const { data, error } = await supabase.rpc('get_question_bank_detailed_analytics');
+      if (error) {
+        console.error('get_question_bank_detailed_analytics RPC error:', error);
         return {
-          category: categoryName,
-          questionCount: data.count,
-          percentage: totalQuestions > 0 ? (data.count / totalQuestions) * 100 : 0,
-          easyCount: data.easy,
-          mediumCount: data.medium,
-          hardCount: data.hard,
-          attemptsCount,
-          correctCount,
-          incorrectCount,
-          accuracyPercentage,
+          totalQuestions: 0,
+          totalCategories: 0,
+          thisWeekCount: 0,
+          difficultyCounts: {},
+          bloomLevelCounts: {},
+          typeCounts: {},
+          categories: [],
+          totalAttempts: 0,
+          totalCorrect: 0,
+          totalIncorrect: 0,
+          overallAccuracy: 0,
         };
-      }).sort((a, b) => b.questionCount - a.questionCount);
-
-      const totalIncorrect = Math.max(0, totalAttempts - totalCorrect);
-      const overallAccuracy = totalAttempts > 0 ? (totalCorrect / totalAttempts) * 100 : 0;
-
-      return {
-        totalQuestions,
-        totalCategories: categories.length,
-        thisWeekCount,
-        difficultyCounts,
-        bloomLevelCounts,
-        typeCounts,
-        categories,
-        totalAttempts,
-        totalCorrect,
-        totalIncorrect,
-        overallAccuracy,
-      };
+      }
+      return data as unknown as QuestionBankDetailedAnalytics;
     },
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -433,17 +292,15 @@ export function useQuestionBankDetailedAnalytics() {
 export function useQuestionBankCategories() {
   return useQuery({
     queryKey: ['question-bank-categories'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('question_bank')
-        .select('category')
-        .not('category', 'is', null);
-
-      if (error) throw error;
-
-      const uniqueCategories = [...new Set(data?.map((d) => d.category).filter(Boolean))] as string[];
-      return uniqueCategories.sort();
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase.rpc('get_unique_question_bank_categories');
+      if (error) {
+        console.error('get_unique_question_bank_categories RPC error:', error);
+        return [];
+      }
+      return (data as string[]) || [];
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 

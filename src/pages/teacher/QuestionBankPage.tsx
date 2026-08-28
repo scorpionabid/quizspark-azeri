@@ -103,14 +103,16 @@ export default function QuestionBankPage() {
     { page: currentPage, pageSize: PAGE_SIZE },
     filters,
     sort,
-    'my-questions'
+    'my-questions',
+    { enabled: activeTab === 'my-questions' }
   );
 
   const { data: sharedData, isLoading: sharedLoading } = useQuestionBankList(
     { page: sharedPage, pageSize: PAGE_SIZE },
     {},
     undefined,
-    'shared-with-me'
+    'shared-with-me',
+    { enabled: activeTab === 'shared-with-me' }
   );
 
   const { data: questionCategories = [] } = useQuestionCategories();
