@@ -1,78 +1,68 @@
-# Gemini Agent Əməliyyat Təlimatları (Quiz-App Projesi)
+# Gemini & Antigravity Əməliyyat Təlimatları (Quiz-App)
 
-Bu sənəd `quiz-app` layihəsində Gemini AI agenti (Antigravity) ilə işləmək üçün qaydaları, texniki standartları və ən yaxşı təcrübələri müəyyən edir.
+Bu sənəd `quiz-app` layihəsində Antigravity AI agenti ilə yüksək sürətli və keyfiyyətli ("vibe coding") inkişaf prosesini tənzimləyir.
 
 ---
 
 ## 1. ❗ Əsas Əməliyyat Direktivi (Core Directive)
 
-**İstifadəçidən gələn bütün Azərbaycan dilində olan göstərişlər daxili analiz üçün texniki ingilis dilinə tərcümə edilməlidir. Lakin, istifadəçiyə verilən bütün cavablar, izahatlar və yekun hesabatlar mütləq Azərbaycan dilində olmalıdır.**
+- **Ünsiyyət Dili:** Bütün cavablar, izahatlar, planlar və yekun hesabatlar mütləq **Azərbaycan dilində** olmalıdır.
+- **Texniki Terminlər:** Orijinal ingilis dilində saxlanılmalıdır (məs: *deployment*, *middleware*, *hook*, *state*, *component*, *props*).
+- **Daxili Analiz:** İstifadəçidən gələn tələblər daxili analiz üçün texniki ingilis dilinə çevrilərək icra edilir.
 
 ---
 
 ## 2. 🐳 Docker İnkişaf Mühiti
 
-Layihə artıq Docker konteynerində işləyir. Port münaqişələrinin qarşısını almaq üçün aşağıdakı qaydalara əməl edilməlidir:
-
-- **Port**: Tətbiq `http://localhost:3005` ünvanında əlçatandır.
-- **Konteynerin idarə edilməsi**:
+Layihə Docker konteynerində işləyir:
+- **Port:** `http://localhost:3005`
+- **Konteyner Əmrləri:**
   ```bash
-  # Başlatmaq üçün
-  docker-compose up -d
-  
-  # Dayandırmaq üçün
-  docker-compose down
-  
-  # Yenidən yığmaq üçün
-  docker-compose up -d --build
+  docker-compose up -d           # Başlatmaq
+  docker-compose down            # Dayandırmaq
+  docker-compose up -d --build   # Yenidən yığmaq
   ```
 
 ---
 
-## 3. 🛠 Texniki Arxitektura
+## 3. 🛡️ Məcburi Keyfiyyət Qapıları (Mandatory Quality Gates)
 
-- **Frontend**: React 18 (TypeScript), Vite, Tailwind CSS.
-- **UI Komponentləri**: Shadcn UI, Radix UI, Lucide React (ikonlar).
-- **Backend/Database**: Supabase (Authentication və Verilənlər Bazası).
-- **State Management**: TanStack React Query.
-- **Animasiyalar**: Framer Motion.
-
----
-
-## 4. 🤖 Agent İş Axını (Agent Workflows & Skills)
-
-Layihədə yeni funksionallıqlar əlavə edərkən ən optimal "Skill" (rol) faylına baxılmalıdır. Bu, "Vibe Coding" prosesinin təkmilləşdirilməsi və xüsusi vəziyyətlərdə yaddaşın (tokenlərin) az sərf edilməsi üçündür:
-
-1. **Süni İntellekt Dəqiqləşdirməsi (AI Refiner):** Tələbləri dəqiqləşdirmək üçün `.agent/workflows/azeri-requirement-refiner.md` çalışdırın.
-2. **Frontend Tapşırıqları:** Veb interfeys, React komponenti, State dəyişiklikləri üçün `.agent/skills/frontend-developer.md` biliklərindən (və onun yönləndirdiyi `FRONTEND_ARCHITECTURE.md` faylından) istifadə edin.
-3. **Backend / Verilənlər Bazas (DB) Tapşırıqları:** Supabase, RLS, Edge Function dəyişiklikləri üçün `.agent/skills/backend-architect.md` biliklərindən (və əlaqəli `DB_SCHEMA.md`, `BACKEND_ARCHITECTURE.md` fayllarından) istifadə edin.
-4. **DevOps və Test Tapşırıqları:** CI/CD (GitHub Actions), Husky (Pre-commit hooks), Unit və E2E testlər, Kod keyfiyyəti üçün `.agent/skills/devops-engineer.md` biliklərindən (və `.agent/knowledge/DEVOPS_TESTING.md`) istifadə edin.
-5. **İcra Planı:** Həmişə `implementation_plan.md` hazırlayıb təsdiq aldıqdan sonra kod yazmağa başlayın.
-
----
-
-## 5. ✅ Keyfiyyət və Təhlükəsizlik (Mandatory Quality Gates)
-
-Hər bir dəyişiklikdən dərhal sonra aşağıdakı yoxlamalar edilməli və tapılan xətalar (lint, typecheck) mütləq həll edilməlidir:
+Hər kod redaktəsindən sonra aşağıdakı yoxlamalar icra edilməli və xətalar dərhal həll olunmalıdır:
 
 ```bash
-# Kodun keyfiyyəti (Lint)
+# 1. ESLint yoxlanışı
 docker exec quiz_app_container npm run lint
 
-# Tip yoxlanışı (Typecheck)
+# 2. TypeScript Tip Yoxlanışı
 docker exec quiz_app_container npx tsc --noEmit
 ```
 
-### Agent üçün Keyfiyyət Qaydası:
-- Kodun yazılması tapşırığın yalnız 50%-dir. Qalan 50% kodun xətasız (error-free) olmasını təmin etməkdir.
-- Hər hansı bir funksionallıq əlavə edildikdə, sistemin digər hissələrində yaranan "collateral damage" (məsələn, tip uyğunsuzluğu) dərhal aradan qaldırılmalıdır.
+> **Qızıl Qayda:** Kod yazmaq işin yalnız 50%-dir. Qalan 50% kodun tam xətasız və layihənin digər hissələrini sındırmadan (zero collateral damage) işləməsidir.
 
 ---
 
-## 6. 📁 Qovluq Strukturu
+## 4. 🚀 Vibe Coding & Skills Arxitekturası
 
-- `src/components`: UI və funksional komponentlər.
-- `src/pages`: Səhifə səviyyəli komponentlər və routing.
-- `src/integrations/supabase`: Supabase müştərisi və tip tərifləri.
-- `src/hooks`: Xüsusi React hook-ları.
-- `.agent`: Layihəyə özəl agent təlimatları (workflows/skills).
+Layihə kontekstini təmiz saxlamaq üçün Antigravity **Progressive Disclosure** mexanizmi ilə işləyir:
+
+- **Frontend Tapşırıqları:** `skills/quiz-frontend/SKILL.md` və `src/components/AGENTS.md`
+- **Backend / DB Tapşırıqları:** `skills/quiz-backend-supabase/SKILL.md` və `supabase/AGENTS.md`
+- **State & Hook Tapşırıqları:** `src/hooks/AGENTS.md`
+- **Tələb Dəqiqləşdirmə:** `skills/vibe-refiner/SKILL.md`
+- **QA & Testlər:** `skills/quiz-qa-automator/SKILL.md`
+
+### İcra Rejimləri:
+- **Micro-tasks (Kiçik düzəlişlər):** Birbaşa redaktə + dərhal `tsc` yoxlanışı.
+- **Macro-tasks (Yeni modullar):** `implementation_plan.md` -> İstifadəçi təsdiqi -> İcra -> `walkthrough.md`.
+
+---
+
+## 5. 📁 Qovluq Strukturu
+
+- `src/components/`: UI və vizual komponentlər (Shadcn UI əsaslı).
+- `src/pages/`: Səhifələr və marşrutlar (Routing).
+- `src/hooks/`: Bütün TanStack React Query və Supabase sorğuları.
+- `src/integrations/supabase/`: Supabase müştərisi və tipləri.
+- `supabase/migrations/`: SQL miqrasiya faylları.
+- `docs/`: Sənədləşmə, şablonlar və arxiv materialları.
+- `skills/`: Antigravity bacarıqları (Skills).
