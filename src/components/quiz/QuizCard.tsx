@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FavoriteButton } from "./FavoriteButton";
 import { Quiz } from "@/hooks/useQuizzes";
+import { getSubjectIcon } from "@/lib/constants/subjects";
 
 interface QuizCardProps {
   quiz: Quiz;
@@ -19,19 +20,8 @@ const difficultyLabels = {
   hard: 'Çətin',
 };
 
-const subjectIcons: Record<string, string> = {
-  'Riyaziyyat': '🔢',
-  'Fizika': '⚡',
-  'Kimya': '🧪',
-  'Biologiya': '🧬',
-  'Tarix': '📜',
-  'Coğrafiya': '🌍',
-  'Ədəbiyyat': '📚',
-  'İngilis dili': '🇬🇧',
-};
-
 export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: QuizCardProps) {
-  const subjectIcon = subjectIcons[quiz.subject || ''] || '📖';
+  const subjectIcon = getSubjectIcon(quiz.subject);
 
   const getStatus = () => {
     if (!quiz.available_from && !quiz.available_to) return null;

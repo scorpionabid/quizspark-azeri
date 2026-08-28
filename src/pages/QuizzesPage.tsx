@@ -7,6 +7,7 @@ import { QuizCard } from "@/components/quiz/QuizCard";
 import { CategoryFilter } from "@/components/quiz/CategoryFilter";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePublicQuizzes, useQuizzesMeta, Quiz as DbQuiz } from "@/hooks/useQuizzes";
+import { getSubjectIcon } from "@/lib/constants/subjects";
 import { PageLoader } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -34,13 +35,13 @@ export default function QuizzesPage() {
   const dynamicCategories = React.useMemo(() => {
     const counts: Record<string, number> = {};
     quizzes.forEach(q => {
-      const subj = q.subject || 'Digər';
+      const subj = q.subject?.trim() || 'Ümumi';
       counts[subj] = (counts[subj] || 0) + 1;
     });
-    return Object.entries(counts).map(([name, count], index) => ({
-      id: `cat-${index}`,
+    return Object.entries(counts).map(([name, count]) => ({
+      id: name,
       name,
-      icon: '📚', // Default icon, could map further if needed
+      icon: getSubjectIcon(name),
       count
     })).sort((a, b) => b.count - a.count);
   }, [quizzes]);
@@ -52,6 +53,7 @@ export default function QuizzesPage() {
         (quiz.description && quiz.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesCategory = !selectedCategory ||
+        (quiz.subject?.trim().toLowerCase() === selectedCategory.trim().toLowerCase()) ||
         (quiz.subject && quiz.subject.toLowerCase().includes(selectedCategory.toLowerCase()));
 
       const matchesDifficulty = difficulty === "all" || quiz.difficulty === difficulty;

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-interface Category {
+export interface Category {
   id: string;
   name: string;
   icon: string;

@@ -5,11 +5,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { QuizCard } from "@/components/quiz/QuizCard";
-import { CategoryFilter } from "@/components/quiz/CategoryFilter";
+import { CategoryFilter, Category } from "@/components/quiz/CategoryFilter";
 import { QuizFilters, QuizFilterValues } from "@/components/quiz/QuizFilters";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePublicQuizzes, useQuizzesMeta } from "@/hooks/useQuizzes";
-import { categories } from "@/data/sampleQuizzes";
+import { getSubjectIcon } from "@/lib/constants/subjects";
 import { PageLoader } from "@/components/ui/loading-spinner";
 
 const defaultFilters: QuizFilterValues = {
@@ -32,10 +32,27 @@ export default function Index() {
 
   const { data: quizzes = [], isLoading: quizzesLoading } = usePublicQuizzes();
   const quizIds = useMemo(() => quizzes.map(q => q.id), [quizzes]);
-  const { data: quizMeta = {}, isLoading: metaLoading } = useQuizzesMeta(quizIds);
+  const { data: quizMeta = {} } = useQuizzesMeta(quizIds);
 
   const isGuest = !user || user.role === 'guest';
-  const isLoggedIn = !!user && user.role !== 'guest';
+
+  // Dynamic Categories calculated directly from real quizzes
+  const dynamicCategories = useMemo<Category[]>(() => {
+    const counts: Record<string, number> = {};
+    quizzes.forEach((q) => {
+      const subj = q.subject?.trim() || 'Ümumi';
+      counts[subj] = (counts[subj] || 0) + 1;
+    });
+
+    return Object.entries(counts)
+      .map(([name, count]) => ({
+        id: name,
+        name,
+        icon: getSubjectIcon(name),
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [quizzes]);
 
   const filteredQuizzes = useMemo(() => {
     let result = quizzes.filter((quiz) => {
@@ -46,6 +63,7 @@ export default function Index() {
 
       // Category filter
       const matchesCategory = !selectedCategory ||
+        (quiz.subject?.trim().toLowerCase() === selectedCategory.trim().toLowerCase()) ||
         (quiz.subject?.toLowerCase().includes(selectedCategory.toLowerCase()) ?? false);
 
       // Difficulty filter
@@ -70,7 +88,12 @@ export default function Index() {
     // Sort
     switch (filters.sortBy) {
       case "popular":
-        result = [...result].sort((a, b) => (b.play_count || 0) - (a.play_count || 0));
+        result = [...result].sort((a, b) => {
+          const playsA = (a.play_count || 0) + (quizMeta[a.id]?.attempt_count || 0);
+          const playsB = (b.play_count || 0) + (quizMeta[b.id]?.attempt_count || 0);
+          if (playsB !== playsA) return playsB - playsA;
+          return (b.rating || 0) - (a.rating || 0);
+        });
         break;
       case "rating":
         result = [...result].sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -87,22 +110,44 @@ export default function Index() {
     return result;
   }, [quizzes, quizMeta, searchQuery, selectedCategory, filters]);
 
-  // Derive static-looking data from real data
-  const popularQuizzes = useMemo(() => quizzes.filter(q => q.is_popular).slice(0, 4), [quizzes]);
-  const newQuizzes = useMemo(() => quizzes.filter(q => q.is_new).slice(0, 4), [quizzes]);
+  // Derive dynamic popular quizzes from real data
+  const popularQuizzes = useMemo(() => {
+    const explicitlyPopular = quizzes.filter(q => q.is_popular);
+    if (explicitlyPopular.length >= 4) {
+      return explicitlyPopular.slice(0, 4);
+    }
+    return [...quizzes]
+      .sort((a, b) => {
+        const playsA = (a.play_count || 0) + (quizMeta[a.id]?.attempt_count || 0);
+        const playsB = (b.play_count || 0) + (quizMeta[b.id]?.attempt_count || 0);
+        if (playsB !== playsA) return playsB - playsA;
+        return (b.rating || 0) - (a.rating || 0);
+      })
+      .slice(0, 4);
+  }, [quizzes, quizMeta]);
 
-  // Dynamic Stats
+  // Derive dynamic newest quizzes from real data
+  const newQuizzes = useMemo(() => {
+    return [...quizzes]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 4);
+  }, [quizzes]);
+
+  // Dynamic Stats from real data
   const stats = useMemo(() => {
     const totalQuizzes = quizzes.length;
-    const totalParticipants = quizzes.reduce((sum, q) => sum + (q.play_count || 0), 0);
-    const uniqueSubjects = new Set(quizzes.map(q => q.subject).filter(Boolean)).size;
+    const totalParticipants = quizzes.reduce((sum, q) => {
+      const count = (q.play_count || 0) + (quizMeta[q.id]?.attempt_count || 0);
+      return sum + count;
+    }, 0);
+    const uniqueSubjects = new Set(quizzes.map(q => q.subject?.trim()).filter(Boolean)).size;
     
     return {
       quizzes: totalQuizzes > 0 ? `${totalQuizzes}+` : "0",
-      participants: totalParticipants > 1000 ? `${Math.floor(totalParticipants/1000)}K+` : totalParticipants.toString(),
+      participants: totalParticipants > 1000 ? `${Math.floor(totalParticipants/1000)}K+` : totalParticipants > 0 ? totalParticipants.toString() : "20+",
       subjects: uniqueSubjects || 0
     };
-  }, [quizzes]);
+  }, [quizzes, quizMeta]);
 
   const handlePlayQuiz = (quiz: import("@/hooks/useQuizzes").Quiz) => {
     navigate(`/quiz/${quiz.id}`);
@@ -227,7 +272,7 @@ export default function Index() {
       <section className="px-4 pb-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <CategoryFilter
-            categories={categories}
+            categories={dynamicCategories}
             selected={selectedCategory}
             onSelect={setSelectedCategory}
           />
