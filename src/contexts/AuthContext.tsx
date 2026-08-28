@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { User, Session, Provider } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -32,8 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDataLoading, setIsDataLoading] = useState(false);
+  const inFlightUserIdRef = useRef<string | null>(null);
 
-  const fetchUserData = useCallback(async (userId: string) => {
+  const fetchUserData = useCallback(async (userId: string, force = false) => {
+    if (!force && inFlightUserIdRef.current === userId) {
+      return;
+    }
+    inFlightUserIdRef.current = userId;
     setIsDataLoading(true);
     try {
       // Parallel fetch — role and profile at the same time for speed
@@ -185,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    inFlightUserIdRef.current = null;
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -194,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchUserData(user.id);
+      await fetchUserData(user.id, true);
     }
   };
 

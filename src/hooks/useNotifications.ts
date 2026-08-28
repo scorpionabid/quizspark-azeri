@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -15,21 +16,15 @@ export interface Notification {
 }
 
 export function useNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Fetch notifications on mount
-  useEffect(() => {
-    if (!user) {
-      setNotifications([]);
-      setLoading(false);
-      return;
-    }
-
-    const fetchNotifications = async () => {
-      setLoading(true);
+  const { data: notifications = [], isLoading: loading } = useQuery({
+    queryKey: ["notifications", user?.id],
+    enabled: !!user?.id,
+    queryFn: async (): Promise<Notification[]> => {
+      if (!user?.id) return [];
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
@@ -39,17 +34,19 @@ export function useNotifications() {
 
       if (error) {
         console.error("Error fetching notifications:", error);
-      } else {
-        setNotifications((data as Notification[]) || []);
+        return [];
       }
-      setLoading(false);
-    };
+      return (data as Notification[]) || [];
+    },
+    staleTime: 60 * 1000,
+  });
 
-    fetchNotifications();
+  // Set up realtime subscription
+  useEffect(() => {
+    if (!user?.id) return;
 
-    // Set up realtime subscription
     const channel = supabase
-      .channel("notifications-realtime")
+      .channel(`notifications-realtime-${user.id}`)
       .on(
         "postgres_changes",
         {
@@ -60,8 +57,11 @@ export function useNotifications() {
         },
         (payload) => {
           const newNotification = payload.new as Notification;
-          setNotifications((prev) => [newNotification, ...prev]);
-          
+          queryClient.setQueryData<Notification[]>(["notifications", user.id], (prev = []) => [
+            newNotification,
+            ...prev,
+          ]);
+
           // Show toast for new notification
           toast({
             title: newNotification.title,
@@ -79,10 +79,8 @@ export function useNotifications() {
         },
         (payload) => {
           const updatedNotification = payload.new as Notification;
-          setNotifications((prev) =>
-            prev.map((n) =>
-              n.id === updatedNotification.id ? updatedNotification : n
-            )
+          queryClient.setQueryData<Notification[]>(["notifications", user.id], (prev = []) =>
+            prev.map((n) => (n.id === updatedNotification.id ? updatedNotification : n))
           );
         }
       )
@@ -96,7 +94,9 @@ export function useNotifications() {
         },
         (payload) => {
           const deletedId = payload.old.id;
-          setNotifications((prev) => prev.filter((n) => n.id !== deletedId));
+          queryClient.setQueryData<Notification[]>(["notifications", user.id], (prev = []) =>
+            prev.filter((n) => n.id !== deletedId)
+          );
         }
       )
       .subscribe();
@@ -104,7 +104,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, toast]);
+  }, [user?.id, toast, queryClient]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
