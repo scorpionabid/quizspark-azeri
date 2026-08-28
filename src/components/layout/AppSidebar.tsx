@@ -16,7 +16,8 @@ import {
   User,
   LogIn,
   Database,
-  MessageCircle
+  MessageCircle,
+  ShieldAlert,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -77,6 +78,7 @@ const navigationGroups: NavGroup[] = [
       { title: "Mesajlar", url: "/admin/chat", icon: MessageCircle, roles: ['admin'] },
       { title: "İcazələr", url: "/admin/permissions", icon: Key, roles: ['admin'] },
       { title: "AI Konfiqurasiya", url: "/admin/ai-config", icon: Cpu, roles: ['admin'] },
+      { title: "Audit və Loglar", url: "/admin/audit-logs", icon: ShieldAlert, roles: ['admin'] },
       { title: "Sistem Ayarları", url: "/admin/settings", icon: Settings, roles: ['admin'] },
     ],
   },

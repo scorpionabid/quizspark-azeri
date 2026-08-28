@@ -39,6 +39,7 @@ const PermissionsPage = lazy(() => import("./pages/admin/PermissionsPage"));
 const AIConfigPage = lazy(() => import("./pages/admin/AIConfigPage"));
 const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
 const AdminChatPage = lazy(() => import("./pages/admin/AdminChatPage"));
+const AuditLogsPage = lazy(() => import("./pages/admin/AuditLogsPage"));
 
 const queryClient = new QueryClient();
 
@@ -152,6 +153,13 @@ function AppRoutes() {
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>
             <ProtectedRoute allowedRoles={['admin']}>
               <MainLayout><AdminChatPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+        <Route path="/admin/audit-logs" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><AuditLogsPage /></MainLayout>
             </ProtectedRoute>
           </Suspense>
         } />

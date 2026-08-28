@@ -1,10 +1,12 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "./button";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { loggerService } from "@/services/loggerService";
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  name?: string;
 }
 
 interface State {
@@ -23,6 +25,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
+    void loggerService.logError({
+      message: error.message || 'React render xətası',
+      error,
+      stackTrace: errorInfo?.componentStack || error.stack,
+      componentName: this.props.name || 'React Component',
+      severity: 'critical',
+      errorType: 'component_crash',
+    });
   }
 
   private handleRetry = () => {

@@ -23,6 +23,7 @@ const routeConfig: Record<string, { title: string; parent?: string }> = {
   "/admin/users": { title: "İstifadəçilər", parent: "/" },
   "/admin/permissions": { title: "İcazələr", parent: "/" },
   "/admin/ai-config": { title: "AI Konfiqurasiya", parent: "/" },
+  "/admin/audit-logs": { title: "Audit və Loglar", parent: "/" },
   "/admin/settings": { title: "Ayarlar", parent: "/" },
 };
 
