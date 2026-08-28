@@ -66,7 +66,7 @@ export interface ShareRecord {
   recipient?: TeacherProfile;
 }
 
-export type QuestionBankMode = 'my-questions' | 'shared-with-me';
+export type QuestionBankMode = 'my-questions' | 'shared-with-me' | 'analytics';
 
 export interface QuestionFilters {
   search?: string;
@@ -81,6 +81,33 @@ export interface QuestionFilters {
 export interface PaginationParams {
   page: number;
   pageSize: number;
+}
+
+export interface CategoryStatItem {
+  category: string;
+  questionCount: number;
+  percentage: number;
+  easyCount: number;
+  mediumCount: number;
+  hardCount: number;
+  attemptsCount: number;
+  correctCount: number;
+  incorrectCount: number;
+  accuracyPercentage: number;
+}
+
+export interface QuestionBankDetailedAnalytics {
+  totalQuestions: number;
+  totalCategories: number;
+  thisWeekCount: number;
+  difficultyCounts: Record<string, number>;
+  bloomLevelCounts: Record<string, number>;
+  typeCounts: Record<string, number>;
+  categories: CategoryStatItem[];
+  totalAttempts: number;
+  totalCorrect: number;
+  totalIncorrect: number;
+  overallAccuracy: number;
 }
 
 export interface QuestionBankStats {
@@ -270,6 +297,135 @@ export function useQuestionBankStats() {
         bloomLevelCounts,
       } as QuestionBankStats;
     },
+  });
+}
+
+// Fetch detailed Question Bank analytics including category breakdowns and student answers
+export function useQuestionBankDetailedAnalytics() {
+  return useQuery({
+    queryKey: ['question-bank-detailed-analytics'],
+    queryFn: async (): Promise<QuestionBankDetailedAnalytics> => {
+      // 1. Get all questions with category, difficulty, question_type, bloom_level
+      const { data: questions, error: qErr } = await supabase
+        .from('question_bank')
+        .select('category, difficulty, question_type, bloom_level, created_at');
+
+      if (qErr) throw qErr;
+
+      const totalQuestions = questions?.length || 0;
+
+      // 2. Get student mastery stats by category
+      const { data: masteryData } = await supabase
+        .from('student_mastery')
+        .select('category, attempt_count, correct_count');
+
+      // Aggregate mastery by category
+      const masteryMap: Record<string, { attempts: number; correct: number }> = {};
+      (masteryData || []).forEach((m) => {
+        const cat = m.category || 'Kateqoriyasız';
+        if (!masteryMap[cat]) {
+          masteryMap[cat] = { attempts: 0, correct: 0 };
+        }
+        masteryMap[cat].attempts += Number(m.attempt_count) || 0;
+        masteryMap[cat].correct += Number(m.correct_count) || 0;
+      });
+
+      // 3. Category aggregations
+      const categoryMap: Record<string, {
+        count: number;
+        easy: number;
+        medium: number;
+        hard: number;
+      }> = {};
+
+      const difficultyCounts: Record<string, number> = { asan: 0, orta: 0, çətin: 0 };
+      const bloomLevelCounts: Record<string, number> = {};
+      const typeCounts: Record<string, number> = {};
+
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      let thisWeekCount = 0;
+
+      (questions || []).forEach((q) => {
+        const cat = q.category || 'Kateqoriyasız';
+        if (!categoryMap[cat]) {
+          categoryMap[cat] = { count: 0, easy: 0, medium: 0, hard: 0 };
+        }
+        categoryMap[cat].count++;
+
+        // Difficulty
+        const diff = (q.difficulty || '').toLowerCase();
+        if (diff === 'asan') {
+          categoryMap[cat].easy++;
+          difficultyCounts['asan']++;
+        } else if (diff === 'çətin') {
+          categoryMap[cat].hard++;
+          difficultyCounts['çətin']++;
+        } else {
+          categoryMap[cat].medium++;
+          difficultyCounts['orta']++;
+        }
+
+        // Bloom
+        const bloom = q.bloom_level || 'Təyin edilməyib';
+        bloomLevelCounts[bloom] = (bloomLevelCounts[bloom] || 0) + 1;
+
+        // Type
+        const type = q.question_type || 'multiple_choice';
+        typeCounts[type] = (typeCounts[type] || 0) + 1;
+
+        // This week
+        if (q.created_at && new Date(q.created_at) >= oneWeekAgo) {
+          thisWeekCount++;
+        }
+      });
+
+      let totalAttempts = 0;
+      let totalCorrect = 0;
+
+      // Build categories list
+      const categories: CategoryStatItem[] = Object.entries(categoryMap).map(([categoryName, data]) => {
+        const m = masteryMap[categoryName] || { attempts: 0, correct: 0 };
+        const attemptsCount = m.attempts;
+        const correctCount = m.correct;
+        const incorrectCount = Math.max(0, attemptsCount - correctCount);
+        const accuracyPercentage = attemptsCount > 0 ? (correctCount / attemptsCount) * 100 : 0;
+
+        totalAttempts += attemptsCount;
+        totalCorrect += correctCount;
+
+        return {
+          category: categoryName,
+          questionCount: data.count,
+          percentage: totalQuestions > 0 ? (data.count / totalQuestions) * 100 : 0,
+          easyCount: data.easy,
+          mediumCount: data.medium,
+          hardCount: data.hard,
+          attemptsCount,
+          correctCount,
+          incorrectCount,
+          accuracyPercentage,
+        };
+      }).sort((a, b) => b.questionCount - a.questionCount);
+
+      const totalIncorrect = Math.max(0, totalAttempts - totalCorrect);
+      const overallAccuracy = totalAttempts > 0 ? (totalCorrect / totalAttempts) * 100 : 0;
+
+      return {
+        totalQuestions,
+        totalCategories: categories.length,
+        thisWeekCount,
+        difficultyCounts,
+        bloomLevelCounts,
+        typeCounts,
+        categories,
+        totalAttempts,
+        totalCorrect,
+        totalIncorrect,
+        overallAccuracy,
+      };
+    },
+    staleTime: 60 * 1000,
   });
 }
 

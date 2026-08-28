@@ -2,15 +2,11 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
   Plus,
   Upload,
-  Database,
-  TrendingUp,
-  Layers,
   BarChart3,
   FolderOpen,
 } from 'lucide-react';
@@ -25,7 +21,6 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   useQuestionBankList,
-  useQuestionBankStats,
   useCreateQuestionBank,
   useUpdateQuestionBank,
   useDeleteQuestionBank,
@@ -52,7 +47,7 @@ import { ImportExportDialog } from '@/components/question-bank/ImportExportDialo
 import { CategoryManagementDialog } from '@/components/question-bank/CategoryManagementDialog';
 import { QuestionEnhanceDialog } from '@/components/question-bank/QuestionEnhanceDialog';
 import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
-import { BloomAnalytics } from '@/components/question-bank/BloomAnalytics';
+import { QuestionBankStatsTab } from '@/components/question-bank/QuestionBankStatsTab';
 
 const PAGE_SIZE = 50;
 
@@ -62,7 +57,9 @@ export default function QuestionBankPage() {
   // Active tab — synced with URL ?tab=...
   const [activeTab, setActiveTab] = useState<QuestionBankMode>(() => {
     const tab = searchParams.get('tab');
-    return tab === 'shared-with-me' ? 'shared-with-me' : 'my-questions';
+    if (tab === 'shared-with-me') return 'shared-with-me';
+    if (tab === 'analytics') return 'analytics';
+    return 'my-questions';
   });
 
   const handleTabChange = (tab: string) => {
@@ -70,6 +67,8 @@ export default function QuestionBankPage() {
     setActiveTab(mode);
     if (mode === 'shared-with-me') {
       setSearchParams({ tab: 'shared-with-me' });
+    } else if (mode === 'analytics') {
+      setSearchParams({ tab: 'analytics' });
     } else {
       setSearchParams({});
     }
@@ -114,7 +113,6 @@ export default function QuestionBankPage() {
     'shared-with-me'
   );
 
-  const { data: stats } = useQuestionBankStats();
   const { data: questionCategories = [] } = useQuestionCategories();
 
   const categories = useMemo(
@@ -385,59 +383,9 @@ export default function QuestionBankPage() {
         </div>
       </PageHeader>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Ümumi Suallar</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalQuestions || 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Kateqoriyalar</CardTitle>
-            <Layers className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {Object.keys(stats?.categoryCounts || {}).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Bu Həftə</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.thisWeekCount || 0}</div>
-            <p className="text-xs text-muted-foreground">yeni sual əlavə edildi</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Çətinlik</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="text-green-600">Asan: {stats?.difficultyCounts?.['asan'] || 0}</span>
-              <span className="text-yellow-600">Orta: {stats?.difficultyCounts?.['orta'] || 0}</span>
-              <span className="text-red-600">Çətin: {stats?.difficultyCounts?.['çətin'] || 0}</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bloom Analytics */}
-      <BloomAnalytics stats={stats?.bloomLevelCounts || {}} />
-
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList className="grid w-full sm:w-auto grid-cols-3 max-w-xl">
           <TabsTrigger value="my-questions">Mənim Suallarım</TabsTrigger>
           <TabsTrigger value="shared-with-me" className="gap-2">
             Mənə Paylaşılanlar
@@ -446,6 +394,10 @@ export default function QuestionBankPage() {
                 {sharedData!.totalCount}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Statistika və Analitika
           </TabsTrigger>
         </TabsList>
 
@@ -569,6 +521,11 @@ export default function QuestionBankPage() {
               {Math.min((sharedPage + 1) * PAGE_SIZE, sharedData!.totalCount)} göstərilir
             </div>
           )}
+        </TabsContent>
+
+        {/* ── Analytics & Statistics Tab ── */}
+        <TabsContent value="analytics" className="space-y-4 mt-6">
+          <QuestionBankStatsTab />
         </TabsContent>
       </Tabs>
 
