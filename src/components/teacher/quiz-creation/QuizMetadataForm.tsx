@@ -24,7 +24,8 @@ import { UseFormReturn } from 'react-hook-form';
 import { QuizMetadataFormData } from '@/lib/validations/quiz';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Settings, Layout, Calendar, Zap, SkipForward, Shield, Palette, Clock, Lock, Compass, Image as ImageIcon, Upload } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Settings, Layout, Calendar, Zap, SkipForward, Shield, Palette, Clock, Lock, Compass, Image as ImageIcon, Upload, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -561,18 +562,81 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                         />
                                         <FormField
                                             control={form.control}
-                                            name="show_feedback"
-                                            render={({ field }) => (
-                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
-                                                    <div className="space-y-0.5">
-                                                        <FormLabel className="text-sm cursor-pointer">Geri Bildirim</FormLabel>
-                                                        <FormDescription className="text-xs">Cavablar və izahatlar göstərilir</FormDescription>
-                                                    </div>
-                                                    <FormControl>
-                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                                    </FormControl>
-                                                </FormItem>
-                                            )}
+                                            name="feedback_timing"
+                                            render={({ field }) => {
+                                                const currentVal = field.value || (form.watch('show_feedback') === false ? 'never' : 'end_of_quiz');
+                                                return (
+                                                    <FormItem className="col-span-full space-y-3 rounded-xl border bg-background p-4">
+                                                        <div className="space-y-0.5">
+                                                            <FormLabel className="text-sm font-semibold flex items-center gap-2">
+                                                                <MessageSquare className="h-4 w-4 text-primary" />
+                                                                Cavab və İzahların Göstərilmə Zamanı
+                                                            </FormLabel>
+                                                            <FormDescription className="text-xs">
+                                                                Düzgün/səhv cavabların və sual izahatlarının şagirdə nə vaxt göstəriləcəyini seçin
+                                                            </FormDescription>
+                                                        </div>
+                                                        
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                                                            {/* 1. End of Quiz */}
+                                                            <div
+                                                                onClick={() => {
+                                                                    field.onChange('end_of_quiz');
+                                                                    form.setValue('show_feedback', true);
+                                                                }}
+                                                                className={`cursor-pointer rounded-xl border-2 p-3 transition-all flex flex-col justify-between ${currentVal === 'end_of_quiz' ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}
+                                                            >
+                                                                <div>
+                                                                    <div className="flex items-center justify-between mb-1.5">
+                                                                        <span className="font-semibold text-xs text-foreground">🎓 İmtahan Bitdikdə</span>
+                                                                        <Badge variant="outline" className="text-[10px] px-1 py-0 text-primary border-primary/30">Tövsiyə</Badge>
+                                                                    </div>
+                                                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                                        Test zamanı vaxt itkisi olmur. Bütün düzgün/səhv cavablar və izahatlar yalnız imtahan bitdikdə nəticə səhifəsində göstərilir.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* 2. Instant */}
+                                                            <div
+                                                                onClick={() => {
+                                                                    field.onChange('instant');
+                                                                    form.setValue('show_feedback', true);
+                                                                }}
+                                                                className={`cursor-pointer rounded-xl border-2 p-3 transition-all flex flex-col justify-between ${currentVal === 'instant' ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}
+                                                            >
+                                                                <div>
+                                                                    <div className="flex items-center justify-between mb-1.5">
+                                                                        <span className="font-semibold text-xs text-foreground">⚡ Dərhal (Məşq)</span>
+                                                                    </div>
+                                                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                                        Hər sualdan və ya səhifədən sonra dərhal düzgün cavab və izahat açılır. Öyrənmə məqsədli quizlər üçün uyğundur.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* 3. Never */}
+                                                            <div
+                                                                onClick={() => {
+                                                                    field.onChange('never');
+                                                                    form.setValue('show_feedback', false);
+                                                                }}
+                                                                className={`cursor-pointer rounded-xl border-2 p-3 transition-all flex flex-col justify-between ${currentVal === 'never' ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}
+                                                            >
+                                                                <div>
+                                                                    <div className="flex items-center justify-between mb-1.5">
+                                                                        <span className="font-semibold text-xs text-foreground">🔒 Heç vaxt (Qapalı)</span>
+                                                                    </div>
+                                                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                                        Cavablar və izahatlar gizli saxlanılır. Şagirdə yalnız yekun bal və faiz göstərilir.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                );
+                                            }}
                                         />
                                         <FormField
                                             control={form.control}

@@ -24,6 +24,7 @@ export const quizMetadataSchema = z.object({
     // Yeni sahələr
     shuffle_questions: z.boolean().default(false),
     show_feedback: z.boolean().default(true),
+    feedback_timing: z.enum(['end_of_quiz', 'instant', 'never']).default('end_of_quiz'),
     pass_percentage: z.number().int().min(0).max(100).default(60),
     cover_image_url: z.string().url().optional().nullable().or(z.literal('')),
     attempts_limit: z.number().int().min(1).max(100).default(1),

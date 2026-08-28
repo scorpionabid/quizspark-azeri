@@ -19,6 +19,7 @@ interface QuizResultProps {
   timeSpent?: number;
   answers?: QuestionAnswer[];
   questions?: Question[];
+  showDetailedReview?: boolean;
   onRetry: () => void;
   onHome: () => void;
 }
@@ -43,45 +44,47 @@ const ConfettiCanvas: React.FC = () => {
     canvas.height = window.innerHeight;
 
     const pieces = Array.from({ length: 120 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * -canvas.height,
-      w: Math.random() * 10 + 5,
-      h: Math.random() * 6 + 3,
-      color: ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'][Math.floor(Math.random() * 5)],
-      speed: Math.random() * 3 + 1.5,
-      angle: Math.random() * 360,
-      spin: (Math.random() - 0.5) * 4,
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * -window.innerHeight,
+      r: Math.random() * 6 + 3,
+      d: Math.random() * 120,
+      color: ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'][Math.floor(Math.random() * 6)],
+      tilt: Math.floor(Math.random() * 10) - 10,
+      tiltAngleIncremental: Math.random() * 0.07 + 0.05,
+      tiltAngle: 0,
     }));
 
-    let raf: number;
-    let elapsed = 0;
-    const draw = () => {
+    let animationFrameId: number;
+    const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      elapsed++;
       pieces.forEach(p => {
-        p.y += p.speed;
-        p.angle += p.spin;
-        if (p.y > canvas.height) { p.y = -20; p.x = Math.random() * canvas.width; }
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate((p.angle * Math.PI) / 180);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = elapsed > 120 ? Math.max(0, 1 - (elapsed - 120) / 60) : 1;
-        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-        ctx.restore();
+        p.tiltAngle += p.tiltAngleIncremental;
+        p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2;
+        p.tilt = Math.sin(p.tiltAngle - p.d / 3) * 15;
+
+        ctx.beginPath();
+        ctx.lineWidth = p.r;
+        ctx.strokeStyle = p.color;
+        ctx.moveTo(p.x + p.tilt + p.r / 4, p.y);
+        ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 4);
+        ctx.stroke();
       });
-      if (elapsed < 180) raf = requestAnimationFrame(draw);
+      animationFrameId = requestAnimationFrame(render);
     };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+
+    render();
+    const timer = setTimeout(() => {
+      cancelAnimationFrame(animationFrameId);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }, 4000);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      clearTimeout(timer);
+    };
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-50"
-    />
-  );
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />;
 };
 
 export const QuizResult: React.FC<QuizResultProps> = ({
@@ -91,11 +94,12 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   earnedXP,
   passThreshold,
   pendingReviews = 0,
-  earnedPoints,
-  maxPoints,
+  earnedPoints = 0,
+  maxPoints = 0,
   timeSpent = 0,
   answers = [],
   questions = [],
+  showDetailedReview = true,
   onRetry,
   onHome,
 }) => {
@@ -226,7 +230,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
         </div>
 
         {/* Question-by-question review */}
-        {questions.length > 0 && answers.length > 0 && (
+        {showDetailedReview && questions.length > 0 && answers.length > 0 && (
           <div className="mt-6 animate-scale-in rounded-2xl bg-gradient-card border border-border/50 shadow-elevated overflow-hidden">
             <button
               className="w-full flex items-center justify-between p-5 text-left hover:bg-muted/30 transition-colors"

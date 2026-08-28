@@ -80,6 +80,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [feedbackQuestion, setFeedbackQuestion] = React.useState<{ question: Question; index: number } | null>(null);
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const isInstantFeedback = quiz.feedback_timing === 'instant';
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -412,7 +413,21 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                 )}
                 </div>
 
-                {!showFeedback ? (
+                {!isInstantFeedback ? (
+                <Button
+                    variant="game"
+                    size="xl"
+                    className={cn(
+                        "flex-1 sm:flex-none sm:min-w-[200px] h-12 shadow-game active:translate-y-1 transition-all rounded-xl",
+                        currentPage === totalPages - 1 && "bg-green-600 hover:bg-green-700 text-white border-green-700"
+                    )}
+                    onClick={onCheckSubmitClick}
+                >
+                    <span className="hidden sm:inline">{currentPage === totalPages - 1 ? 'İmtahanı Bitir' : 'Növbəti Səhifə'}</span>
+                    <span className="sm:hidden">{currentPage === totalPages - 1 ? 'Bitir' : 'İrəli'}</span>
+                    <ChevronRight className="h-5 w-5 ml-1 sm:ml-2" />
+                </Button>
+                ) : !showFeedback ? (
                 <Button
                     variant="game"
                     size="xl"

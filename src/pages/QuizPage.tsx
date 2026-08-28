@@ -247,7 +247,11 @@ export default function QuizPage() {
       else anyIncorrect = true;
     });
 
-    setShowFeedback(true);
+    const isInstant = (quiz?.feedback_timing === 'instant');
+
+    if (isInstant) {
+      setShowFeedback(true);
+    }
 
     if (!isPreview && quiz && newAnswers.length > 0) {
       if (anyCorrect && !anyIncorrect && quiz.time_bonus_enabled) {
@@ -272,7 +276,10 @@ export default function QuizPage() {
       }
     }
 
-    if (quiz?.auto_advance && quiz.questions_per_page === 1) {
+    if (!isInstant) {
+      // Standart İmtahan və ya Qapalı Rejim: Aralıq feedback olmadan dərhal növbəti səhifəyə / nəticəyə keçir
+      void handleNextPageInternal(updatedAnswers);
+    } else if (quiz?.auto_advance && quiz.questions_per_page === 1) {
       if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
       const delay = pageQuestions[0]?.time_limit ? pageQuestions[0].time_limit * 1000 : 1500;
       transitionTimeoutRef.current = setTimeout(async () => {
@@ -446,7 +453,7 @@ export default function QuizPage() {
   const score = maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 0;
   const correctCount = answers.filter(a => a.isCorrect).length;
   const pendingReviews = answers.filter(a => a.needsReview).length;
-  const feedbackEnabled = quiz?.show_feedback !== false;
+  const feedbackEnabled = quiz?.show_feedback !== false && quiz?.feedback_timing !== 'never';
 
   const toggleBookmark = (id: string) => {
     setBookmarkedQuestions(prev => {
@@ -534,6 +541,7 @@ export default function QuizPage() {
       timeSpent={timeSpent}
       answers={answers}
       questions={activeQuestions}
+      showDetailedReview={(quiz?.feedback_timing || (quiz?.show_feedback === false ? 'never' : 'end_of_quiz')) !== 'never'}
       onRetry={() => {
         setQuizState('intro');
         setAttemptId(null);

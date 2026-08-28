@@ -23,6 +23,7 @@ export interface Quiz {
   updated_at: string;
   shuffle_questions?: boolean;
   show_feedback?: boolean;
+  feedback_timing?: 'end_of_quiz' | 'instant' | 'never';
   pass_percentage?: number;
   attempts_limit?: number;
   cover_image_url?: string | null;

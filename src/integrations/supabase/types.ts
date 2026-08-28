@@ -1725,6 +1725,7 @@ export type Database = {
           questions_per_page: number
           rating: number | null
           show_feedback: boolean | null
+          feedback_timing?: string | null
           show_question_nav: boolean
           shuffle_questions: boolean | null
           strict_mode: boolean
@@ -1761,6 +1762,7 @@ export type Database = {
           questions_per_page?: number
           rating?: number | null
           show_feedback?: boolean | null
+          feedback_timing?: string | null
           show_question_nav?: boolean
           shuffle_questions?: boolean | null
           strict_mode?: boolean
@@ -1797,6 +1799,7 @@ export type Database = {
           questions_per_page?: number
           rating?: number | null
           show_feedback?: boolean | null
+          feedback_timing?: string | null
           show_question_nav?: boolean
           shuffle_questions?: boolean | null
           strict_mode?: boolean
