@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { QuestionAnswer, QUESTION_TYPES } from "@/types/question";
 import { Question } from "@/hooks/useQuestions";
+import { MathRenderer } from "@/components/common/MathRenderer";
 
 interface QuizResultProps {
   score: number;
@@ -285,19 +286,19 @@ export const QuizResult: React.FC<QuizResultProps> = ({
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">{typeLabel}</Badge>
                                 {needsReview && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Gözlənilir</Badge>}
                               </div>
-                              <p className="text-foreground/80 leading-snug line-clamp-2">{q.question_text}</p>
+                              <p className="text-foreground/80 leading-snug line-clamp-2"><MathRenderer text={q.question_text} /></p>
                               {ans && !needsReview && (
                                 <div className="mt-2 space-y-1">
                                   <div className="flex gap-1 text-[11px] items-start">
                                     <span className="text-muted-foreground shrink-0 mt-0.5">Cavabınız:</span>
                                     <span className={cn('font-medium leading-snug', (!ans || !ans.textAnswer) ? 'text-muted-foreground italic' : (isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'))}>
-                                      {(!ans || !ans.textAnswer) ? 'Cavablandırılmayıb' : ans.textAnswer}
+                                      {(!ans || !ans.textAnswer) ? 'Cavablandırılmayıb' : <MathRenderer text={ans.textAnswer} />}
                                     </span>
                                   </div>
                                   {!isCorrect && q.correct_answer && (
                                     <div className="flex gap-1 text-[11px]">
                                       <span className="text-muted-foreground shrink-0">Düzgün:</span>
-                                      <span className="font-medium text-green-700 dark:text-green-400">{q.correct_answer.split('|')[0]}</span>
+                                      <span className="font-medium text-green-700 dark:text-green-400"><MathRenderer text={q.correct_answer.split('|')[0]} /></span>
                                     </div>
                                   )}
                                 </div>

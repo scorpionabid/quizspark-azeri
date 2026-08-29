@@ -16,6 +16,7 @@ import { QuestionVideoPlayer } from './QuestionVideoPlayer';
 import { Question3DViewer } from './Question3DViewer';
 import { normalizePairs, parseMatchingValue } from '../quiz/renderers/utils';
 import { useQuestionFeedbacks } from '@/hooks/useQuizFeedback';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 interface QuestionViewDialogProps {
   open: boolean;
@@ -105,18 +106,18 @@ export function QuestionViewDialog({
 
           {/* Question Text */}
           <div>
-            {question.title && <h3 className="font-semibold text-primary mb-1">{question.title}</h3>}
+            {question.title && <h3 className="font-semibold text-primary mb-1"><MathRenderer text={question.title} /></h3>}
             <h4 className="font-medium mb-2">Sual</h4>
-            <p className="text-muted-foreground whitespace-pre-wrap">
-              {question.question_text}
-            </p>
+            <div className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+              <MathRenderer text={question.question_text} />
+            </div>
           </div>
 
           {/* Hint */}
           {question.hint && (
             <div className="p-3 bg-muted/40 border rounded-md flex items-start gap-2 text-sm text-muted-foreground">
               <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <p><strong>İpucu:</strong> {question.hint}</p>
+              <div><strong>İpucu:</strong> <MathRenderer text={question.hint} /></div>
             </div>
           )}
 
@@ -224,7 +225,7 @@ export function QuestionViewDialog({
                       )}
                     >
                       <span className="font-medium w-6 text-xs text-muted-foreground">{optionLetter}.</span>
-                      <span className="flex-1 text-sm">{option}</span>
+                      <span className="flex-1 text-sm"><MathRenderer text={option} /></span>
                       {isCorrect && (
                         <Check className="h-4 w-4 text-green-600" />
                       )}
@@ -244,9 +245,13 @@ export function QuestionViewDialog({
               <div className="space-y-2">
                 {Object.entries(parseMatchingValue(question.correct_answer)).map(([left, rights], idx) => (
                   <div key={idx} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg border border-dashed text-sm">
-                    <div className="flex-1 font-medium">{left}</div>
+                    <div className="flex-1 font-medium"><MathRenderer text={left} /></div>
                     <div className="text-muted-foreground">→</div>
-                    <div className="flex-1 text-primary">{rights.join(', ')}</div>
+                    <div className="flex-1 text-primary">
+                      {rights.map((r, ri) => (
+                        <span key={ri} className="inline-block mr-1.5"><MathRenderer text={r} />{ri < rights.length - 1 ? ',' : ''}</span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -265,7 +270,7 @@ export function QuestionViewDialog({
                     <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-xs font-bold text-green-700">
                       {idx + 1}
                     </span>
-                    <span>{item}</span>
+                    <span><MathRenderer text={item} /></span>
                   </div>
                 ))}
               </div>
@@ -284,10 +289,10 @@ export function QuestionViewDialog({
                   const answers = question.correct_answer.split('|');
                   return parts.map((part, i) => (
                     <React.Fragment key={i}>
-                      {part}
+                      <MathRenderer text={part} />
                       {i < parts.length - 1 && (
                         <span className="px-2 py-0.5 mx-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded font-bold not-italic border-b-2 border-green-500">
-                          {answers[i] || '___'}
+                          <MathRenderer text={answers[i] || '___'} />
                         </span>
                       )}
                     </React.Fragment>
@@ -305,7 +310,7 @@ export function QuestionViewDialog({
               </h4>
               <div className="flex items-center gap-4 p-3 bg-green-50/50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-                  {question.numerical_answer || question.correct_answer}
+                  <MathRenderer text={String(question.numerical_answer || question.correct_answer)} />
                 </div>
                 {question.numerical_tolerance !== undefined && (
                   <div className="text-xs text-muted-foreground">
@@ -321,7 +326,7 @@ export function QuestionViewDialog({
             <div>
               <h4 className="font-medium mb-2">Düzgün Cavab</h4>
               <div className="p-3 bg-green-50/50 dark:bg-green-900/10 rounded-md border border-green-200 dark:border-green-800 font-mono text-sm">
-                {question.correct_answer}
+                <MathRenderer text={question.correct_answer} />
               </div>
             </div>
           )}
@@ -330,9 +335,9 @@ export function QuestionViewDialog({
           {question.explanation && (
             <div>
               <h4 className="font-medium mb-2">İzahat</h4>
-              <p className="text-muted-foreground whitespace-pre-wrap p-3 bg-muted/30 rounded-md">
-                {question.explanation}
-              </p>
+              <div className="text-muted-foreground whitespace-pre-wrap p-3 bg-muted/30 rounded-md">
+                <MathRenderer text={question.explanation} />
+              </div>
             </div>
           )}
 

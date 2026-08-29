@@ -24,6 +24,7 @@ import { SubscriptionGate } from '@/components/subscription/SubscriptionGate';
 import { Sparkles } from 'lucide-react';
 import { QUESTION_TYPES } from '@/types/question';
 import { cn } from '@/lib/utils';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 interface QuestionTableProps {
   questions: QuestionBankItem[];
@@ -164,12 +165,12 @@ export function QuestionTable({
                   <div className="flex-1 min-w-0">
                     {question.title && (
                       <h4 className="text-sm font-semibold text-foreground truncate">
-                        {question.title}
+                        <MathRenderer text={question.title} />
                       </h4>
                     )}
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                      {question.question_text}
-                    </p>
+                    <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                      <MathRenderer text={question.question_text} />
+                    </div>
                   </div>
                 </div>
 
@@ -314,10 +315,10 @@ export function QuestionTable({
                         />
                       )}
                       <div>
-                        {question.title && <p className="font-semibold text-sm mb-1">{question.title}</p>}
-                        <p className="font-medium line-clamp-2 text-muted-foreground text-sm">
-                          {truncateText(question.question_text, 120)}
-                        </p>
+                        {question.title && <div className="font-semibold text-sm mb-1"><MathRenderer text={question.title} /></div>}
+                        <div className="font-medium line-clamp-2 text-muted-foreground text-sm">
+                          <MathRenderer text={truncateText(question.question_text, 120)} />
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-1 flex-wrap mt-1">

@@ -2,6 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { Question } from '@/hooks/useQuestions';
 import { isAnswerCorrect } from './utils';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 interface FeedbackRendererProps {
   question: Question;
@@ -25,7 +26,7 @@ export const FeedbackRenderer: React.FC<FeedbackRendererProps> = ({
         {question.explanation && question.explanation.trim().length > 1 && question.explanation.trim() !== ':' && (
           <div className="text-sm mt-3 bg-background/40 p-3 rounded-lg border border-border/20">
             <strong className="block mb-1 uppercase text-[10px] font-black tracking-widest opacity-70">Açıqlama</strong>
-            {question.explanation}
+            <MathRenderer text={question.explanation} />
           </div>
         )}
       </div>
@@ -61,7 +62,7 @@ export const FeedbackRenderer: React.FC<FeedbackRendererProps> = ({
             <span>
               Düzgün cavab:{' '}
               <span className="font-mono">
-                {question.correct_answer.split('|').join(' / ')}
+                <MathRenderer text={question.correct_answer.split('|').join(' / ')} />
               </span>
             </span>
           )}
@@ -69,7 +70,7 @@ export const FeedbackRenderer: React.FC<FeedbackRendererProps> = ({
             <span>
               Düzgün cavab:{' '}
               <span className="font-mono">
-                {question.numerical_answer ?? question.correct_answer}
+                <MathRenderer text={String(question.numerical_answer ?? question.correct_answer)} />
                 {(question.numerical_tolerance ?? 0) > 0 &&
                   ` (±${question.numerical_tolerance})`}
               </span>
@@ -82,7 +83,7 @@ export const FeedbackRenderer: React.FC<FeedbackRendererProps> = ({
               </span>
               {(question.sequence_items ?? []).map((item, i) => (
                 <div key={i} className="text-xs font-mono">
-                  {i + 1}. {item}
+                  {i + 1}. <MathRenderer text={item} />
                 </div>
               ))}
             </div>
@@ -95,7 +96,7 @@ export const FeedbackRenderer: React.FC<FeedbackRendererProps> = ({
           <strong className="block mb-1 uppercase text-[10px] font-black tracking-widest opacity-70">
             Açıqlama
           </strong>
-          {question.explanation}
+          <MathRenderer text={question.explanation} />
         </div>
       )}
 

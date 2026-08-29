@@ -24,6 +24,7 @@ import { QuestionTimerBar } from "./QuestionTimerBar";
 import { Quiz } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
 import { QUESTION_TYPES } from "@/types/question";
+import { MathRenderer } from "@/components/common/MathRenderer";
 
 interface QuizPlayingProps {
   quiz: Quiz;
@@ -315,8 +316,9 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
 
                     <div className="flex justify-between items-start mb-6 gap-4">
                     <h2 className="font-display text-base sm:text-xl md:text-2xl font-bold text-foreground">
-                        {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest">{question.title}</span>}
-                        <span className="mr-2 text-muted-foreground">{quiz.questions_per_page! * currentPage + idx + 1}.</span> {question.question_text}
+                        {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest"><MathRenderer text={question.title} /></span>}
+                        <span className="mr-2 text-muted-foreground">{quiz.questions_per_page! * currentPage + idx + 1}.</span>
+                        <MathRenderer text={question.question_text} />
                     </h2>
                     
                     <div className="flex flex-col items-end gap-2 shrink-0">
@@ -340,7 +342,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     {showHint[question.id] && question.hint && (
                     <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl text-sm text-muted-foreground flex items-start gap-3 animate-slide-in">
                         <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <p>{question.hint}</p>
+                        <div><MathRenderer text={question.hint} /></div>
                     </div>
                     )}
 

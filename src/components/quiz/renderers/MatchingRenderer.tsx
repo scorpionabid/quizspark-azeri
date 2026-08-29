@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { RendererProps } from './types';
 import { normalizePairs, parseMatchingValue } from './utils';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 export const MatchingRenderer: React.FC<RendererProps> = ({
   question,
@@ -110,7 +111,7 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
                   {i + 1}
                 </span>
 
-                <span className="flex-1 text-sm font-medium">{leftKey}</span>
+                <span className="flex-1 text-sm font-medium"><MathRenderer text={leftKey} /></span>
 
                 <div className="shrink-0 w-44 sm:w-52">
                   <Select
@@ -130,7 +131,7 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
                     <SelectContent>
                       {shuffledRightItems.map(r => (
                         <SelectItem key={r} value={r}>
-                          {r}
+                          <MathRenderer text={r} />
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -146,7 +147,7 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
                         <X className="h-4 w-4 text-red-500" />
                         {correctRight && (
                           <span className="text-[10px] text-red-600 font-bold whitespace-nowrap">
-                            {correctRight}
+                            <MathRenderer text={correctRight} />
                           </span>
                         )}
                       </div>
@@ -178,7 +179,7 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
                 <span className="flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] shrink-0 mt-0.5">
                   {i + 1}
                 </span>
-                {leftKey}
+                <MathRenderer text={leftKey} />
               </div>
 
               <div className="flex flex-wrap gap-2 pl-7">
@@ -217,7 +218,7 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
                         htmlFor={`${question.id}-match-${i}-${ri}`}
                         className="text-xs font-medium cursor-pointer leading-none"
                       >
-                        {rVal}
+                        <MathRenderer text={rVal} />
                       </Label>
                     </div>
                   );

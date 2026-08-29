@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowUp, ArrowDown, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RendererProps } from './types';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 export const OrderingRenderer: React.FC<RendererProps> = ({
   question,
@@ -97,7 +98,7 @@ export const OrderingRenderer: React.FC<RendererProps> = ({
                 {idx + 1}
               </div>
               
-              <span className="flex-1 text-sm font-medium leading-snug">{item}</span>
+              <span className="flex-1 text-sm font-medium leading-snug"><MathRenderer text={item} /></span>
 
               {showFeedback && (
                 <div className="shrink-0 ml-2">

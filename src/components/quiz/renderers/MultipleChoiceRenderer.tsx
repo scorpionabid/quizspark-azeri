@@ -3,6 +3,7 @@ import { Label } from '@/components/ui/label';
 import { RendererProps } from './types';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
   question,
@@ -65,7 +66,7 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
               className="flex-1 cursor-pointer font-medium text-sm md:text-base"
               onClick={(e) => e.stopPropagation()}
             >
-              {opt}
+              <MathRenderer text={opt} />
             </Label>
             
             {showFeedback && (

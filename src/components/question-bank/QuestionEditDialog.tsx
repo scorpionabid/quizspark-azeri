@@ -263,7 +263,7 @@ export function QuestionEditDialog({
                     className="pr-12"
                   />
                   <QuestionAISection onAnalyze={handleAIAnalysis} isEnhancing={isEnhancing} disabled={!formData.question_text} />
-                  {formData.question_text.includes('$') && (
+                  {(formData.question_text.includes('$') || formData.question_text.includes('\\(') || formData.question_text.includes('\\[')) && (
                     <div className="mt-2 p-2 rounded-md border border-dashed bg-muted/30">
                       <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wide">Önizləmə</p>
                       <MathRenderer text={formData.question_text} className="text-sm" />

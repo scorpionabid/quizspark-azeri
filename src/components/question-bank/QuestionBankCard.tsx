@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
 import { QUESTION_TYPES } from '@/types/question';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 interface QuestionBankCardProps {
   question: QuestionBankItem;
@@ -88,7 +89,7 @@ export function QuestionBankCard({ question, isSelected, onSelect, onSimilar }: 
             htmlFor={`q-${question.id}`}
             className="block text-base font-bold leading-tight text-foreground line-clamp-2 mb-3 cursor-pointer group-hover:text-primary transition-colors"
           >
-            {question.question_text}
+            <MathRenderer text={question.question_text} />
           </Label>
 
           <div className="flex items-center justify-between">
@@ -165,7 +166,7 @@ export function QuestionBankCard({ question, isSelected, onSelect, onSimilar }: 
                             }`}
                         >
                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-background border border-border/50 mr-3 text-[10px] font-black">{String.fromCharCode(65 + i)}</span>
-                           {opt}
+                           <MathRenderer text={opt} />
                         </div>
                         ))}
                    </div>
@@ -176,7 +177,7 @@ export function QuestionBankCard({ question, isSelected, onSelect, onSimilar }: 
                {!Array.isArray(question.options) && question.correct_answer && (
                  <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
                     <p className="font-black text-emerald-700/70 uppercase tracking-widest text-[9px] mb-1">Düzgün Cavab</p>
-                    <p className="text-emerald-700 font-bold text-sm">{question.correct_answer}</p>
+                    <div className="text-emerald-700 font-bold text-sm"><MathRenderer text={question.correct_answer} /></div>
                  </div>
                )}
 

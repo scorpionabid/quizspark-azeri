@@ -2,6 +2,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { RendererProps } from './types';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 export const FillBlankRenderer: React.FC<RendererProps> = ({
   question,
@@ -58,7 +59,7 @@ export const FillBlankRenderer: React.FC<RendererProps> = ({
                 />
                 {showFeedback && !isCorrectBlank && (
                   <span className="text-[10px] font-bold text-green-600 mt-0.5 animate-in fade-in slide-in-from-top-1">
-                    {correctAnswer}
+                    <MathRenderer text={correctAnswer} />
                   </span>
                 )}
               </span>
@@ -66,7 +67,7 @@ export const FillBlankRenderer: React.FC<RendererProps> = ({
           }
           return (
             <span key={pi} className="opacity-90">
-              {part}
+              <MathRenderer text={part} />
             </span>
           );
         })}

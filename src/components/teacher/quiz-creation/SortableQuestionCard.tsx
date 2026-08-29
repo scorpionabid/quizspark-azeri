@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { QUESTION_TYPES, QuestionType } from '@/types/question';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 export interface DraftQuestion {
     localId: string;
@@ -119,14 +120,14 @@ export function SortableQuestionCard({ question, index, onEdit, onRemove, onDupl
                     </div>
 
                     {/* Question text */}
-                    <p className="text-sm font-medium text-foreground line-clamp-2 mb-1">
-                        {question.question_text || <span className="text-muted-foreground italic">Sual mətni yoxdur</span>}
-                    </p>
+                    <div className="text-sm font-medium text-foreground line-clamp-2 mb-1">
+                        {question.question_text ? <MathRenderer text={question.question_text} /> : <span className="text-muted-foreground italic">Sual mətni yoxdur</span>}
+                    </div>
 
                     {/* Answer summary */}
-                    <p className="text-xs text-muted-foreground truncate">
-                        ✓ {getAnswerSummary(question)}
-                    </p>
+                    <div className="text-xs text-muted-foreground truncate">
+                        ✓ <MathRenderer text={getAnswerSummary(question)} />
+                    </div>
 
                     {/* Hint */}
                     {question.hint && (
