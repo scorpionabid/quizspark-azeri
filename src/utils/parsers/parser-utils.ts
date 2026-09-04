@@ -1,4 +1,5 @@
 import { ParsedQuestion } from './types';
+import { MATCHING_ANSWER_RE } from './markdown-utils';
 
 /**
  * Faylı oxuyarkən BOM marker-ə görə encoding aşkar edir.
@@ -70,8 +71,8 @@ export function detectFormat(
 export function extractMedia(target: Partial<ParsedQuestion>) {
   if (!target.question_text) return;
   
-  // Look for ![alt](url) or just (url) if it looks like an image
-  const imgRegex = /!\[.*?\]\((https?:\/\/[^\s)]+\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^)]+)?)\)/i;
+  // Look for ![alt](url) or image URL in markdown
+  const imgRegex = /!\[.*?\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/i;
   const match = target.question_text.match(imgRegex);
   
   if (match) {
@@ -90,7 +91,7 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
   for (const line of lines) {
     const clean = line.trim();
     const metaMatch = clean.match(
-      /^(İzah\s*\(?[A-Z\d]\)?|Izah\s*\(?[A-Z\d]\)?|İzahat\s*\(?[A-Z\d]\)?|Izahat\s*\(?[A-Z\d]\)?|Explanation\s*\(?[A-Z\d]\)?|Açıqlama\s*\(?[A-Z\d]\)?|İpucu|Ipucu|Hint|İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language)\s*[-:]?\s*(.+)$/i,
+      /^(İzah\s*\(?[A-Z\d]\)?|Izah\s*\(?[A-Z\d]\)?|İzahat\s*\(?[A-Z\d]\)?|Izahat\s*\(?[A-Z\d]\)?|Explanation\s*\(?[A-Z\d]\)?|Açıqlama\s*\(?[A-Z\d]\)?|İpucu|Ipucu|Hint|İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language|Şəkil|Sekil|Image|Photo|Video|Model|3D|3d_model|Audio|Media)\s*[-:]?\s*(.+)$/i,
     );
     if (!metaMatch) continue;
     const keyRaw = metaMatch[1];
@@ -135,9 +136,21 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
       if (!isNaN(tol)) target.numerical_tolerance = tol;
     } else if (['dil', 'language'].includes(key)) {
       target.hint = `lang:${value.toLowerCase()}`;
+    } else if (['şəkil', 'sekil', 'image', 'photo'].includes(key)) {
+      // Strip markdown image syntax if user wrote `Şəkil: ![alt](url)`
+      const imgUrlMatch = value.match(/\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/i) || [null, value];
+      target.question_image_url = (imgUrlMatch[1] || value).trim();
+    } else if (['video'].includes(key)) {
+      target.video_url = value;
+      target.media_type = 'video';
+    } else if (['model', '3d', '3d_model'].includes(key)) {
+      target.model_3d_url = value;
+    } else if (['audio', 'media'].includes(key)) {
+      target.media_url = value;
+      if (key === 'audio') target.media_type = 'audio';
     } else if (['answer', 'düzgün', 'cavab', 'doğru', 'doğru cavab', 'düzgün cavab'].includes(key)) {
       // Matching suallarında Cavab dəyərini `,` və ya `;` ilə kəsmirik
-      if (target.question_type === 'matching' || /\d+\s*-\s*[a-zA-Z]/.test(value)) {
+      if (target.question_type === 'matching' || MATCHING_ANSWER_RE.test(value)) {
         target.question_type = 'matching';
         target.correct_answer = value;
         continue;

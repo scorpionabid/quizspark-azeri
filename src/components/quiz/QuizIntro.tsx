@@ -13,6 +13,7 @@ import { Question } from "@/hooks/useQuestions";
 
 import { User } from "@supabase/supabase-js";
 import { QuizAttempt } from "@/hooks/useQuizAttempts";
+import { getQuizBackgroundStyle, isPatternBackground } from "@/lib/constants/quizBackground";
 
 interface QuizIntroProps {
   quiz: Quiz;
@@ -73,9 +74,18 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
   const isDisabled = (from && !isNaN(from.getTime()) && now < from) ||
                      (to && !isNaN(to.getTime()) && now > to);
 
+  const isPattern = isPatternBackground(quiz.background_image_url);
+  const bgStyle = getQuizBackgroundStyle(quiz.background_image_url);
+
   return (
-    <div className="min-h-screen bg-gradient-hero p-4 sm:p-8">
-      <div className="mx-auto max-w-2xl">
+    <div 
+      className="min-h-screen bg-gradient-hero p-3 sm:p-8 pb-[max(2rem,env(safe-area-inset-bottom))] relative"
+      style={bgStyle}
+    >
+      {quiz.background_image_url && !isPattern && (
+        <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] pointer-events-none" />
+      )}
+      <div className="mx-auto max-w-2xl relative z-10">
         <Button
           variant="ghost"
           onClick={onBack}
@@ -85,7 +95,14 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
           Geri
         </Button>
 
-        <div className="animate-scale-in rounded-3xl bg-gradient-card border border-border/50 p-8 shadow-elevated">
+        <div className={cn(
+          "animate-scale-in rounded-3xl border border-border/50 p-8 shadow-elevated",
+          quiz.background_image_url
+            ? isPattern
+              ? "bg-card/95 backdrop-blur-md border-border/80"
+              : "bg-card/90 backdrop-blur-md border-border/70"
+            : "bg-gradient-card"
+        )}>
           <div className="mb-6 text-center">
             <div className="mb-4 flex items-center justify-center gap-3">
               <div className="inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/20 text-4xl">

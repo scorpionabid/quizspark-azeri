@@ -25,6 +25,7 @@ import { Quiz } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
 import { QUESTION_TYPES } from "@/types/question";
 import { MathRenderer } from "@/components/common/MathRenderer";
+import { getQuizBackgroundStyle, isPatternBackground } from "@/lib/constants/quizBackground";
 
 interface QuizPlayingProps {
   quiz: Quiz;
@@ -181,19 +182,19 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   const totalTime = isTimeless ? 0 : quiz.duration * 60;
   const isTimerDanger = !isTimeless && totalTimeLeft > 0 && totalTimeLeft <= totalTime * 0.2;
 
+  const isPattern = isPatternBackground(quiz.background_image_url);
+  const bgStyle = getQuizBackgroundStyle(quiz.background_image_url);
+
   return (
     <div 
-      className="flex-1 bg-background relative min-h-screen"
-      style={(quiz.background_image_url && !isFullscreen) ? {
-        backgroundImage: `url(${quiz.background_image_url})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
-      } : undefined}
+      className="flex-1 bg-background relative min-h-screen transition-colors"
+      style={bgStyle}
     >
-      {quiz.background_image_url && <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px]" />}
+      {quiz.background_image_url && !isPattern && (
+        <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] pointer-events-none" />
+      )}
 
-      <div className="relative z-10 p-3 sm:p-8 pb-32 sm:pb-8 flex flex-col md:flex-row gap-6 max-w-6xl mx-auto h-full">
+      <div className="relative z-10 p-3 sm:p-8 pt-3 sm:pt-6 pb-36 sm:pb-12 flex flex-col md:flex-row gap-6 max-w-6xl mx-auto h-full">
         
         {/* Main Content Area */}
         <div className="flex-1 max-w-3xl lg:max-w-4xl w-full mx-auto">
@@ -304,8 +305,13 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     key={question.id}
                     ref={el => questionRefs.current[question.id] = el}
                     className={cn(
-                      "rounded-2xl sm:rounded-3xl bg-card border p-4 sm:p-8 relative overflow-hidden transition-all duration-300",
-                      isUnanswered ? "border-destructive/60 bg-destructive/5 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)]" : "border-border/50 shadow-elevated"
+                      "rounded-2xl sm:rounded-3xl border p-4 sm:p-8 relative overflow-hidden transition-all duration-300",
+                      quiz.background_image_url
+                        ? isPattern
+                          ? "bg-card/95 backdrop-blur-md border-border/80 shadow-elevated"
+                          : "bg-card/90 backdrop-blur-md border-border/70 shadow-elevated"
+                        : "bg-card border-border/50 shadow-elevated",
+                      isUnanswered && "border-destructive/60 bg-destructive/5 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)]"
                     )}
                 >
                     {question.time_limit && questionTimeLeft != null && (
@@ -315,7 +321,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     )}
 
                     <div className="flex justify-between items-start mb-6 gap-4">
-                    <h2 className="font-display text-base sm:text-xl md:text-2xl font-bold text-foreground">
+                    <h2 className="font-display text-base sm:text-xl md:text-2xl font-bold text-foreground whitespace-pre-line leading-relaxed">
                         {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest"><MathRenderer text={question.title} /></span>}
                         <span className="mr-2 text-muted-foreground">{quiz.questions_per_page! * currentPage + idx + 1}.</span>
                         <MathRenderer text={question.question_text} />
@@ -410,8 +416,8 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
             </AnimatePresence>
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 z-50 md:relative md:z-auto md:mt-10 p-4 md:p-0 bg-background/95 md:bg-transparent backdrop-blur-lg border-t border-border/50 md:border-none shadow-[0_-8px_30px_rgb(0,0,0,0.12)] md:shadow-none">
-            <div className="mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div className="fixed bottom-0 left-0 right-0 z-50 md:relative md:z-auto md:mt-10 p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-0 bg-background/95 md:bg-transparent backdrop-blur-lg border-t border-border/50 md:border-none shadow-[0_-8px_30px_rgb(0,0,0,0.12)] md:shadow-none">
+            <div className="mx-auto flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
                 <div className="flex gap-2">
                 {quiz.allow_backtracking && (
                     <Button

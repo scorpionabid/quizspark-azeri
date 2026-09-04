@@ -49,7 +49,7 @@ export const FillBlankRenderer: React.FC<RendererProps> = ({
                   disabled={disabled || showFeedback}
                   placeholder="..."
                   className={cn(
-                    'w-32 h-9 text-center text-sm font-semibold border-b-2 bg-white/50 dark:bg-black/20 rounded-t-md transition-all focus:outline-none px-2',
+                    'w-32 sm:w-36 h-10 sm:h-9 text-center text-base sm:text-sm font-semibold border-b-2 bg-white/50 dark:bg-black/20 rounded-t-md transition-all focus:outline-none px-2',
                     showFeedback
                       ? isCorrectBlank
                         ? 'border-green-500 text-green-700 bg-green-50/50'
@@ -66,7 +66,7 @@ export const FillBlankRenderer: React.FC<RendererProps> = ({
             );
           }
           return (
-            <span key={pi} className="opacity-90">
+            <span key={pi} className="opacity-90 inline-block my-0.5">
               <MathRenderer text={part} />
             </span>
           );
@@ -78,6 +78,7 @@ export const FillBlankRenderer: React.FC<RendererProps> = ({
           placeholder="Cavabınız..."
           value={value}
           onChange={e => onChange(e.target.value)}
+          className="text-base sm:text-sm h-11 rounded-xl"
         />
       )}
     </div>

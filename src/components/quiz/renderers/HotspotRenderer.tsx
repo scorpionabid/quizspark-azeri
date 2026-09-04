@@ -15,12 +15,22 @@ export const HotspotRenderer: React.FC<RendererProps> = ({
   const markedX = parsed[0] ? parseFloat(parsed[0]) : null;
   const markedY = parsed[1] ? parseFloat(parsed[1]) : null;
 
-  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointSelect = (clientX: number, clientY: number, target: HTMLElement) => {
     if (disabled || showFeedback) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const rect = target.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
     onChange(`${x.toFixed(2)}:${y.toFixed(2)}`);
+  };
+
+  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    handlePointSelect(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length > 0) {
+      handlePointSelect(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget);
+    }
   };
 
   if (!imgUrl) {
@@ -30,6 +40,7 @@ export const HotspotRenderer: React.FC<RendererProps> = ({
         placeholder="X:Y koordinatları daxil edin..."
         value={value}
         onChange={e => onChange(e.target.value)}
+        className="text-base sm:text-sm h-11"
       />
     );
   }
@@ -37,15 +48,16 @@ export const HotspotRenderer: React.FC<RendererProps> = ({
   return (
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground italic">
-        Şəkildə düzgün nöqtəyə klikləyin
+        Şəkildə düzgün nöqtəyə toxunun və ya klikləyin
       </p>
       <div
         className={cn(
-          'relative select-none rounded-xl overflow-hidden border-2',
+          'relative select-none rounded-2xl overflow-hidden border-2 touch-manipulation',
           disabled || showFeedback ? 'cursor-default' : 'cursor-crosshair',
           showFeedback ? 'border-border/40' : 'border-primary/20 hover:border-primary/40',
         )}
         onClick={handleImageClick}
+        onTouchStart={handleTouchStart}
       >
         <img src={imgUrl} alt="Hotspot şəkli" className="w-full object-contain" />
         {markedX !== null && markedY !== null && (

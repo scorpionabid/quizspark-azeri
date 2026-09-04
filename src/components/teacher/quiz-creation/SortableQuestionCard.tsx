@@ -44,10 +44,22 @@ export function getAnswerSummary(q: DraftQuestion): string {
             return q.numerical_answer != null
                 ? `${q.numerical_answer}${q.numerical_tolerance ? ` ± ${q.numerical_tolerance}` : ''}`
                 : 'Rəqəm daxil edilməyib';
-        case 'matching':
-            return Array.isArray(q.matching_pairs)
-                ? `${q.matching_pairs.length} cütlük`
-                : 'Cütlər yoxdur';
+        case 'matching': {
+            const pairs = q.matching_pairs;
+            if (Array.isArray(pairs)) {
+                const count = pairs.filter(p => p && (typeof p === 'object' ? Boolean(p.left || p.right) : true)).length;
+                return count > 0 ? `${count} cütlük` : 'Cütlər yoxdur';
+            }
+            if (pairs && typeof pairs === 'object') {
+                const count = Object.keys(pairs).length;
+                return count > 0 ? `${count} cütlük` : 'Cütlər yoxdur';
+            }
+            if (q.correct_answer && (q.correct_answer.includes(':') || q.correct_answer.includes('-'))) {
+                const count = q.correct_answer.split(/\|\|\||;/).filter(Boolean).length;
+                return count > 0 ? `${count} cütlük` : 'Cütlər yoxdur';
+            }
+            return 'Cütlər yoxdur';
+        }
         case 'ordering':
             return q.sequence_items ? `${q.sequence_items.length} element` : 'Elementlər yoxdur';
         case 'fill_blank':

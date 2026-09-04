@@ -97,7 +97,7 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
               <div
                 key={i}
                 className={cn(
-                  'flex items-center gap-3 p-3 rounded-2xl border transition-all',
+                  'flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-3 rounded-2xl border transition-all',
                   showFeedback
                     ? isCorrect
                       ? 'border-green-500 bg-green-50 dark:bg-green-900/10'
@@ -107,53 +107,56 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
                     : 'border-border/40 bg-muted/20 hover:border-primary/30',
                 )}
               >
-                <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold shrink-0">
-                  {i + 1}
-                </span>
-
-                <span className="flex-1 text-sm font-medium"><MathRenderer text={leftKey} /></span>
-
-                <div className="shrink-0 w-44 sm:w-52">
-                  <Select
-                    value={selected}
-                    onValueChange={val => handleSelectMatch(leftKey, val)}
-                    disabled={disabled || showFeedback}
-                  >
-                    <SelectTrigger
-                      className={cn(
-                        'rounded-xl h-9 text-sm',
-                        showFeedback && isCorrect && 'border-green-500 text-green-700',
-                        showFeedback && (isWrong || isMissed) && 'border-red-400 text-red-700',
-                      )}
-                    >
-                      <SelectValue placeholder="Seçin..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {shuffledRightItems.map(r => (
-                        <SelectItem key={r} value={r}>
-                          <MathRenderer text={r} />
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                  <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold shrink-0">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm font-medium break-words"><MathRenderer text={leftKey} /></span>
                 </div>
 
-                {showFeedback && (
-                  <div className="shrink-0">
-                    {isCorrect ? (
-                      <Check className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <X className="h-4 w-4 text-red-500" />
-                        {correctRight && (
-                          <span className="text-[10px] text-red-600 font-bold whitespace-nowrap">
-                            <MathRenderer text={correctRight} />
-                          </span>
+                <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0">
+                  <div className="flex-1 sm:w-52">
+                    <Select
+                      value={selected}
+                      onValueChange={val => handleSelectMatch(leftKey, val)}
+                      disabled={disabled || showFeedback}
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          'rounded-xl h-10 sm:h-9 text-sm w-full',
+                          showFeedback && isCorrect && 'border-green-500 text-green-700',
+                          showFeedback && (isWrong || isMissed) && 'border-red-400 text-red-700',
                         )}
-                      </div>
-                    )}
+                      >
+                        <SelectValue placeholder="Seçin..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {shuffledRightItems.map(r => (
+                          <SelectItem key={r} value={r}>
+                            <MathRenderer text={r} />
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
+
+                  {showFeedback && (
+                    <div className="shrink-0">
+                      {isCorrect ? (
+                        <Check className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <X className="h-4 w-4 text-red-500" />
+                          {correctRight && (
+                            <span className="text-[10px] text-red-600 font-bold whitespace-nowrap">
+                              <MathRenderer text={correctRight} />
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}

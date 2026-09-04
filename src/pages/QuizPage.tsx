@@ -554,6 +554,7 @@ export default function QuizPage() {
       timeSpent={timeSpent}
       answers={answers}
       questions={activeQuestions}
+      backgroundImageUrl={quiz?.background_image_url}
       showDetailedReview={(quiz?.feedback_timing || (quiz?.show_feedback === false ? 'never' : 'end_of_quiz')) !== 'never'}
       onRetry={() => {
         setQuizState('intro');

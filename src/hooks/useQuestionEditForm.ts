@@ -12,6 +12,25 @@ function parseOptions(options: string[] | Record<string, string> | null): string
   return Object.values(options);
 }
 
+function normalizeMatchingForForm(mp: unknown): Array<{ left: string; right: string }> {
+  if (!mp) return [{ left: '', right: '' }];
+  if (Array.isArray(mp)) {
+    const list = mp.map(p => ({
+      left: typeof p === 'object' && p !== null ? String((p as { left?: unknown }).left ?? '') : '',
+      right: typeof p === 'object' && p !== null ? String((p as { right?: unknown }).right ?? '') : '',
+    }));
+    return list.length > 0 ? list : [{ left: '', right: '' }];
+  }
+  if (typeof mp === 'object') {
+    const list = Object.entries(mp as Record<string, unknown>).map(([left, right]) => ({
+      left,
+      right: String(right ?? ''),
+    }));
+    return list.length > 0 ? list : [{ left: '', right: '' }];
+  }
+  return [{ left: '', right: '' }];
+}
+
 export function useQuestionEditForm(
   question: QuestionBankItem | null,
   mode: 'create' | 'edit',
@@ -121,7 +140,7 @@ export function useQuestionEditForm(
         fill_blank_template: question.fill_blank_template || '',
         numerical_answer: question.numerical_answer ?? '',
         numerical_tolerance: question.numerical_tolerance ?? 0,
-        matching_pairs: q.matching_pairs || [],
+        matching_pairs: normalizeMatchingForForm(q.matching_pairs),
         sequence_items: q.sequence_items || [],
         accepted_answers: q.accepted_answers || [],
         answer_case_sensitive: q.answer_case_sensitive ?? false,
@@ -232,9 +251,9 @@ export function useQuestionEditForm(
     } else if (qt === 'fill_blank' && !formData.correct_answer.trim()) {
       errors.correct_answer = 'Ən azı bir boşluq cavabı daxil edilməlidir';
     } else if (qt === 'matching') {
-      const pairs = formData.matching_pairs as Array<{ left: string; right: string }>;
-      if (!pairs || pairs.length < 2) errors.matching_pairs = 'Ən azı 2 cüt daxil edilməlidir';
-      else if (pairs.some(p => !p.left.trim() || !p.right.trim())) errors.matching_pairs = 'Bütün cütlər doldurulmalıdır';
+      const pairs = (formData.matching_pairs as Array<{ left: string; right: string }>) || [];
+      const filledPairs = pairs.filter(p => p.left?.trim() && p.right?.trim());
+      if (filledPairs.length < 2) errors.matching_pairs = 'Ən azı 2 cüt daxil edilməlidir';
     } else if (qt === 'ordering') {
       const items = formData.sequence_items as string[];
       if (!items || items.length < 2) errors.sequence_items = 'Ən azı 2 element daxil edilməlidir';
@@ -361,7 +380,18 @@ export function useQuestionEditForm(
       data.options = null;
     }
 
-    if (formData.matching_pairs && formData.matching_pairs.length > 0) {
+    if (formData.question_type === 'matching') {
+      const pairs = (formData.matching_pairs as Array<{ left: string; right: string }>) || [];
+      const validPairs = pairs.filter(p => p.left?.trim() || p.right?.trim());
+      if (validPairs.length > 0) {
+        data.matching_pairs = Object.fromEntries(validPairs.map(p => [(p.left || '').trim(), (p.right || '').trim()]));
+        if (!data.correct_answer || !data.correct_answer.includes(':')) {
+          data.correct_answer = validPairs.map(p => `${(p.left || '').trim()}:${(p.right || '').trim()}`).join('|||');
+        }
+      } else {
+        data.matching_pairs = null;
+      }
+    } else if (formData.matching_pairs && formData.matching_pairs.length > 0) {
       data.matching_pairs = formData.matching_pairs as unknown as Record<string, string>;
     }
     if (formData.sequence_items && formData.sequence_items.length > 0) {

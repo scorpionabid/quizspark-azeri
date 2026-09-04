@@ -11,6 +11,7 @@ import { useCreateQuiz, useQuiz, useUpdateQuiz } from '@/hooks/useQuizzes';
 import { useBulkCreateQuestions, useReplaceQuestions, useQuestions } from '@/hooks/useQuestions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveQuizAttempts, useClearActiveAttempts } from '@/hooks/useQuizAttempts';
+import { saveStoredCustomSubject } from '@/hooks/useSubjects';
 
 // UI
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -99,6 +100,8 @@ function dialogSaveToDraft(saved: Partial<QuestionBankItem>, existing: DraftQues
     video_end_time: saved.video_end_time ?? existing.video_end_time,
     model_3d_url: saved.model_3d_url ?? existing.model_3d_url,
     model_3d_type: saved.model_3d_type ?? existing.model_3d_type,
+    hotspot_data: saved.hotspot_data !== undefined ? saved.hotspot_data : existing.hotspot_data,
+    matching_pairs: saved.matching_pairs !== undefined ? saved.matching_pairs : existing.matching_pairs,
     sequence_items: saved.sequence_items ?? existing.sequence_items,
     fill_blank_template: saved.fill_blank_template ?? existing.fill_blank_template,
     numerical_answer: saved.numerical_answer ?? existing.numerical_answer,
@@ -129,6 +132,8 @@ function bankItemToDraft(item: QuestionBankItem, orderIndex: number): DraftQuest
     video_end_time: item.video_end_time,
     model_3d_url: item.model_3d_url,
     model_3d_type: item.model_3d_type,
+    hotspot_data: item.hotspot_data ?? null,
+    matching_pairs: item.matching_pairs ?? null,
     sequence_items: item.sequence_items,
     fill_blank_template: item.fill_blank_template,
     numerical_answer: item.numerical_answer,
@@ -141,10 +146,23 @@ function bankItemToDraft(item: QuestionBankItem, orderIndex: number): DraftQuest
 
 function draftToDbInsert(q: DraftQuestion, quizId: string, index: number) {
   const { localId: _localId, hotspot_data, matching_pairs, ...rest } = q;
+  
+  // Normalize matching_pairs: If array format, convert to Record<string, string>
+  let normalizedPairs: Record<string, string> | null = null;
+  if (Array.isArray(matching_pairs)) {
+    normalizedPairs = Object.fromEntries(
+      (matching_pairs as Array<{ left?: string; right?: string }>)
+        .filter(p => p && (p.left?.trim() || p.right?.trim()))
+        .map(p => [(p.left || '').trim(), (p.right || '').trim()])
+    );
+  } else if (matching_pairs && typeof matching_pairs === 'object') {
+    normalizedPairs = matching_pairs as Record<string, string>;
+  }
+
   return {
     ...rest,
     hotspot_data: hotspot_data as Record<string, unknown> | null | undefined,
-    matching_pairs: matching_pairs as Record<string, string> | null | undefined,
+    matching_pairs: normalizedPairs,
     quiz_id: quizId,
     order_index: index,
   };
@@ -386,6 +404,8 @@ export default function CreateQuizPage() {
           video_end_time: saved.video_end_time ?? null,
           model_3d_url: saved.model_3d_url ?? null,
           model_3d_type: saved.model_3d_type ?? null,
+          hotspot_data: saved.hotspot_data ?? null,
+          matching_pairs: saved.matching_pairs ?? null,
           sequence_items: saved.sequence_items ?? null,
           fill_blank_template: saved.fill_blank_template ?? null,
           numerical_answer: saved.numerical_answer ?? null,
@@ -572,6 +592,10 @@ export default function CreateQuizPage() {
         quizId = quiz.id;
         const questionsToCreate = questions.map((q, i) => draftToDbInsert(q, quizId!, i));
         await createQuestions.mutateAsync(questionsToCreate);
+      }
+
+      if (quizPayload.subject) {
+        saveStoredCustomSubject(quizPayload.subject);
       }
 
       localStorage.removeItem(DRAFT_KEY);

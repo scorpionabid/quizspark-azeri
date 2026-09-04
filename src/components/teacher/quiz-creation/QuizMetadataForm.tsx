@@ -28,13 +28,9 @@ import { Badge } from '@/components/ui/badge';
 import { Settings, Layout, Calendar, Zap, SkipForward, Shield, Palette, Clock, Lock, Compass, Image as ImageIcon, Upload, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-const SUBJECTS = [
-    'Riyaziyyat', 'Fizika', 'Kimya', 'Biologiya', 'Tarix',
-    'Coğrafiya', 'Ədəbiyyat', 'İngilis dili', 'Rus dili',
-    'İnformatika', 'Musiqi', 'Təsviri incəsənət', 'Bədən tərbiyəsi',
-    'Digər',
-];
+import { useSubjects } from '@/hooks/useSubjects';
+import { getSubjectIcon } from '@/lib/constants/subjects';
+import { BACKGROUND_PRESETS } from '@/lib/constants/quizBackground';
 
 const SCHOOL_GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const UNI_GRADES = ['1-ci kurs', '2-ci kurs', '3-cü kurs', '4-cü kurs', 'Magistratura'];
@@ -45,6 +41,7 @@ interface QuizMetadataFormProps {
 }
 
 export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
+    const { subjects, addCustomSubject } = useSubjects();
     const [isCustomSubject, setIsCustomSubject] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,12 +77,7 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
         }
     };
 
-    const BACKGROUND_OPTIONS = [
-        { label: 'Yoxdur', value: '' },
-        { label: 'Dəftər vərəqi', value: '/backgrounds/paper-lined.svg' },
-        { label: 'Riyaziyyat dəftəri', value: '/backgrounds/paper-graph.svg' },
-        { label: 'Nöqtəli kağız', value: '/backgrounds/paper-dot.svg' },
-    ];
+
 
     return (
         <Form {...form}>
@@ -158,25 +150,40 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                         field.onChange(v);
                                                     }
                                                 }}
-                                                value={isCustomSubject ? 'Digər' : field.value}
+                                                value={isCustomSubject ? 'Digər' : (field.value || '')}
                                             >
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Seçin" />
                                                     </SelectTrigger>
                                                 </FormControl>
-                                                <SelectContent>
-                                                    {SUBJECTS.map((s) => (
-                                                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                                                <SelectContent className="max-h-72">
+                                                    {subjects.map((s) => (
+                                                        <SelectItem key={s} value={s}>
+                                                            <span className="flex items-center gap-2">
+                                                                <span className="text-base">{getSubjectIcon(s)}</span>
+                                                                <span>{s}</span>
+                                                            </span>
+                                                        </SelectItem>
                                                     ))}
+                                                    <SelectItem value="Digər" className="font-semibold text-primary border-t mt-1 pt-1.5 cursor-pointer">
+                                                        <span className="flex items-center gap-2">
+                                                            <span>➕</span>
+                                                            <span>Digər (Yeni fənn yazın)...</span>
+                                                        </span>
+                                                    </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             {isCustomSubject && (
                                                 <FormControl>
                                                     <Input
                                                         placeholder="Fənn adını yazın..."
-                                                        value={field.value}
+                                                        value={field.value || ''}
                                                         onChange={(e) => field.onChange(e.target.value)}
+                                                        onBlur={(e) => {
+                                                            const val = e.target.value.trim();
+                                                            if (val) addCustomSubject(val);
+                                                        }}
                                                         autoFocus
                                                     />
                                                 </FormControl>
@@ -269,12 +276,12 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                 <FormDescription>Test zamanı arxa planda görünəcək şəkli seçin və ya yükləyin</FormDescription>
                                                 
                                                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 mb-4">
-                                                    {BACKGROUND_OPTIONS.map((bg) => (
+                                                    {BACKGROUND_PRESETS.map((bg) => (
                                                         <div 
                                                             key={bg.label} 
                                                             onClick={() => field.onChange(bg.value)}
-                                                            className={`relative cursor-pointer rounded-xl border-2 transition-all overflow-hidden h-24 flex items-center justify-center bg-cover bg-center ${field.value === bg.value ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}
-                                                            style={bg.value ? { backgroundImage: `url(${bg.value})` } : { backgroundColor: 'hsl(var(--muted))' }}
+                                                            className={`relative cursor-pointer rounded-xl border-2 transition-all overflow-hidden h-24 flex items-center justify-center bg-card ${field.value === bg.value ? 'border-primary ring-2 ring-primary/20 shadow-md' : 'border-border hover:border-primary/50'}`}
+                                                            style={bg.value ? { backgroundImage: `url(${bg.value})`, backgroundRepeat: 'repeat' } : { backgroundColor: 'hsl(var(--muted))' }}
                                                         >
                                                             <div className="absolute inset-x-0 bottom-0 bg-background/90 backdrop-blur-sm p-1.5 text-center text-[10px] font-medium border-t">
                                                                 {bg.label}
@@ -285,7 +292,7 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                     {/* Custom Upload */}
                                                     <div 
                                                         onClick={() => fileInputRef.current?.click()}
-                                                        className={`relative cursor-pointer rounded-xl border-2 border-dashed transition-all overflow-hidden h-24 flex flex-col items-center justify-center gap-1 ${field.value && !BACKGROUND_OPTIONS.some(b => b.value === field.value) ? 'border-primary ring-2 ring-primary/20 bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}
+                                                        className={`relative cursor-pointer rounded-xl border-2 border-dashed transition-all overflow-hidden h-24 flex flex-col items-center justify-center gap-1 ${field.value && !BACKGROUND_PRESETS.some(b => b.value === field.value) ? 'border-primary ring-2 ring-primary/20 bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/50'}`}
                                                     >
                                                         <input 
                                                             type="file" 

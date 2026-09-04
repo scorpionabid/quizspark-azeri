@@ -27,11 +27,25 @@ export function validateDraftQuestion(q: DraftQuestion): string | null {
       }
       return null;
 
-    case 'matching':
-      if (!Array.isArray(q.matching_pairs) || (q.matching_pairs as unknown[]).length === 0) {
+    case 'matching': {
+      const pairs = q.matching_pairs;
+      let hasValidPairs = false;
+
+      if (Array.isArray(pairs)) {
+        hasValidPairs = pairs.some(p => p && (typeof p === 'object' ? Boolean((p as { left?: string; right?: string }).left?.trim() || (p as { left?: string; right?: string }).right?.trim()) : true));
+      } else if (pairs && typeof pairs === 'object') {
+        hasValidPairs = Object.keys(pairs).length > 0;
+      }
+
+      if (!hasValidPairs && q.correct_answer && (q.correct_answer.includes(':') || q.correct_answer.includes('-'))) {
+        hasValidPairs = true;
+      }
+
+      if (!hasValidPairs) {
         return `Sual ${q.order_index + 1}: Uyğunlaşdırma cütləri daxil edilməyib`;
       }
       return null;
+    }
 
     case 'ordering':
       if (!q.sequence_items || q.sequence_items.length < 2) {

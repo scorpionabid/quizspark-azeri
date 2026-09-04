@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { QuestionAnswer, QUESTION_TYPES } from "@/types/question";
 import { Question } from "@/hooks/useQuestions";
 import { MathRenderer } from "@/components/common/MathRenderer";
+import { getQuizBackgroundStyle, isPatternBackground } from "@/lib/constants/quizBackground";
 
 interface QuizResultProps {
   score: number;
@@ -21,6 +22,7 @@ interface QuizResultProps {
   answers?: QuestionAnswer[];
   questions?: Question[];
   showDetailedReview?: boolean;
+  backgroundImageUrl?: string | null;
   onRetry: () => void;
   onHome: () => void;
 }
@@ -101,6 +103,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   answers = [],
   questions = [],
   showDetailedReview = true,
+  backgroundImageUrl,
   onRetry,
   onHome,
 }) => {
@@ -108,6 +111,9 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   const hasPassed = score >= passThreshold;
   const [reviewOpen, setReviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const isPattern = isPatternBackground(backgroundImageUrl);
+  const bgStyle = getQuizBackgroundStyle(backgroundImageUrl);
 
   const handleShare = () => {
     const text = `Quiz nəticəm: ${score}% (${correctAnswers} düzgün)\n\nSən də sına: ${window.location.href.split('?')[0]}`;
@@ -124,11 +130,24 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   };
 
   return (
-    <div className="flex-1 bg-gradient-hero p-4 sm:p-8 pb-32 sm:pb-8">
+    <div 
+      className="flex-1 bg-gradient-hero p-3 sm:p-8 pb-[max(2rem,env(safe-area-inset-bottom))] relative min-h-screen"
+      style={bgStyle}
+    >
+      {backgroundImageUrl && !isPattern && (
+        <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] pointer-events-none" />
+      )}
       {hasPassed && <ConfettiCanvas />}
 
-      <div className="mx-auto max-w-2xl">
-        <div className="animate-scale-in rounded-3xl bg-gradient-card border border-border/50 p-8 shadow-elevated text-center">
+      <div className="mx-auto max-w-2xl relative z-10">
+        <div className={cn(
+          "animate-scale-in rounded-3xl border border-border/50 p-8 shadow-elevated text-center",
+          backgroundImageUrl
+            ? isPattern
+              ? "bg-card/95 backdrop-blur-md border-border/80"
+              : "bg-card/90 backdrop-blur-md border-border/70"
+            : "bg-gradient-card"
+        )}>
           <div className="relative mx-auto mb-6 inline-block">
             <div className={cn(
               "flex h-24 w-24 items-center justify-center rounded-full",

@@ -9,6 +9,7 @@ import { UploadedDocument } from '@/components/ai/DocumentUploader';
 import { useCreateQuestionBank } from '@/hooks/useQuestionBank';
 import { AIParameters } from '@/components/ai/AIParametersPanel';
 import { SUBJECT_LABELS } from '@/lib/constants/subjects';
+import { saveStoredCustomSubject } from '@/hooks/useSubjects';
 import { convertToQuestionBankItem } from '@/utils/questionConverters';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -194,6 +195,10 @@ export function useAIAssistant() {
     const effectiveSubject = getEffectiveSubject();
     if (!effectiveSubject) { toast.error('Fənn seçin'); return; }
 
+    if (subject === 'custom' && customSubject.trim()) {
+      saveStoredCustomSubject(customSubject.trim());
+    }
+
     setIsGenerating(true);
     setError(null);
     setGeneratedQuestions([]);
@@ -261,6 +266,9 @@ export function useAIAssistant() {
   const handleAddBatchTopic = () => {
     const effectiveSubject = getEffectiveSubject();
     if (!topic.trim() || !effectiveSubject) { toast.error('Mövzu və fənn seçin'); return; }
+    if (subject === 'custom' && customSubject.trim()) {
+      saveStoredCustomSubject(customSubject.trim());
+    }
     setBatchTopics((prev) => [
       ...prev,
       { id: `batch-${Date.now()}`, topic: topic.trim(), subject, questionCount: getEffectiveCount() },

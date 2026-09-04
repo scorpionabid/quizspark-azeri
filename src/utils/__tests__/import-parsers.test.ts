@@ -257,6 +257,50 @@ Düzgün cavab: 1-b; 2-a`;
       expect(pairs['Prinsip']).toEqual(['Məsuliyyət']);
       expect(pairs['Müdafiə']).toEqual(['Dövlət']);
     });
+
+    it('should correctly parse and evaluate State Service matching question', () => {
+      const content = `Tip: matching
+Anlayışları izahları ilə uyğunlaşdırın:
+1. Dövlət Qulluğu
+2. İnzibati vəzifə
+3. Yardımçı vəzifə
+
+a) Dövlət orqanının struktur bölməsinin rəhbəri və ya mütəxəssisi
+b) Dövlət orqanının fəaliyyətini texniki təmin edən vəzifə
+c) Dövlətin məqsəd və funksiyalarının həyata keçirilməsi sahəsində qulluqçuların fəaliyyəti
+
+Cavab: 1-c; 2-a; 3-b`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      const q = result.questions[0];
+      expect(q.question_type).toBe('matching');
+      expect(q.matching_pairs).toBeDefined();
+      expect(q.matching_pairs!['Dövlət Qulluğu']).toBe('Dövlətin məqsəd və funksiyalarının həyata keçirilməsi sahəsində qulluqçuların fəaliyyəti');
+      expect(q.matching_pairs!['İnzibati vəzifə']).toBe('Dövlət orqanının struktur bölməsinin rəhbəri və ya mütəxəssisi');
+      expect(q.matching_pairs!['Yardımçı vəzifə']).toBe('Dövlət orqanının fəaliyyətini texniki təmin edən vəzifə');
+    });
+
+    it('should correctly parse questions with Azerbaijani suffixes (dates, formulas) as multiple_choice', () => {
+      const content = `# Azərbaycan Respublikasının Konstitusiyasının qəbul tarixi ilə bağlı hansı fikir doğrudur?
+A) 1995-ci il noyabrın 27-də referendumda qəbul edilmişdir.
+B) 1995-ci il noyabrın 12-də referendumda qəbul edilmişdir.
+
+Cavab: B
+
+---
+
+# Operator düsturu: $x \\Delta y = (x + y)^2 - 2xy$. $6 \\Delta 4$ tapın:
+A) 52
+B) 48
+
+Cavab: A`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(2);
+      expect(result.questions[0].question_type).toBe('multiple_choice');
+      expect(result.questions[0].correct_answer).toBe('1995-ci il noyabrın 12-də referendumda qəbul edilmişdir.');
+      expect(result.questions[1].question_type).toBe('multiple_choice');
+      expect(result.questions[1].correct_answer).toBe('52');
+    });
   });
 
 

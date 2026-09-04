@@ -7,7 +7,16 @@ import {
   warnIfMissingAnswer,
   buildMetaRE,
   ANSWER_META,
+  isMatchingBlock,
 } from './markdown-utils';
+
+import {
+  parseMatchingBlock,
+  parseOrderingBlock,
+  parseFillBlankBlock,
+  parseNumericalBlock,
+  parseCodeBlock,
+} from './markdown-type-parsers';
 
 const FORMAT_META_RE = buildMetaRE(ANSWER_META);
 
@@ -29,6 +38,58 @@ export function parseMarkdownFormat1(content: string): ParseResult {
     const lineOffset = content.split(block)[0].split('\n').length;
 
     if (!questionText) continue;
+
+    // Check if this block is a special question type (matching, fill_blank, ordering, etc.)
+    const tipLine = lines.find((l) => /^Tip\s*:/i.test(l));
+    const tipValue = tipLine ? tipLine.replace(/^Tip\s*:\s*/i, '').trim().toLowerCase() : '';
+    
+    if (isMatchingBlock(lines, tipValue)) {
+      const matchRes = parseMatchingBlock(lines, lineOffset);
+      if (matchRes.questions.length > 0) {
+        questions.push(...matchRes.questions);
+        warnings.push(...matchRes.warnings);
+        continue;
+      }
+    }
+
+    if (
+      ['fill_blank', 'fill blank', 'boşluq', 'bosluq'].some((t) => tipValue.includes(t)) ||
+      lines.some((l) => /___/.test(l) && !FORMAT_META_RE.test(l))
+    ) {
+      const fillRes = parseFillBlankBlock(lines, lineOffset);
+      if (fillRes.questions.length > 0) {
+        questions.push(...fillRes.questions);
+        warnings.push(...fillRes.warnings);
+        continue;
+      }
+    }
+
+    if (['ordering', 'ardıcıllıq', 'sıralama', 'siralama'].some((t) => tipValue.includes(t))) {
+      const orderRes = parseOrderingBlock(lines, lineOffset);
+      if (orderRes.questions.length > 0) {
+        questions.push(...orderRes.questions);
+        warnings.push(...orderRes.warnings);
+        continue;
+      }
+    }
+
+    if (['numerical', 'rəqəmsal', 'reqemsal'].some((t) => tipValue.includes(t))) {
+      const numRes = parseNumericalBlock(lines, lineOffset);
+      if (numRes.questions.length > 0) {
+        questions.push(...numRes.questions);
+        warnings.push(...numRes.warnings);
+        continue;
+      }
+    }
+
+    if (['code', 'kod'].some((t) => tipValue.includes(t)) || block.includes('```')) {
+      const codeRes = parseCodeBlock(lines, lineOffset);
+      if (codeRes.questions.length > 0) {
+        questions.push(...codeRes.questions);
+        warnings.push(...codeRes.warnings);
+        continue;
+      }
+    }
 
     const result: Partial<ParsedQuestion> = {
       question_text: questionText,
@@ -154,10 +215,14 @@ export function parseMarkdownFormat2(content: string): ParseResult {
 
     const optLines: string[] = [];
     const metaLines: string[] = [];
+    const hasLetterOptions = lines.slice(1).some((l) => /^[-*•]?\s*[A-Ha-h][).]\s+/.test(l));
+    const optionRE = hasLetterOptions
+      ? /^[-*•]?\s*([A-Ha-h])[).]\s+(.+)/
+      : /^[-*•]?\s*([A-Ha-h]|\d+)[).]\s+(.+)/;
 
     for (let i = 1; i < lines.length; i++) {
       const l = lines[i];
-      const optMatch = l.match(/^[-*•]?\s*([A-Ha-h])[).]\s+(.+)/);
+      const optMatch = l.match(optionRE);
       if (optMatch) {
         optLines.push(optMatch[2].trim());
       } else if (optLines.length === 0 && !FORMAT_META_RE.test(l)) {

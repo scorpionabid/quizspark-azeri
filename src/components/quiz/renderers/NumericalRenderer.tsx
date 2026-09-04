@@ -16,12 +16,12 @@ export const NumericalRenderer: React.FC<RendererProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-xs mx-auto">
+      <div className="relative max-w-xs mx-auto flex items-center justify-center">
         <Input
           type="number"
           inputMode="decimal"
           className={cn(
-            "h-16 text-2xl font-bold text-center border-2 border-primary/20 focus:border-primary rounded-2xl shadow-sm transition-all",
+            "h-14 sm:h-16 text-xl sm:text-2xl font-bold text-center border-2 border-primary/20 focus:border-primary rounded-2xl shadow-sm transition-all pr-10",
             showFeedback && (isCorrect ? "border-green-500 bg-green-50/50 text-green-700" : "border-red-400 bg-red-50/50 text-red-700")
           )}
           disabled={disabled || showFeedback}
@@ -30,7 +30,7 @@ export const NumericalRenderer: React.FC<RendererProps> = ({
           onChange={e => onChange(e.target.value)}
         />
         {showFeedback && (
-          <div className="absolute -right-10 top-1/2 -translate-y-1/2">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
             {isCorrect ? (
               <Check className="h-6 w-6 text-green-600" />
             ) : (

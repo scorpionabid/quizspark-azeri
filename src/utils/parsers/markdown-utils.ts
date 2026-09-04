@@ -6,7 +6,7 @@ import { ParseWarning } from './types';
  * Bütün blok parser-lərin paylaşdığı baza keyword dəsti.
  */
 const BASE_META =
-  'İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type';
+  'İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type|Şəkil|Sekil|Image|Photo|Media|Video|Model|3D|3d_model|Audio';
 
 /**
  * Cavab keyword-ləri — fill_blank, numerical, code, generic bloklar üçün.
@@ -34,6 +34,32 @@ export const HEADING_RE = /^#{1,6}\s+/;
 
 /** Hər hansı sual başlığı / prefix-i */
 export const QUESTION_PREFIX_RE = /^(?:#{1,6}|Sual|Q|Question)\s*[:.]?\s*(?:\d+\s*[-:.)]\s*)?(?:[^A-Za-z\u0400-\u04FF\u0250-\u02AF\u00C0-\u024F]*)*/i;
+
+/** Matching sualı üçün cavab pattern-i: "1-c; 2-a; 3-b" və ya "1-b, c; 2-a" */
+export const MATCHING_ANSWER_RE =
+  /^\d+\s*[-:]\s*[a-zA-Z](?:\s*[,،]\s*[a-zA-Z])*(?:\s*[;،]\s*\d+\s*[-:]\s*[a-zA-Z](?:\s*[,،]\s*[a-zA-Z])*)+$/;
+
+/** Bloqun uyğunlaşdırma (matching) olub olmadığını dəqiq yoxlayır */
+export function isMatchingBlock(lines: string[], tipValue?: string): boolean {
+  if (tipValue && ['matching', 'uyğunlaşdırma', 'uygunlashdirma'].some(t => tipValue.includes(t))) {
+    return true;
+  }
+
+  // Arrow pairs (ən azı 2 sətir)
+  const arrowLines = lines.filter(l => /^[^:]+\s*(?:→|->)\s*[^:]+$/.test(l.trim()));
+  if (arrowLines.length >= 2) return true;
+
+  // Cavab sətirində matching formatı: "1-c; 2-a; 3-b"
+  const answerLine = lines.find(l => /^(?:Cavab|Düzgün cavab|Doğru cavab|Answer|ANSWER)\s*:/i.test(l.trim()));
+  if (answerLine) {
+    const val = answerLine.replace(/^(?:Cavab|Düzgün cavab|Doğru cavab|Answer|ANSWER)\s*:\s*/i, '').trim();
+    if (MATCHING_ANSWER_RE.test(val)) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 // ─── Warning factory-ləri ─────────────────────────────────────────────────────
 

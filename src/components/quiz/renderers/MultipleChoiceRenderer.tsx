@@ -63,10 +63,22 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
             />
             <Label 
               htmlFor={`${question.id}-opt-${i}`} 
-              className="flex-1 cursor-pointer font-medium text-sm md:text-base"
+              className="flex-1 cursor-pointer font-medium text-sm md:text-base flex items-center"
               onClick={(e) => e.stopPropagation()}
             >
-              <MathRenderer text={opt} />
+              {!/^[A-Z][).]\s+/i.test(opt) && (
+                <span className={cn(
+                  "inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-bold mr-3 shrink-0 border transition-colors",
+                  isSelected 
+                    ? "bg-primary text-primary-foreground border-primary" 
+                    : "bg-muted/60 text-muted-foreground border-border/60"
+                )}>
+                  {String.fromCharCode(65 + i)}
+                </span>
+              )}
+              <span className="flex-1">
+                <MathRenderer text={opt} />
+              </span>
             </Label>
             
             {showFeedback && (

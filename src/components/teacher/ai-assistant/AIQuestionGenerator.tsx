@@ -14,7 +14,8 @@ import { AgentSelector } from "@/components/ai/AgentSelector";
 import { Agent } from "@/components/ai/AgentCard";
 import { AIParametersPanel, AIParameters } from "@/components/ai/AIParametersPanel";
 import { GenerationStats } from "@/components/ai/GenerationStats";
-import { SUBJECT_OPTIONS, SUBJECT_LABELS, QUESTION_TYPES } from "@/lib/constants/subjects";
+import { SUBJECT_OPTIONS, SUBJECT_LABELS, QUESTION_TYPES, getSubjectIcon } from "@/lib/constants/subjects";
+import { useSubjects } from "@/hooks/useSubjects";
 import { getBloomLevels } from "@/components/ai/BloomLevelBadge";
 import { PromptTemplate } from "@/components/ai/TemplateLibrary";
 
@@ -80,6 +81,8 @@ export function AIQuestionGenerator({
     isGenerating, batchProgress, error,
     selectedAgent, suggestedTopics
 }: AIQuestionGeneratorProps) {
+    const { subjects: allSubjects, addCustomSubject } = useSubjects();
+
     return (
         <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
             <div className="grid gap-6">
@@ -184,14 +187,25 @@ export function AIQuestionGenerator({
                     {/* Subject */}
                     <div>
                         <Label>Fənn *</Label>
-                        <Select value={subject || "no-selection"} onValueChange={(v) => setSubject(v === "no-selection" ? "" : v)}>
+                        <Select value={subject || "no-selection"} onValueChange={(v) => {
+                            if (v === "no-selection") {
+                                setSubject("");
+                            } else {
+                                setSubject(v);
+                            }
+                        }}>
                             <SelectTrigger className="mt-2">
                                 <SelectValue placeholder="Seçin" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="no-selection" disabled>Seçin</SelectItem>
-                                {SUBJECT_OPTIONS.map((s) => (
-                                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                                {allSubjects.map((s) => (
+                                    <SelectItem key={s} value={s}>
+                                        <div className="flex items-center gap-2">
+                                            <span>{getSubjectIcon(s)}</span>
+                                            <span>{SUBJECT_LABELS[s] || s}</span>
+                                        </div>
+                                    </SelectItem>
                                 ))}
                                 <SelectItem value="custom">Xüsusi fənn...</SelectItem>
                             </SelectContent>
@@ -200,6 +214,11 @@ export function AIQuestionGenerator({
                             <Input
                                 value={customSubject}
                                 onChange={(e) => setCustomSubject(e.target.value)}
+                                onBlur={() => {
+                                    if (customSubject.trim()) {
+                                        addCustomSubject(customSubject.trim());
+                                    }
+                                }}
                                 placeholder="Fənn adını yazın"
                                 className="mt-1"
                             />
