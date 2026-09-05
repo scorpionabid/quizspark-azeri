@@ -454,8 +454,12 @@ export function useBulkCreateQuestionBank() {
         user_id: userId,
       }));
 
-      // 1. Mövcud sualları oxuyuruq (Sual mətni üzrə xəritələndirmə)
-      let fetchQuery = supabase.from('question_bank').select('id, question_text');
+      // 1. Mövcud sualları oxuyuruq (Sual mətni və düzgün cavab üzrə kompozit xəritələndirmə)
+      let fetchQuery = supabase
+        .from('question_bank')
+        .select('id, question_text, correct_answer')
+        .range(0, 4999);
+
       if (userId) {
         fetchQuery = fetchQuery.eq('user_id', userId);
       }
@@ -465,20 +469,23 @@ export function useBulkCreateQuestionBank() {
       }
 
       const normalize = (t: string) => t.replace(/\s+/g, ' ').trim().toLowerCase();
-      const normalizeFirstLine = (t: string) => (t.split('\n')[0] || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      const existingMap = new Map<string, string>();
-      const firstLineMap = new Map<string, string>();
+      const compositeMap = new Map<string, string[]>();
+      const textMap = new Map<string, string[]>();
+
       if (existingData) {
         for (const item of existingData) {
           if (item.question_text) {
-            const key = normalize(item.question_text);
-            const flKey = normalizeFirstLine(item.question_text);
-            if (!existingMap.has(key)) {
-              existingMap.set(key, item.id);
-            }
-            if (!firstLineMap.has(flKey)) {
-              firstLineMap.set(flKey, item.id);
-            }
+            const textKey = normalize(item.question_text);
+            const ansKey = normalize(item.correct_answer || '');
+            const compKey = `${textKey}:::${ansKey}`;
+
+            const compList = compositeMap.get(compKey) || [];
+            compList.push(item.id);
+            compositeMap.set(compKey, compList);
+
+            const textList = textMap.get(textKey) || [];
+            textList.push(item.id);
+            textMap.set(textKey, textList);
           }
         }
       }
@@ -486,12 +493,30 @@ export function useBulkCreateQuestionBank() {
       type QuestionPayload = Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'> & { user_id: string | null };
       const toUpdate: { id: string; item: QuestionPayload }[] = [];
       const toInsert: QuestionPayload[] = [];
+      const usedIds = new Set<string>();
 
       for (const q of questionsWithUser) {
-        const key = normalize(q.question_text || '');
-        const flKey = normalizeFirstLine(q.question_text || '');
-        const matchedId = existingMap.get(key) || firstLineMap.get(flKey);
+        const textKey = normalize(q.question_text || '');
+        const ansKey = normalize(q.correct_answer || '');
+        const compKey = `${textKey}:::${ansKey}`;
+
+        // 1-ci seçim: Kompozit açar (mətni və düzgün cavabı dəqiq eyni olan)
+        let matchedId: string | undefined;
+        const compCandidates = compositeMap.get(compKey);
+        if (compCandidates) {
+          matchedId = compCandidates.find((id) => !usedIds.has(id));
+        }
+
+        // 2-ci seçim: Əgər cavab dəyişibsə, mətni eyni olan istifadə edilməmiş sətri tapırıq
+        if (!matchedId) {
+          const textCandidates = textMap.get(textKey);
+          if (textCandidates) {
+            matchedId = textCandidates.find((id) => !usedIds.has(id));
+          }
+        }
+
         if (matchedId) {
+          usedIds.add(matchedId);
           toUpdate.push({ id: matchedId, item: q });
         } else {
           toInsert.push(q);
@@ -538,6 +563,8 @@ export function useBulkCreateQuestionBank() {
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-stats'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['quizzes'] });
       if (data.updatedCount > 0 && data.insertedCount > 0) {
         toast.success(`${data.updatedCount} sual yeniləndi (üzərinə yazıldı), ${data.insertedCount} yeni sual əlavə edildi`);
       } else if (data.updatedCount > 0) {

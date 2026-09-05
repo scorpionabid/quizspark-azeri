@@ -30,6 +30,23 @@ Izahat: Bu bir izahdır`;
       const result = parseMarkdownFull(content);
       expect(result.questions).toHaveLength(1);
       expect(result.questions[0].correct_answer).toBe('Düzgün');
+      expect(result.questions[0].explanation).toBe('Bu bir izahdır');
+    });
+
+    it('should correctly parse Azerbaijani İzahat without confusing with option A', () => {
+      const content = `# Sual 2
+A) Variant 1
+B) Variant 2
+C) Düzgün variant
+D) Variant 4
+
+Cavab: C
+İzahat: Bu Qanunun 18-ci maddəsinə əsasən doğrudur.`;
+      const result = parseMarkdownFull(content);
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0].correct_answer).toBe('Düzgün variant');
+      expect(result.questions[0].explanation).toBe('Bu Qanunun 18-ci maddəsinə əsasən doğrudur.');
+      expect(result.questions[0].per_option_explanations?.['0']).toBeUndefined();
     });
 
     it('should parse Format 2 (Numbered + Variants) via single block fallback', () => {

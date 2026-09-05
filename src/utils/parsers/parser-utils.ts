@@ -91,7 +91,7 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
   for (const line of lines) {
     const clean = line.trim();
     const metaMatch = clean.match(
-      /^(İzah\s*\(?[A-Z\d]\)?|Izah\s*\(?[A-Z\d]\)?|İzahat\s*\(?[A-Z\d]\)?|Izahat\s*\(?[A-Z\d]\)?|Explanation\s*\(?[A-Z\d]\)?|Açıqlama\s*\(?[A-Z\d]\)?|İpucu|Ipucu|Hint|İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language|Şəkil|Sekil|Image|Photo|Video|Model|3D|3d_model|Audio|Media)\s*[-:]?\s*(.+)$/i,
+      /^(İzahat(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Izahat(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|İzah(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Izah(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Explanation(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Açıqlama(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|İzahat|Izahat|İzah|Izah|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language|Şəkil|Sekil|Image|Photo|Video|Model|3D|3d_model|Audio|Media)\s*[-:]?\s*(.+)$/i,
     );
     if (!metaMatch) continue;
     const keyRaw = metaMatch[1];
@@ -99,7 +99,7 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
     const value = metaMatch[2].trim();
 
     // Check for per-option explanation: "İzah A", "İzahat A", "İzah (B)", etc.
-    const perOptMatch = keyRaw.match(/^(?:İzah|Izah|İzahat|Izahat|Explanation|Açıqlama)\s*\(?([A-Z\d])\)?$/i);
+    const perOptMatch = keyRaw.match(/^(?:İzahat|Izahat|İzah|Izah|Explanation|Açıqlama)(?:\s+\(?|\()([A-Za-z\d])\)?$/i);
     if (perOptMatch) {
       const optionRef = perOptMatch[1].toUpperCase();
       let indexKey = '';
