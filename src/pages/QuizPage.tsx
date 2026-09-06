@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 
 // Quiz Sub-components
 import { QuizIntro } from "@/components/quiz/QuizIntro";
-import { QuizPlaying } from "@/components/quiz/QuizPlaying";
+import { QuizPlaying, PageNavStatus } from "@/components/quiz/QuizPlaying";
 import { QuizResult } from "@/components/quiz/QuizResult";
 
 // Types
@@ -164,13 +164,16 @@ export default function QuizPage() {
       transitionTimeoutRef.current = null;
     }
     if (currentPage < totalPages - 1) {
-      setCurrentPage(prev => prev + 1);
-      setShowFeedback(false);
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      const targetSlice = displayQuestions.slice(nextPage * questionsPerPage, (nextPage + 1) * questionsPerPage);
+      const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => latestAnswers.some(a => a.questionId === q.id));
+      setShowFeedback(isAlreadyAnswered && (quiz?.feedback_timing === 'instant' || quiz?.show_feedback));
       setShowHint({});
     } else {
       await completeQuizWithAnswers(latestAnswers);
     }
-  }, [currentPage, totalPages, completeQuizWithAnswers]);
+  }, [currentPage, totalPages, completeQuizWithAnswers, displayQuestions, questionsPerPage, quiz]);
 
   const handlePageSubmit = useCallback(async (overrideAnswers?: Record<string, string>) => {
     if (showFeedback || pageQuestions.length === 0) return;
@@ -480,11 +483,26 @@ export default function QuizPage() {
     });
   };
 
-  const getPageStatus = (pageIdx: number) => {
-    if (pageIdx === currentPage) return 'current';
+  const getPageStatus = (pageIdx: number): PageNavStatus => {
     const pageSlice = displayQuestions.slice(pageIdx * questionsPerPage, (pageIdx + 1) * questionsPerPage);
-    const answeredCount = pageSlice.filter(q => answers.some(a => a.questionId === q.id)).length;
-    if (answeredCount === pageSlice.length) return 'completed';
+    if (pageSlice.length === 0) return 'pending';
+
+    const pageAnswers = pageSlice
+      .map(q => answers.find(a => a.questionId === q.id))
+      .filter((a): a is Answer => Boolean(a));
+
+    const isAllAnswered = pageAnswers.length === pageSlice.length;
+
+    if (isAllAnswered) {
+      const showCorrectness = quiz?.feedback_timing === 'instant' || quiz?.show_feedback;
+      if (showCorrectness) {
+        const allCorrect = pageAnswers.every(a => a.isCorrect);
+        return allCorrect ? 'correct' : 'incorrect';
+      }
+      return 'completed';
+    }
+
+    if (pageIdx === currentPage) return 'current';
     return 'pending';
   };
 
@@ -525,12 +543,17 @@ export default function QuizPage() {
         handlePageSubmit={handlePageSubmit}
         handleNextPage={() => handleNextPageInternal(answers)}
         handlePrevPage={() => {
-            setCurrentPage(prev => Math.max(0, prev - 1));
-            setShowFeedback(false);
+            const prevPage = Math.max(0, currentPage - 1);
+            setCurrentPage(prevPage);
+            const targetSlice = displayQuestions.slice(prevPage * questionsPerPage, (prevPage + 1) * questionsPerPage);
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => answers.some(a => a.questionId === q.id));
+            setShowFeedback(isAlreadyAnswered && (quiz?.feedback_timing === 'instant' || quiz?.show_feedback));
         }}
         jumpToPage={(idx) => {
             setCurrentPage(idx);
-            setShowFeedback(false);
+            const targetSlice = displayQuestions.slice(idx * questionsPerPage, (idx + 1) * questionsPerPage);
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => answers.some(a => a.questionId === q.id));
+            setShowFeedback(isAlreadyAnswered && (quiz?.feedback_timing === 'instant' || quiz?.show_feedback));
         }}
         onExit={() => navigate('/')}
         feedbackEnabled={feedbackEnabled}

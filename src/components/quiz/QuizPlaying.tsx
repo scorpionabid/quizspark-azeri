@@ -27,6 +27,8 @@ import { QUESTION_TYPES } from "@/types/question";
 import { MathRenderer } from "@/components/common/MathRenderer";
 import { getQuizBackgroundStyle, isPatternBackground } from "@/lib/constants/quizBackground";
 
+export type PageNavStatus = 'current' | 'correct' | 'incorrect' | 'completed' | 'pending';
+
 interface QuizPlayingProps {
   quiz: Quiz;
   currentPage: number;
@@ -48,7 +50,7 @@ interface QuizPlayingProps {
   feedbackEnabled?: boolean;
   bookmarkedQuestions: Set<string>;
   toggleBookmark: (id: string) => void;
-  getPageStatus: (pageIdx: number) => 'current' | 'completed' | 'pending';
+  getPageStatus: (pageIdx: number) => PageNavStatus;
 }
 
 export const QuizPlaying: React.FC<QuizPlayingProps> = ({
@@ -164,10 +166,20 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     setIsMobileMenuOpen(false);
                   }}
                   className={cn(
-                      "h-10 rounded-lg flex items-center justify-center font-medium text-sm transition-all border-2",
-                      isCurrent ? "border-primary bg-primary/10 text-primary shadow-sm" : 
-                      status === 'completed' ? "border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400" :
-                      "border-transparent bg-muted text-muted-foreground hover:bg-border",
+                      "h-10 rounded-lg flex items-center justify-center font-medium text-sm transition-all border-2 relative",
+                      // 1. Düzgün cavablandırılmış (Yaşıl)
+                      status === 'correct' && "border-green-500/60 bg-green-500/15 text-green-700 dark:text-green-400 hover:bg-green-500/25",
+                      // 2. Səhv cavablandırılmış (Qırmızı)
+                      status === 'incorrect' && "border-destructive/60 bg-destructive/15 text-destructive dark:text-red-400 hover:bg-destructive/25",
+                      // 3. Standart tamamlanmış (İmtahan rejimində nəticə hələ gizli saxlananda)
+                      status === 'completed' && "border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20",
+                      // 4. Cari aktiv səhifə (hələ cavab verilməyibsə)
+                      status === 'current' && "border-primary bg-primary/10 text-primary shadow-sm",
+                      // 5. Gözləyən (cavablandırılmamış)
+                      status === 'pending' && "border-transparent bg-muted text-muted-foreground hover:bg-border hover:text-foreground",
+                      // Cari sual aktiv halqası (ring)
+                      isCurrent && "ring-2 ring-primary ring-offset-2 ring-offset-background font-bold shadow-md",
+                      // Geri qayıtmağa icazə verilməyən halda
                       (!quiz.allow_backtracking && idx < currentPage) && "opacity-50 cursor-not-allowed hover:bg-muted"
                   )}
               >
@@ -175,6 +187,36 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
               </button>
           );
       })}
+    </div>
+  );
+
+  const MapLegend = () => (
+    <div className="mt-6 grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-4 border-t border-border/40">
+      <div className="flex items-center gap-2">
+        <div className="w-3.5 h-3.5 rounded bg-primary/20 border-2 border-primary ring-1 ring-primary/40 shrink-0"></div>
+        <span>Cari Sual</span>
+      </div>
+      {isInstantFeedback || quiz.show_feedback ? (
+        <>
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 rounded bg-green-500/20 border-2 border-green-500/60 shrink-0"></div>
+            <span className="text-green-700 dark:text-green-400 font-medium">Düzgün</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 rounded bg-destructive/20 border-2 border-destructive/60 shrink-0"></div>
+            <span className="text-destructive dark:text-red-400 font-medium">Səhv</span>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 rounded bg-green-500/20 border-2 border-green-500/50 shrink-0"></div>
+          <span>Cavablandırılmış</span>
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <div className="w-3.5 h-3.5 rounded bg-muted border border-border shrink-0"></div>
+        <span>Gözləyən</span>
+      </div>
     </div>
   );
 
@@ -228,6 +270,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                           </SheetTitle>
                         </SheetHeader>
                         <MapGrid />
+                        <MapLegend />
                       </SheetContent>
                    </Sheet>
                   )}
@@ -481,20 +524,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                         <h2>Sual Xəritəsi</h2>
                     </div>
                     <MapGrid />
-                    <div className="mt-6 space-y-2 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded bg-primary/20 border border-primary"></div>
-                            Cari Səhifə
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded bg-green-500/20 border border-green-500/50"></div>
-                            Tamamlanmış
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded bg-muted"></div>
-                            Gözləyən
-                        </div>
-                    </div>
+                    <MapLegend />
                 </div>
             </div>
         )}
