@@ -10,7 +10,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowUpDown, ArrowUp, ArrowDown, Edit, Trash2, Copy, MoreHorizontal, Eye, Image, Star, Share2 } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Edit, Trash2, Copy, MoreHorizontal, Eye, Image, Star, Share2, BookOpen, MessageSquare, Flag } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -231,6 +231,22 @@ export function QuestionTable({
                 </div>
               )}
 
+              {/* Quiz Badges if any */}
+              {question.quizzes && question.quizzes.length > 0 && (
+                <div className="flex gap-1 flex-wrap pt-0.5">
+                  {question.quizzes.map((qz) => (
+                    <Badge
+                      key={qz.id}
+                      variant="outline"
+                      className="text-[10px] bg-primary/5 text-primary border-primary/20 gap-1 px-1.5 py-0"
+                    >
+                      <BookOpen className="w-2.5 h-2.5" />
+                      <span className="truncate max-w-[180px]">{qz.title}</span>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
               {/* Card Meta Badges */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
                 <Badge className={cn('text-[11px] px-2 py-0.5', getDifficultyColor(question.difficulty))}>
@@ -244,6 +260,21 @@ export function QuestionTable({
                 <span className="text-muted-foreground text-[11px]">
                   {getTypeInfo(question.question_type).label}
                 </span>
+
+                {/* Feedback / Issue indicators */}
+                {question.issues_count && question.issues_count > 0 ? (
+                  <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 bg-red-500/10 text-red-600 border-red-200 dark:border-red-800 font-semibold">
+                    <Flag className="w-2.5 h-2.5" />
+                    {question.issues_count} xəta
+                  </Badge>
+                ) : null}
+
+                {question.feedbacks_count && question.feedbacks_count > 0 ? (
+                  <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800 font-medium">
+                    <MessageSquare className="w-2.5 h-2.5" />
+                    {question.feedbacks_count} rəy
+                  </Badge>
+                ) : null}
 
                 <span className="text-muted-foreground text-[11px] font-mono ml-auto">
                   ×{question.weight ?? 1.0} xal
@@ -321,6 +352,23 @@ export function QuestionTable({
                         </div>
                       </div>
                     </div>
+
+                    {/* Quizzes Badges */}
+                    {question.quizzes && question.quizzes.length > 0 && (
+                      <div className="flex gap-1 flex-wrap mt-1">
+                        {question.quizzes.map((qz) => (
+                          <Badge
+                            key={qz.id}
+                            variant="outline"
+                            className="text-[10px] bg-primary/5 text-primary border-primary/20 gap-1 px-1.5 py-0"
+                          >
+                            <BookOpen className="w-2.5 h-2.5" />
+                            <span className="truncate max-w-[220px]">{qz.title}</span>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="flex gap-1 flex-wrap mt-1">
                       {question.media_type && (
                         <Badge variant="outline" className="text-xs gap-1">
@@ -353,14 +401,30 @@ export function QuestionTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center whitespace-nowrap">
-                  {question.quality_score ? (
-                    <span className="flex justify-center items-center text-sm font-medium gap-1 text-yellow-600">
-                      <Star className="w-3 h-3 fill-current" /> {Number(question.quality_score).toFixed(1)}
-                      <span className="text-xs text-muted-foreground ml-1">({question.usage_count || 0})</span>
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
-                  )}
+                  <div className="flex flex-col items-center gap-1">
+                    {question.issues_count && question.issues_count > 0 ? (
+                      <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 bg-red-500/10 text-red-600 border-red-200 dark:border-red-800 font-semibold">
+                        <Flag className="w-2.5 h-2.5" />
+                        {question.issues_count} xəta
+                      </Badge>
+                    ) : null}
+
+                    {question.feedbacks_count && question.feedbacks_count > 0 ? (
+                      <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800 font-medium">
+                        <MessageSquare className="w-2.5 h-2.5" />
+                        {question.feedbacks_count} rəy
+                      </Badge>
+                    ) : null}
+
+                    {question.quality_score ? (
+                      <span className="flex justify-center items-center text-sm font-medium gap-1 text-yellow-600">
+                        <Star className="w-3 h-3 fill-current" /> {Number(question.quality_score).toFixed(1)}
+                        <span className="text-xs text-muted-foreground ml-0.5">({question.usage_count || 0})</span>
+                      </span>
+                    ) : !question.feedbacks_count && !question.issues_count ? (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="font-normal">

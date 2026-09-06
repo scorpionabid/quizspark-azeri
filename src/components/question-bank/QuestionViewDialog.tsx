@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
-import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box, ListChecks, GitMerge, ListOrdered, Underline, Hash, Star, Flag, MessageSquare } from 'lucide-react';
+import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box, ListChecks, GitMerge, ListOrdered, Underline, Hash, Star, Flag, MessageSquare, BookOpen } from 'lucide-react';
 import { QUESTION_TYPES } from '@/types/question';
 import { QuestionVideoPlayer } from './QuestionVideoPlayer';
 import { Question3DViewer } from './Question3DViewer';
@@ -66,7 +66,7 @@ export function QuestionViewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Sual Detalları</DialogTitle>
           <DialogDescription className="sr-only">
@@ -101,6 +101,23 @@ export function QuestionViewDialog({
               </Badge>
             )}
           </div>
+
+          {/* Quizzes it belongs to */}
+          {question.quizzes && question.quizzes.length > 0 && (
+            <div className="p-2.5 rounded-lg border border-primary/20 bg-primary/5 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Daxil Olduğu Quizlər ({question.quizzes.length})</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {question.quizzes.map((qz) => (
+                  <Badge key={qz.id} variant="secondary" className="text-xs bg-card border border-border/70">
+                    {qz.title}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Separator />
 

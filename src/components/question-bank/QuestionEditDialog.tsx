@@ -19,10 +19,15 @@ import {
   Crosshair,
   AlertCircle,
   BookMarked,
+  Star,
+  MessageSquare,
+  Flag,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { QuestionBankItem, useCreateQuestionBank } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, useCreateQuestionCategory } from '@/hooks/useQuestionCategories';
+import { useQuestionFeedbacks } from '@/hooks/useQuizFeedback';
 import {
   Tabs,
   TabsList,
@@ -67,6 +72,7 @@ export function QuestionEditDialog({
   const { data: dbCategories = [] } = useQuestionCategories();
   const createCategory = useCreateQuestionCategory();
   const createQuestionBank = useCreateQuestionBank();
+  const { data: feedbacks = [] } = useQuestionFeedbacks(question?.id, true);
   const [newCategory, setNewCategory] = useState('');
   const [pasteMode, setPasteMode] = useState(false);
   const [saveToBank, setSaveToBank] = useState(false);
@@ -161,6 +167,44 @@ export function QuestionEditDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Feedback & Error Reports Callout Banner */}
+          {mode === 'edit' && feedbacks.length > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-amber-800 dark:text-amber-400 font-semibold">
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+                  <span>Bu suala bildirilən tələbə rəy və qüsurları ({feedbacks.length})</span>
+                </div>
+                <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/30 text-[10px]">
+                  Düzəliş tələb edə bilər
+                </Badge>
+              </div>
+              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                {feedbacks.map((f) => (
+                  <div key={f.id} className="rounded-lg border border-border/70 bg-card p-2 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-foreground">{f.student_name}</span>
+                      <div className="flex items-center gap-1 text-yellow-500 font-bold text-[11px]">
+                        <Star className="h-3 w-3 fill-current" />
+                        <span>{f.rating}</span>
+                        {f.issue_type && (
+                          <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0 border-red-200 text-red-600 bg-red-50 dark:bg-red-950/20">
+                            {f.issue_type === 'error' ? '🚩 Xəta Bildirilib' : f.issue_type === 'confusing' ? '❓ Anlaşılmaz' : f.issue_type}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    {f.comment && (
+                      <p className="italic text-muted-foreground bg-muted/40 p-1.5 rounded text-[11px]">
+                        &quot;{f.comment}&quot;
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {pasteMode ? (
             <QuestionImportSection onParse={handleParse} isParsing={isParsing} />
           ) : (

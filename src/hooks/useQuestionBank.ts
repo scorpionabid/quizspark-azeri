@@ -47,6 +47,15 @@ export interface QuestionBankItem {
   shared_by_name?: string | null;
   shared_by_avatar?: string | null;
   shared_at?: string | null;
+  // Quizzes and feedback stats
+  quizzes?: QuestionQuizInfo[];
+  feedbacks_count?: number;
+  issues_count?: number;
+}
+
+export interface QuestionQuizInfo {
+  id: string;
+  title: string;
 }
 
 export interface TeacherProfile {
@@ -76,6 +85,8 @@ export interface QuestionFilters {
   quality_score_min?: number;
   has_video?: boolean;
   has_3d_model?: boolean;
+  quiz_id?: string;
+  feedback_status?: 'all' | 'has_feedback' | 'has_issues';
 }
 
 export interface PaginationParams {
@@ -146,7 +157,11 @@ export function useQuestionBankList(
           .from('question_bank_shares')
           .select(
             `id, message, created_at,
-             question:question_bank(*),
+             question:question_bank(
+               *,
+               questions(id, quiz_id, quizzes:quiz_id(id, title)),
+               question_ratings(id, rating, issue_type, comment)
+             ),
              sharer:profiles!question_bank_shares_shared_by_fkey(full_name, avatar_url)`,
             { count: 'exact' }
           )
@@ -157,18 +172,32 @@ export function useQuestionBankList(
 
         if (sharesError) throw sharesError;
 
-        const questions: QuestionBankItem[] = (sharesData ?? []).map((row: {
-          id: string;
-          message: string | null;
-          created_at: string;
-          question: Record<string, unknown>;
-          sharer: { full_name?: string | null; avatar_url?: string | null } | null;
-        }) => ({
-          ...(row.question as unknown as QuestionBankItem),
-          shared_by_name: row.sharer?.full_name ?? null,
-          shared_by_avatar: row.sharer?.avatar_url ?? null,
-          shared_at: row.created_at,
-        }));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const questions: QuestionBankItem[] = (sharesData ?? []).map((row: any) => {
+          const qObj = row.question || {};
+          const quizzesMap = new Map<string, QuestionQuizInfo>();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (qObj.questions || []).forEach((q: any) => {
+            if (q.quizzes?.id && q.quizzes?.title) {
+              quizzesMap.set(q.quizzes.id, { id: q.quizzes.id, title: q.quizzes.title });
+            }
+          });
+          const quizzes = Array.from(quizzesMap.values());
+          const ratings = qObj.question_ratings || [];
+          const feedbacks_count = ratings.length;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const issues_count = ratings.filter((r: any) => r.issue_type === 'error' || r.issue_type === 'confusing').length;
+
+          return {
+            ...(qObj as unknown as QuestionBankItem),
+            quizzes,
+            feedbacks_count,
+            issues_count,
+            shared_by_name: row.sharer?.full_name ?? null,
+            shared_by_avatar: row.sharer?.avatar_url ?? null,
+            shared_at: row.created_at,
+          };
+        });
 
         return {
           questions,
@@ -178,6 +207,16 @@ export function useQuestionBankList(
       }
 
       // Default: 'my-questions' — own questions only (RLS handles it)
+      const quizJoin = filters.quiz_id
+        ? 'questions!inner(id, quiz_id, quizzes:quiz_id(id, title))'
+        : 'questions(id, quiz_id, quizzes:quiz_id(id, title))';
+
+      const ratingsJoin = filters.feedback_status === 'has_issues'
+        ? 'question_ratings!inner(id, rating, issue_type, comment)'
+        : filters.feedback_status === 'has_feedback'
+        ? 'question_ratings!inner(id, rating, issue_type, comment)'
+        : 'question_ratings(id, rating, issue_type, comment)';
+
       let query = supabase
         .from('question_bank')
         .select(`
@@ -188,7 +227,9 @@ export function useQuestionBankList(
           video_url, video_start_time, video_end_time, model_3d_url, model_3d_type,
           hotspot_data, matching_pairs, sequence_items, fill_blank_template,
           numerical_answer, numerical_tolerance, correct_option_indices,
-          feedback_enabled, quality_score, usage_count
+          feedback_enabled, quality_score, usage_count,
+          ${quizJoin},
+          ${ratingsJoin}
         `, { count: 'exact' });
 
       // Apply sorting
@@ -201,6 +242,12 @@ export function useQuestionBankList(
       query = query.range(from, to);
 
       // Apply filters
+      if (filters.quiz_id) {
+        query = query.eq('questions.quiz_id', filters.quiz_id);
+      }
+      if (filters.feedback_status === 'has_issues') {
+        query = query.in('question_ratings.issue_type', ['error', 'confusing']);
+      }
       if (filters.category && filters.category !== 'all') {
         query = query.eq('category', filters.category);
       }
@@ -227,8 +274,31 @@ export function useQuestionBankList(
 
       if (error) throw error;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const questions: QuestionBankItem[] = (data || []).map((row: any) => {
+        const quizzesMap = new Map<string, QuestionQuizInfo>();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (row.questions || []).forEach((q: any) => {
+          if (q.quizzes?.id && q.quizzes?.title) {
+            quizzesMap.set(q.quizzes.id, { id: q.quizzes.id, title: q.quizzes.title });
+          }
+        });
+        const quizzes = Array.from(quizzesMap.values());
+        const ratings = row.question_ratings || [];
+        const feedbacks_count = ratings.length;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const issues_count = ratings.filter((r: any) => r.issue_type === 'error' || r.issue_type === 'confusing').length;
+
+        return {
+          ...row,
+          quizzes,
+          feedbacks_count,
+          issues_count,
+        };
+      });
+
       return {
-        questions: data as unknown as QuestionBankItem[],
+        questions,
         totalCount: count || 0,
         totalPages: Math.ceil((count || 0) / pageSize),
       };
