@@ -120,20 +120,8 @@ export function useQuizFeedbacks(quizId?: string) {
     queryFn: async () => {
       if (!quizId) return [];
 
-      // First get all questions in this quiz
-      const { data: questions, error: qErr } = await supabase
-        .from('questions')
-        .select('id, title, question_text')
-        .eq('quiz_id', quizId);
-
-      if (qErr) throw qErr;
-      if (!questions || questions.length === 0) return [];
-
-      const questionIds = questions.map(q => q.id);
-      const questionMap = new Map(questions.map(q => [q.id, q]));
-
-      // Get ratings for these questions
-      const { data: ratings, error: rErr } = await supabase
+      // Query question_ratings joining questions on quiz_id directly
+      const { data: ratings, error } = await supabase
         .from('question_ratings')
         .select(`
           id,
@@ -144,16 +132,25 @@ export function useQuizFeedbacks(quizId?: string) {
           issue_type,
           comment,
           created_at,
-          profiles:user_id(full_name, avatar_url)
+          questions!inner (
+            id,
+            title,
+            question_text,
+            quiz_id
+          ),
+          profiles:user_id (
+            full_name,
+            avatar_url
+          )
         `)
-        .in('quiz_question_id', questionIds)
+        .eq('questions.quiz_id', quizId)
         .order('created_at', { ascending: false });
 
-      if (rErr) throw rErr;
+      if (error) throw error;
 
       return (ratings || []).map(r => {
         const profile = r.profiles as unknown as { full_name?: string; avatar_url?: string } | null;
-        const qInfo = r.quiz_question_id ? questionMap.get(r.quiz_question_id) : undefined;
+        const qInfo = (r as unknown as { questions?: { id?: string; title?: string; question_text?: string } }).questions;
 
         return {
           id: r.id,
