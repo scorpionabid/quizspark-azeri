@@ -50,6 +50,7 @@ Layihə kontekstini təmiz saxlamaq üçün Antigravity **Progressive Disclosure
 - **State & Hook Tapşırıqları:** `src/hooks/AGENTS.md`
 - **Tələb Dəqiqləşdirmə:** `skills/vibe-refiner/SKILL.md`
 - **QA & Testlər:** `skills/quiz-qa-automator/SKILL.md`
+- **Sual & Testologiya Auditi:** `skills/quiz-question-auditor/SKILL.md`
 
 ### İcra Rejimləri:
 - **Micro-tasks (Kiçik düzəlişlər):** Birbaşa redaktə + dərhal `tsc` yoxlanışı.

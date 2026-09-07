@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, BookOpen, Share2 } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
+import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, BookOpen, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 import { QuestionAnswer, QUESTION_TYPES } from "@/types/question";
 import { Question } from "@/hooks/useQuestions";
 import { MathRenderer } from "@/components/common/MathRenderer";
@@ -107,6 +109,8 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   onRetry,
   onHome,
 }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const showWeighted = earnedPoints !== undefined && maxPoints !== undefined && maxPoints !== totalQuestions;
   const hasPassed = score >= passThreshold;
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -247,6 +251,28 @@ export const QuizResult: React.FC<QuizResultProps> = ({
               {copied ? 'Kopyalandı!' : 'Nəticəni Paylaş'}
             </Button>
           </div>
+
+          {/* Guest Onboarding Banner */}
+          {!user && (
+            <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-primary/15 via-secondary/15 to-amber-500/15 border-2 border-primary/25 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+              <div className="space-y-1">
+                <p className="font-black text-sm text-foreground flex items-center justify-center sm:justify-start gap-1.5">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  Nəticənizi və {earnedXP} XP xalınızı yadda saxlayın!
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Hesab yaradaraq liderlər lövhəsində yarışın və şəxsi statistikanızı izləyin.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="rounded-xl font-bold px-4 shrink-0 shadow-md"
+                onClick={() => navigate('/auth')}
+              >
+                Qeydiyyatdan Keç
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Question-by-question review */}

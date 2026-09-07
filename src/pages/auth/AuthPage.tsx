@@ -3,25 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
-import { SocialAuth } from '@/components/auth/SocialAuth';
-import { RoleSelection } from '@/components/auth/RoleSelection';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { GraduationCap, Loader2, ArrowLeft, UserCircle, CheckCircle2, ArrowRight, Phone } from 'lucide-react';
+import { GraduationCap, Loader2, ArrowLeft, UserCircle, CheckCircle2, ArrowRight, Sparkles, Compass } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginFormData, SignupFormData } from '@/lib/validations/auth';
 import { AppRole } from '@/types/auth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { QuickJoinPinCard } from '@/components/student/QuickJoinPinCard';
+import { translateAuthError } from '@/utils/auth-error-translator';
 
 export default function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [showEmailAuth, setShowEmailAuth] = useState(false);
-  const [showPhoneModal, setShowPhoneModal] = useState(false);
-  const [phone, setPhone] = useState('');
+  const [selectedRole, setSelectedRole] = useState<AppRole>('student');
   const { signIn, signUp, resetPassword, isAuthenticated, isLoading, role, profile, isProfileComplete, selectOAuthRole, signInWithOAuth } = useAuth();
   const navigate = useNavigate();
 
@@ -40,9 +37,6 @@ export default function AuthPage() {
             setIsSubmitting(false);
             localStorage.removeItem('pending_role');
           }
-        } else if (pendingRole === 'teacher') {
-          // Show phone modal for teachers
-          setShowPhoneModal(true);
         }
       }
     };
@@ -65,10 +59,10 @@ export default function AuthPage() {
     }
   }, [isAuthenticated, isLoading, role, profile, isProfileComplete, navigate]);
 
-  const handleSocialLogin = async (selectedRole: AppRole) => {
-    localStorage.setItem('pending_role', selectedRole);
+  const handleSocialLogin = async (targetRole: AppRole) => {
+    localStorage.setItem('pending_role', targetRole);
     const { error } = await signInWithOAuth('google');
-    if (error) toast.error(error.message);
+    if (error) toast.error(translateAuthError(error));
   };
 
   const handleLogin = async (data: LoginFormData) => {
@@ -76,11 +70,7 @@ export default function AuthPage() {
     try {
       const { error } = await signIn(data.email, data.password);
       if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          toast.error('Email və ya parol yanlışdır');
-        } else {
-          toast.error(error.message);
-        }
+        toast.error(translateAuthError(error));
       }
     } finally {
       setIsSubmitting(false);
@@ -90,9 +80,9 @@ export default function AuthPage() {
   const handleSignup = async (data: SignupFormData) => {
     setIsSubmitting(true);
     try {
-      const { error } = await signUp(data.email, data.password, data.fullName, data.phone, data.role);
+      const { error } = await signUp(data.email, data.password, data.fullName, data.phone || '', data.role);
       if (error) {
-        toast.error(error.message);
+        toast.error(translateAuthError(error));
       } else {
         toast.success(data.role === 'teacher'
           ? 'Qeydiyyat uğurla tamamlandı! Təsdiq gözlənilir.'
@@ -104,28 +94,7 @@ export default function AuthPage() {
     }
   };
 
-  const handleTeacherPhoneSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phone) {
-      toast.error('Zəhmət olmasa telefon nömrənizi daxil edin');
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const { error } = await selectOAuthRole('teacher', phone);
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success('Profiliniz təsdiqə göndərildi!');
-        localStorage.removeItem('pending_role');
-        setShowPhoneModal(false);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (isLoading || (isAuthenticated && !isProfileComplete && isSubmitting && !showPhoneModal)) {
+  if (isLoading || (isAuthenticated && !isProfileComplete)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
@@ -136,187 +105,145 @@ export default function AuthPage() {
     );
   }
 
-  // If user is returning as teacher, show phone modal
-  if (isAuthenticated && !isProfileComplete && showPhoneModal) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md"
-        >
-          <Card className="border-2 shadow-2xl rounded-3xl overflow-hidden">
-            <CardContent className="p-10 space-y-8">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto">
-                  <Phone className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="text-2xl font-black">Müəllim Hesabı</h3>
-                <p className="text-muted-foreground font-medium">
-                  Təsdiq üçün zəhmət olmasa mobil nömrənizi daxil edin. Admin sizinlə əlaqə saxlayacaq.
-                </p>
-              </div>
-
-              <form onSubmit={handleTeacherPhoneSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-sm font-bold ml-1">Telefon Nömrəsi</Label>
-                  <Input
-                    id="phone"
-                    placeholder="+994 50 000 00 00"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="h-14 rounded-2xl text-lg font-medium border-2 focus:border-primary transition-all px-6"
-                    disabled={isSubmitting}
-                    autoFocus
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full h-14 rounded-2xl text-lg font-bold shadow-lg"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  ) : (
-                    <>Təsdiqə Göndər <ArrowRight className="ml-2 h-5 w-5" /></>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // If user is logged in via OAuth but somehow lost the intent, show role selection as backup
-  if (isAuthenticated && !isProfileComplete) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-lg"
-        >
-          <RoleSelection
-            onSelect={async (r) => {
-              setIsSubmitting(true);
-              try {
-                await selectOAuthRole(r);
-              } finally {
-                setIsSubmitting(false);
-              }
-            }}
-            isSubmitting={isSubmitting}
-          />
-        </motion.div>
-      </div>
-    );
-  }
-
-  const roleChoices = [
-    {
-      id: 'teacher' as AppRole,
-      title: 'Müəllim',
-      description: 'Quizlər yaratmaq və şagirdləri idarə etmək üçün.',
-      icon: GraduationCap,
-      color: 'from-purple-500 to-indigo-600',
-    },
-    {
-      id: 'student' as AppRole,
-      title: 'Şagird',
-      description: 'Quizlərdə iştirak etmək və nəticələri görmək üçün.',
-      icon: UserCircle,
-      color: 'from-blue-500 to-cyan-600',
-    },
-  ];
-
   return (
     <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden bg-background">
       {/* Left Decoration (Hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/3 relative bg-primary items-center justify-center p-12 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/95 to-indigo-900 opacity-95" />
-        <div className="relative z-10 text-center text-white space-y-6">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20 mb-4">
-            <GraduationCap className="h-10 w-10 text-white" />
+      <div className="hidden lg:flex lg:w-5/12 relative bg-primary items-center justify-center p-12 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-indigo-900 to-slate-950 opacity-95" />
+        <div className="relative z-10 text-center text-white space-y-8 max-w-md">
+          <div className="inline-flex items-center justify-center w-24 h-24 bg-white/10 backdrop-blur-2xl rounded-3xl border border-white/20 shadow-2xl">
+            <GraduationCap className="h-12 w-12 text-white" />
           </div>
-          <h1 className="text-4xl font-black tracking-tighter leading-tight">
-            Biliklərinizi <br /> <span className="text-blue-200">Kəşf Edin</span>
-          </h1>
-          <p className="text-primary-foreground/60 font-medium">
-            Azərbaycanın ən innovativ quiz platformasına xoş gəlmisiniz.
-          </p>
+          <div className="space-y-3">
+            <h1 className="text-4xl font-black tracking-tight leading-tight">
+              Biliklərini <br /> <span className="text-amber-400">Zirvəyə Daşı!</span>
+            </h1>
+            <p className="text-primary-foreground/75 font-medium text-sm leading-relaxed">
+              Dövlət Qulluğu, Konstitusiya və Fənn İmtahanlarına ən müasir interaktiv quiz platforması ilə hazırlaş.
+            </p>
+          </div>
+
+          <div className="pt-6 border-t border-white/10 grid grid-cols-2 gap-4 text-left">
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+              <Sparkles className="h-5 w-5 text-amber-300 mb-2" />
+              <p className="font-bold text-sm">500+ Sınaq Sualı</p>
+              <p className="text-[11px] text-white/60">Dəqiq izahlar və açarlar</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+              <UserCircle className="h-5 w-5 text-cyan-300 mb-2" />
+              <p className="font-bold text-sm">Fərdi Analitika</p>
+              <p className="text-[11px] text-white/60">Zəif mövzularını kəşf et</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Right Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 relative overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-12 relative overflow-y-auto">
         <AnimatePresence mode="wait">
           {!showEmailAuth ? (
             <motion.div
-              key="roles"
-              initial={{ opacity: 0, scale: 0.95 }}
+              key="main-auth"
+              initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.05 }}
-              className="w-full max-w-4xl space-y-12"
+              exit={{ opacity: 0, scale: 1.04 }}
+              className="w-full max-w-xl space-y-6"
             >
-              <div className="text-center space-y-4">
-                <h2 className="text-4xl lg:text-5xl font-black tracking-tight">Kimi daxil olmaq istəyirsiniz?</h2>
-                <p className="text-xl text-muted-foreground font-medium">Böyük bir öyrənmə macərasına başlamaq üçün profilinizi seçin</p>
+              {/* Top Role Selector Tabs */}
+              <div className="text-center space-y-2 mb-2">
+                <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
+                  Quiz Portalına Xoş Gəldiniz
+                </h2>
+                <p className="text-sm sm:text-base text-muted-foreground font-medium">
+                  İştirak etmək üçün daxil olun və ya birbaşa koda qoşulun
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-8 items-stretch">
-                {/* Student Card - More Prominent */}
-                <motion.div
-                  whileHover={{ y: -8 }}
-                  className="md:col-span-3 group"
+              {/* ── Student / Teacher Segment Switcher ── */}
+              <div className="flex p-1 bg-muted/60 rounded-xl sm:rounded-2xl border border-border/40 w-full">
+                <button
+                  onClick={() => setSelectedRole('student')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
+                    selectedRole === 'student'
+                      ? 'bg-background text-primary shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <Card className="h-full border-[3px] border-primary/10 hover:border-primary/40 transition-all duration-500 overflow-hidden shadow-2xl hover:shadow-primary/10 bg-gradient-to-br from-card to-blue-50/20 backdrop-blur-sm relative">
-                    <div className="absolute top-4 right-4 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">Ən çox seçilən</div>
-                    <CardContent className="p-10 flex flex-col h-full text-center">
-                      <div className={`w-24 h-24 rounded-[2rem] bg-gradient-to-br ${roleChoices[1].color} text-white flex items-center justify-center mx-auto mb-8 shadow-xl group-hover:scale-110 transition-transform duration-500`}>
-                        <UserCircle className="h-12 w-12" />
-                      </div>
-                      <h3 className="text-3xl font-black mb-4">Şagird Olarak Başla</h3>
-                      <p className="text-xl text-muted-foreground font-medium mb-12 flex-grow max-w-sm mx-auto">
-                        Quizlərdə iştirak et, biliklərini yoxla və dostlarınla rəqabət apar.
-                      </p>
-
-                      <Button
-                        onClick={() => handleSocialLogin('student')}
-                        className="w-full h-16 rounded-2xl text-xl font-black gap-4 shadow-xl hover:shadow-primary/30 transition-all active:scale-95"
-                      >
-                        <svg className="h-7 w-7" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                          <path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z" fill="#FBBC05" />
-                          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335" />
-                        </svg>
-                        Google ilə Şagird Girişi
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-
-                {/* Teacher Card - Less Prominent but Premium */}
-                <motion.div
-                  whileHover={{ y: -8 }}
-                  className="md:col-span-2 group"
+                  <UserCircle className="h-4 w-4 shrink-0" />
+                  <span>Şagird / Abituriyent</span>
+                </button>
+                <button
+                  onClick={() => setSelectedRole('teacher')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
+                    selectedRole === 'teacher'
+                      ? 'bg-background text-secondary shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <Card className="h-full border-2 border-transparent hover:border-primary/20 transition-all duration-500 overflow-hidden shadow-lg hover:shadow-xl bg-card/40 backdrop-blur-sm">
-                    <CardContent className="p-8 flex flex-col h-full text-center">
-                      <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${roleChoices[0].color} text-white flex items-center justify-center mx-auto mb-6 shadow-md opacity-80 group-hover:opacity-100 transition-all`}>
+                  <GraduationCap className="h-4 w-4 shrink-0" />
+                  <span>Müəllim</span>
+                </button>
+              </div>
+
+              {/* ── Student View ── */}
+              {selectedRole === 'student' && (
+                <div className="space-y-4 sm:space-y-5 animate-in fade-in zoom-in-95 duration-200 w-full min-w-0">
+                  {/* Primary 1-Click Google Button */}
+                  <Button
+                    onClick={() => handleSocialLogin('student')}
+                    className="w-full h-13 sm:h-15 py-3 sm:py-4 rounded-xl sm:rounded-2xl text-base sm:text-lg font-black gap-3 shadow-lg hover:shadow-primary/25 transition-all active:scale-[0.98]"
+                  >
+                    <svg className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                      <path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z" fill="#FBBC05" />
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335" />
+                    </svg>
+                    Google ilə Şagird Girişi
+                  </Button>
+
+                  {/* Quick PIN Join Card Embedded */}
+                  <QuickJoinPinCard variant="card" />
+
+                  {/* Guest Play Button */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-1 w-full">
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate('/quizzes')}
+                      className="w-full sm:flex-1 h-11 rounded-xl text-xs sm:text-sm font-bold gap-2 border-2 hover:bg-muted/50 justify-center"
+                    >
+                      <Compass className="h-4 w-4 text-primary shrink-0" />
+                      Qonaq Kimi Sınaqlara Bax
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowEmailAuth(true)}
+                      className="w-full sm:flex-1 h-11 rounded-xl text-xs sm:text-sm font-bold text-muted-foreground hover:text-primary justify-center"
+                    >
+                      Email ilə Daxil Ol
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Teacher View ── */}
+              {selectedRole === 'teacher' && (
+                <div className="space-y-5 animate-in fade-in zoom-in-95 duration-200">
+                  <Card className="border-2 border-primary/20 rounded-3xl p-6 bg-card/60">
+                    <div className="text-center space-y-4">
+                      <div className="w-16 h-16 rounded-2xl bg-secondary/15 text-secondary flex items-center justify-center mx-auto shadow-md">
                         <GraduationCap className="h-8 w-8" />
                       </div>
-                      <h3 className="text-2xl font-bold mb-3">Müəllim</h3>
-                      <p className="text-muted-foreground font-medium mb-10 flex-grow text-sm">
-                        Quizlər yarat, şagirdlərin nəticələrini izlə.
+                      <h3 className="text-2xl font-black">Müəllim Portalı</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
+                        Quizlər yaradın, sual bazasını idarə edin və şagirdlərinizin nəticələrini izləyin.
                       </p>
 
                       <Button
                         variant="secondary"
                         onClick={() => handleSocialLogin('teacher')}
-                        className="w-full h-14 rounded-2xl text-base font-bold gap-3 shadow-md hover:bg-secondary/80 transition-all"
+                        className="w-full h-14 rounded-2xl text-base font-black gap-3 shadow-md"
                       >
                         <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -324,21 +251,21 @@ export default function AuthPage() {
                           <path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z" fill="#FBBC05" />
                           <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335" />
                         </svg>
-                        Müəllim Girişi
+                        Google ilə Müəllim Girişi
                       </Button>
-                    </CardContent>
+                    </div>
                   </Card>
-                </motion.div>
-              </div>
 
-              <div className="text-center">
-                <button
-                  onClick={() => setShowEmailAuth(true)}
-                  className="px-8 py-3 rounded-full text-muted-foreground font-bold hover:text-primary hover:bg-primary/5 transition-all text-sm"
-                >
-                  Və ya email/şifrə ilə daxil olun
-                </button>
-              </div>
+                  <div className="text-center">
+                    <button
+                      onClick={() => setShowEmailAuth(true)}
+                      className="px-6 py-2.5 rounded-full text-muted-foreground font-bold hover:text-primary transition-all text-xs"
+                    >
+                      Və ya email və şifrə ilə daxil olun
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div
@@ -346,7 +273,7 @@ export default function AuthPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="w-full max-w-sm space-y-8"
+              className="w-full max-w-md space-y-6"
             >
               <button
                 onClick={() => setShowEmailAuth(false)}
@@ -356,15 +283,15 @@ export default function AuthPage() {
                 Geri qayıt
               </button>
 
-              <div className="space-y-2">
-                <h3 className="text-3xl font-black">Məlumatları daxil edin</h3>
-                <p className="text-muted-foreground font-medium italic">Hesabınız yoxdursa qeydiyyatdan keçin</p>
+              <div className="space-y-1">
+                <h3 className="text-2xl sm:text-3xl font-black">Email ilə Daxil Ol</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground font-medium">Hesabınız yoxdursa qeydiyyatdan keçin</p>
               </div>
 
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/50 p-1 rounded-2xl h-14">
-                  <TabsTrigger value="login" className="rounded-xl font-black text-base data-[state=active]:bg-background shadow-none">Daxil ol</TabsTrigger>
-                  <TabsTrigger value="signup" className="rounded-xl font-black text-base data-[state=active]:bg-background shadow-none">Qeydiyyat</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/60 p-1 rounded-2xl h-12">
+                  <TabsTrigger value="login" className="rounded-xl font-bold text-sm">Daxil ol</TabsTrigger>
+                  <TabsTrigger value="signup" className="rounded-xl font-bold text-sm">Qeydiyyat</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="login">

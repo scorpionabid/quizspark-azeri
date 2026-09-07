@@ -94,4 +94,21 @@ describe("useAuth hook", () => {
             p_phone: "+994509998877",
         });
     });
+
+    it("should select OAuth role with fallback when RPC fails", async () => {
+        const mockRpc = vi.mocked(supabase.rpc);
+        mockRpc.mockResolvedValueOnce({ data: null, error: new Error("RPC not found") as never, count: null, status: 404, statusText: "Not Found" });
+
+        const { result } = renderHook(() => useAuth(), { wrapper });
+
+        await act(async () => {
+            const { error } = await result.current.selectOAuthRole("student");
+            expect(error).toBeNull();
+        });
+
+        expect(mockRpc).toHaveBeenCalledWith("select_oauth_role", {
+            p_role: "student",
+            p_phone: undefined,
+        });
+    });
 });

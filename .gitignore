@@ -58,3 +58,6 @@ supabase-docker/volumes/snippets/
 .agent/skills/frontend-security-coder.md
 .agent/skills/database-optimizer.md
 .agent/skills/error-detective.md
+
+# Müvəqqəti analiz və audit skriptləri
+/scratch/

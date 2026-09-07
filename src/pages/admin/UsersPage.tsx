@@ -67,16 +67,22 @@ const tierLabels = {
 };
 
 export default function UsersPage() {
-  const { users, isLoading, updateStatus, updateRole, updateTier } = useUsers();
+  const { users, isLoading, updateStatus, updateRole, updateTier, approveTeacher } = useUsers();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleTab, setRoleTab] = useState<string>("student");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
+  const pendingTeachersCount = (users || []).filter(
+    (u) => (u.role === 'teacher' || u.status === 'pending') && u.status === 'pending'
+  ).length;
+
   const filteredUsers = (users || []).filter((user) => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = user.role === roleTab;
+    const matchesRole = roleTab === 'teacher'
+      ? (user.role === 'teacher' || user.status === 'pending')
+      : (user.role === roleTab && user.status !== 'pending');
     const matchesStatus = statusFilter === "all" || user.status === statusFilter;
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -89,10 +95,6 @@ export default function UsersPage() {
   const handleStatusChange = (userId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     updateStatus.mutate({ userId, status: newStatus });
-  };
-
-  const handleApproveTeacher = (userId: string) => {
-    updateStatus.mutate({ userId, status: 'active' });
   };
 
   if (isLoading) {
@@ -168,8 +170,13 @@ export default function UsersPage() {
             <TabsTrigger value="student" className="flex-1 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
               Tələbələr
             </TabsTrigger>
-            <TabsTrigger value="teacher" className="flex-1 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              Müəllimlər
+            <TabsTrigger value="teacher" className="flex-1 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm flex items-center justify-center gap-1.5">
+              <span>Müəllimlər</span>
+              {pendingTeachersCount > 0 && (
+                <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black bg-amber-500 text-white rounded-full leading-none animate-pulse">
+                  {pendingTeachersCount}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="admin" className="flex-1 rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
               Adminlər
@@ -220,6 +227,7 @@ export default function UsersPage() {
                             <div>
                               <div className="font-medium text-foreground">{user.name}</div>
                               <div className="text-sm text-muted-foreground">{user.email}</div>
+                              {user.phone && <div className="text-xs text-muted-foreground/80 mt-0.5">Tel: {user.phone}</div>}
                             </div>
                           </div>
                         </td>
@@ -250,19 +258,31 @@ export default function UsersPage() {
                           {new Date(user.createdAt).toLocaleDateString('az-AZ')}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
+                          <div className="flex items-center justify-end gap-2">
+                            {user.status === 'pending' && (
+                              <Button
+                                size="sm"
+                                className="h-8 px-3 rounded-xl text-xs font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                                onClick={() => approveTeacher.mutate(user.id)}
+                                disabled={approveTeacher.isPending}
+                              >
+                                <UserCheck className="h-3.5 w-3.5" />
+                                <span>Təsdiqlə</span>
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {user.status === 'pending' && (
-                                <DropdownMenuItem onClick={() => handleApproveTeacher(user.id)}>
-                                  <UserCheck className="mr-2 h-4 w-4 text-success" />
-                                  Təsdiqlə
-                                </DropdownMenuItem>
-                              )}
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {user.status === 'pending' && (
+                                  <DropdownMenuItem onClick={() => approveTeacher.mutate(user.id)}>
+                                    <UserCheck className="mr-2 h-4 w-4 text-emerald-600" />
+                                    Təsdiqlə
+                                  </DropdownMenuItem>
+                                )}
                               <DropdownMenuItem>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Redaktə Et
@@ -298,7 +318,8 @@ export default function UsersPage() {
                                 Sil
                               </DropdownMenuItem>
                             </DropdownMenuContent>
-                          </DropdownMenu>
+                            </DropdownMenu>
+                          </div>
                         </td>
                       </tr>
                     ))}

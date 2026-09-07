@@ -101,7 +101,7 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
     // Check for per-option explanation: "İzah A", "İzahat A", "İzah (B)", etc.
     const perOptMatch = keyRaw.match(/^(?:İzahat|Izahat|İzah|Izah|Explanation|Açıqlama)(?:\s+\(?|\()([A-Za-z\d])\)?$/i);
     if (perOptMatch) {
-      const optionRef = perOptMatch[1].toUpperCase();
+      const optionRef = (perOptMatch[1] || '').toUpperCase();
       let indexKey = '';
       if (/^[A-Z]$/.test(optionRef)) {
         indexKey = (optionRef.charCodeAt(0) - 65).toString();

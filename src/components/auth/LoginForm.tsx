@@ -50,13 +50,22 @@ export function LoginForm({ onSubmit, onForgotPassword, isSubmitting }: LoginFor
         show: { y: 0, opacity: 1 }
     };
 
+    const handleFormSubmit = async (data: LoginFormData) => {
+        if (data.rememberMe) {
+            localStorage.setItem('remembered_email', data.email.trim());
+        } else {
+            localStorage.removeItem('remembered_email');
+        }
+        await onSubmit(data);
+    };
+
     return (
         <Form {...form}>
             <motion.form
                 variants={container}
                 initial="hidden"
                 animate="show"
-                onSubmit={form.handleSubmit(onSubmit)}
+                onSubmit={form.handleSubmit(handleFormSubmit)}
                 className="space-y-4"
             >
                 <motion.div variants={item}>

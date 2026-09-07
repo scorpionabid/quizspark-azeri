@@ -137,6 +137,33 @@ export function useUsers() {
         }
     });
 
+    const approveTeacher = useMutation({
+        mutationFn: async (userId: string) => {
+            // First attempt RPC admin_approve_teacher
+            const { error: rpcError } = await supabase.rpc('admin_approve_teacher', {
+                p_user_id: userId
+            });
+
+            if (rpcError) {
+                console.warn('[useUsers] admin_approve_teacher RPC failed, executing direct update:', rpcError.message);
+                const [statusRes, roleRes] = await Promise.all([
+                    supabase.from('profiles').update({ status: 'active' }).eq('user_id', userId).select('user_id'),
+                    supabase.from('user_roles').upsert({ user_id: userId, role: 'teacher' }, { onConflict: 'user_id' }).select('user_id'),
+                ]);
+
+                if (statusRes.error) throw statusRes.error;
+                if (roleRes.error) throw roleRes.error;
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["admin_users"] });
+            toast.success("Müəllim hesabı təsdiqləndi və aktivləşdirildi!");
+        },
+        onError: (err: Error) => {
+            toast.error(err.message || "Təsdiqləmə zamanı xəta baş verdi");
+        }
+    });
+
     return {
         users,
         isLoading,
@@ -144,6 +171,7 @@ export function useUsers() {
         updateStatus,
         updateRole,
         updateTier,
-        deleteUser
+        deleteUser,
+        approveTeacher
     };
 }

@@ -146,19 +146,28 @@ export function SignupForm({ onSubmit, isSubmitting }: SignupFormProps) {
                     <FormField
                         control={form.control}
                         name="phone"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Telefon nömrəsi</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        placeholder="+994 (__) ___-__-__"
-                                        autoComplete="tel"
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
+                        render={({ field }) => {
+                            const currentRole = form.watch('role');
+                            const isTeacher = currentRole === 'teacher';
+                            return (
+                                <FormItem>
+                                    <FormLabel className="flex items-center justify-between">
+                                        <span>Telefon nömrəsi</span>
+                                        <span className={cn("text-xs font-normal", isTeacher ? "text-amber-500 font-medium" : "text-muted-foreground")}>
+                                            {isTeacher ? '(Məcburi - Təsdiq üçün)' : '(Könüllü)'}
+                                        </span>
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="+994 (__) ___-__-__"
+                                            autoComplete="tel"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            );
+                        }}
                     />
                 </motion.div>
 

@@ -54,6 +54,13 @@ const queryClient = new QueryClient({
   },
 });
 
+// Clear all query cache on sign-out to prevent stale user data leaks
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:signout', () => {
+    queryClient.clear();
+  });
+}
+
 // Inner component so it can use useAuth (must be inside AuthProvider)
 function AppRoutes() {
   const { user, isProfileComplete, isLoading } = useAuth();

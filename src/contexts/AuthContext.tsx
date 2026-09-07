@@ -14,6 +14,7 @@ interface AuthContextType {
   isDataLoading: boolean;
   isAuthenticated: boolean;
   isProfileComplete: boolean;
+  isPasswordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string, phone: string, role: AppRole) => Promise<{ error: Error | null }>;
   signInWithOAuth: (provider: Provider) => Promise<{ error: Error | null }>;
@@ -32,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDataLoading, setIsDataLoading] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const inFlightUserIdRef = useRef<string | null>(null);
 
   const fetchUserData = useCallback(async (userId: string, force = false) => {
@@ -68,15 +70,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[Auth] fetchUserData exception:', error);
     } finally {
       setIsDataLoading(false);
+      inFlightUserIdRef.current = null;
     }
   }, []);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // 1. Check for URL OAuth errors (e.g. user canceled Google login) or Password recovery
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const search = window.location.search || '';
+      const fullUrl = hash + search;
+
+      if (fullUrl.includes('error=') || fullUrl.includes('error_description=')) {
+        console.warn('[Auth] OAuth error or cancellation detected in URL');
+        localStorage.removeItem('pending_role');
+        if (window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+
+      if (hash.includes('type=recovery')) {
+        setIsPasswordRecovery(true);
+      }
+    }
+
+    // 2. Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+
+        if (_event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+        } else if (_event === 'SIGNED_OUT') {
+          setRole(null);
+          setProfile(null);
+          setIsPasswordRecovery(false);
+          localStorage.removeItem('pending_role');
+        }
 
         // Defer fetching additional data with setTimeout to prevent deadlock
         if (session?.user) {
@@ -90,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // THEN check for existing session
+    // 3. THEN check for existing session
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         setSession(session);
@@ -176,26 +207,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const selectOAuthRole = async (selectedRole: AppRole, phone?: string): Promise<{ error: Error | null }> => {
     try {
-      const { error } = await supabase.rpc('select_oauth_role', {
+      const rpcResult = await supabase.rpc('select_oauth_role', {
         p_role: selectedRole,
         p_phone: phone
       });
-      if (error) return { error };
-      // Refresh profile to reflect new role and status
-      if (user) await fetchUserData(user.id);
+
+      if (rpcResult.error) {
+        console.warn('[Auth] select_oauth_role RPC failed, running direct fallback:', rpcResult.error.message);
+        // Fallback: direct update in database tables
+        if (user) {
+          const isTeacher = selectedRole === 'teacher';
+          await Promise.all([
+            supabase.from('user_roles').upsert({
+              user_id: user.id,
+              role: selectedRole
+            }, { onConflict: 'user_id' }),
+            supabase.from('profiles').update({
+              status: isTeacher ? 'pending' : 'active',
+              phone: phone || undefined,
+              is_profile_complete: true
+            }).eq('user_id', user.id)
+          ]);
+        }
+      }
+
+      // Refresh profile to reflect new role and status immediately with force = true
+      if (user) {
+        await fetchUserData(user.id, true);
+      }
       return { error: null };
     } catch (error) {
+      console.error('[Auth] selectOAuthRole exception:', error);
       return { error: error as Error };
     }
   };
 
+  // Auto-complete student profile if user signed in with 'student' intent from localStorage
+  useEffect(() => {
+    if (user && profile && profile.isProfileComplete === false) {
+      const pendingRole = localStorage.getItem('pending_role') as AppRole | null;
+      if (pendingRole === 'student') {
+        localStorage.removeItem('pending_role');
+        selectOAuthRole('student');
+      }
+    }
+  }, [user, profile]);
+
   const signOut = async () => {
     inFlightUserIdRef.current = null;
+    localStorage.removeItem('pending_role');
+    setIsPasswordRecovery(false);
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setRole(null);
     setProfile(null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auth:signout'));
+    }
   };
 
   const refreshProfile = async () => {
@@ -217,6 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isDataLoading,
         isAuthenticated: !!user,
         isProfileComplete,
+        isPasswordRecovery,
         signIn,
         signUp,
         signInWithOAuth,
