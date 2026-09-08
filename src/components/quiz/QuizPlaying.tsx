@@ -585,6 +585,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
           open={!!feedbackQuestion}
           onOpenChange={(open) => !open && setFeedbackQuestion(null)}
           questionId={feedbackQuestion.question.id}
+          questionBankId={feedbackQuestion.question.bank_question_id || undefined}
           questionIndex={feedbackQuestion.index}
           questionTitle={feedbackQuestion.question.title}
           questionText={feedbackQuestion.question.question_text}

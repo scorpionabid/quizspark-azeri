@@ -59,15 +59,31 @@ export function useSubmitQuestionFeedback() {
       const { data: existing } = await query.maybeSingle();
 
       if (existing?.id) {
+        const updatePayload: Record<string, unknown> = {
+          rating: params.rating,
+          issue_type: params.issueType || null,
+          comment: params.comment?.trim() || null,
+        };
+        if (params.quizQuestionId) updatePayload.quiz_question_id = params.quizQuestionId;
+        if (params.questionBankId) updatePayload.question_bank_id = params.questionBankId;
+
         const { error } = await supabase
           .from('question_ratings')
-          .update(payload)
+          .update(updatePayload)
           .eq('id', existing.id);
         if (error) throw error;
       } else {
+        const insertPayload = {
+          user_id: userData.user.id,
+          quiz_question_id: params.quizQuestionId || null,
+          question_bank_id: params.questionBankId || null,
+          rating: params.rating,
+          issue_type: params.issueType || null,
+          comment: params.comment?.trim() || null,
+        };
         const { error } = await supabase
           .from('question_ratings')
-          .insert([payload]);
+          .insert([insertPayload]);
         if (error) throw error;
       }
     },

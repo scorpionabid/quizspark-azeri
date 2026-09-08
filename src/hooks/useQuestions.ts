@@ -34,6 +34,7 @@ export interface Question {
   option_images?: Record<string, string> | null;
   media_type?: string | null;
   media_url?: string | null;
+  bank_question_id?: string | null;
 }
 
 export function computeWeightedScore(answers: QuestionAnswer[], questions: Question[]) {
