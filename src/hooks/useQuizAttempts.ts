@@ -14,6 +14,7 @@ export interface QuizAttempt {
   total_questions: number | null;
   time_spent: number | null;
   answers: Record<string, string>[];
+  question_order?: string[] | null;
 }
 
 export interface QuizResult {
@@ -72,7 +73,15 @@ export function useStartAttempt() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ quizId, totalQuestions }: { quizId: string; totalQuestions: number }) => {
+    mutationFn: async ({
+      quizId,
+      totalQuestions,
+      questionOrder,
+    }: {
+      quizId: string;
+      totalQuestions: number;
+      questionOrder?: string[];
+    }) => {
       if (!user) throw new Error('İstifadəçi daxil olmayıb');
 
       const { data, error } = await supabase
@@ -82,6 +91,7 @@ export function useStartAttempt() {
           user_id: user.id,
           total_questions: totalQuestions,
           answers: [],
+          question_order: questionOrder || null,
         })
         .select()
         .single();
@@ -383,5 +393,35 @@ export function useQuizDetailedStats(quizId: string | undefined, passPercentage 
     },
     enabled: !!quizId,
     staleTime: 5 * 60 * 1000, // 5 minutes cache (was 1 minute)
+  });
+}
+
+export function useQuizAttemptsForTeacher(quizId: string | undefined) {
+  return useQuery({
+    queryKey: ['teacher-quiz-attempts', quizId],
+    queryFn: async () => {
+      if (!quizId) return [];
+      const { data, error } = await supabase
+        .from('quiz_attempts')
+        .select(`
+          id,
+          quiz_id,
+          user_id,
+          started_at,
+          completed_at,
+          score,
+          total_questions,
+          time_spent,
+          answers
+        `)
+        .eq('quiz_id', quizId)
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!quizId,
+    staleTime: 2 * 60 * 1000,
   });
 }

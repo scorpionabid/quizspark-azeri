@@ -286,9 +286,14 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                     Tamamlanmamış cəhdiniz var
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Array(incompleteAttempt.answers).length > 0
-                      ? `${(incompleteAttempt.answers as unknown[]).length} suala cavab verilmişdir`
-                      : 'Başlanmış, lakin cavab verilməmişdir'}
+                    {(() => {
+                      const ansList = Array.isArray(incompleteAttempt.answers)
+                        ? incompleteAttempt.answers
+                        : [];
+                      return ansList.length > 0
+                        ? `${ansList.length} suala cavab verilmişdir`
+                        : 'Başlanmış, lakin cavab verilməmişdir';
+                    })()}
                   </p>
                   <Button
                     variant="outline"

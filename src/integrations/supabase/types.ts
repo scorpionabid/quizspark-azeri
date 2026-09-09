@@ -1573,6 +1573,7 @@ export type Database = {
           device_type: string | null
           hint_used_questions: string[] | null
           id: string
+          question_order: string[] | null
           question_timings: Json | null
           quiz_id: string
           score: number | null
@@ -1588,6 +1589,7 @@ export type Database = {
           device_type?: string | null
           hint_used_questions?: string[] | null
           id?: string
+          question_order?: string[] | null
           question_timings?: Json | null
           quiz_id: string
           score?: number | null
@@ -1603,6 +1605,7 @@ export type Database = {
           device_type?: string | null
           hint_used_questions?: string[] | null
           id?: string
+          question_order?: string[] | null
           question_timings?: Json | null
           quiz_id?: string
           score?: number | null

@@ -18,8 +18,10 @@ import { QuizIntro } from "@/components/quiz/QuizIntro";
 import { QuizPlaying, PageNavStatus } from "@/components/quiz/QuizPlaying";
 import { QuizResult } from "@/components/quiz/QuizResult";
 
-// Types
+// Types & Utils
 import { QuestionAnswer, QuestionType } from "@/types/question";
+import { supabase } from "@/integrations/supabase/client";
+import { evaluateAnswer } from "@/components/quiz/renderers/utils";
 
 type QuizState = 'intro' | 'playing' | 'result';
 type Answer = QuestionAnswer;
@@ -117,6 +119,24 @@ export default function QuizPage() {
         });
         localStorage.removeItem(`quiz_start_${quiz.id}`);
         localStorage.removeItem(`quiz_draft_${attemptId}`);
+
+        // Insert pending reviews for open-ended / essay questions
+        const essayAnswers = latestAnswers.filter(a => a.needsReview && a.textAnswer);
+        if (essayAnswers.length > 0) {
+          const reviewsToInsert = essayAnswers.map(ea => ({
+            attempt_id: attemptId,
+            question_id: ea.questionId,
+            student_answer: ea.textAnswer || '',
+            max_score: (displayQuestions.find(q => q.id === ea.questionId)?.weight) ?? 1,
+            status: 'pending',
+          }));
+          try {
+            await supabase.from('answer_reviews').insert(reviewsToInsert);
+          } catch (reviewErr) {
+            console.warn("Could not insert answer_reviews:", reviewErr);
+          }
+        }
+
         const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
         setEarnedXP(prev => prev + xpGain);
         if (xpGain > 0) {
@@ -190,64 +210,20 @@ export default function QuizPage() {
       }
 
       const finalVal = currentAnswersMap[currentQ.id] || '';
-      let isCorrect = false;
-
-      if (currentQ.question_type === 'essay' || currentQ.question_type === 'code') {
-        isCorrect = false;
-      } else if (currentQ.question_type === 'ordering') {
-        const studentSeq = finalVal.split('|||').map(s => s.trim());
-        const correctSeq = (
-          currentQ.sequence_items?.length
-            ? currentQ.sequence_items
-            : currentQ.correct_answer.split('|||')
-        ).map(s => s.trim());
-        isCorrect = studentSeq.length === correctSeq.length && studentSeq.every((item, i) => item === correctSeq[i]);
-      } else if (currentQ.question_type === 'matching') {
-        const rawPairs = currentQ.matching_pairs;
-        if (rawPairs) {
-          const pairsRecord: Record<string, string> = Array.isArray(rawPairs)
-            ? Object.fromEntries((rawPairs as unknown as Array<{ left: string; right: string }>).map(p => [p.left, p.right]))
-            : rawPairs as Record<string, string>;
-          const studentPairs: Record<string, string> = {};
-          finalVal.split('|||').forEach(m => {
-            const colonIdx = m.indexOf(':');
-            if (colonIdx > -1) studentPairs[m.slice(0, colonIdx)] = m.slice(colonIdx + 1);
-          });
-          isCorrect = Object.entries(pairsRecord).every(([l, r]) => studentPairs[l] === r);
-        } else {
-          const studentMatches = finalVal.split('|||').sort();
-          const correctMatches = currentQ.correct_answer.split('|||').sort();
-          isCorrect = JSON.stringify(studentMatches) === JSON.stringify(correctMatches);
-        }
-      } else if (currentQ.question_type === 'hotspot') {
-        const parts = currentQ.correct_answer.split(':');
-        const cx = parseFloat(parts[0]);
-        const cy = parseFloat(parts[1]);
-        const tolerance = parts[2] ? parseFloat(parts[2]) : 10;
-        const sParts = finalVal.split(':');
-        const sx = parseFloat(sParts[0]);
-        const sy = parseFloat(sParts[1]);
-        isCorrect = !isNaN(cx) && !isNaN(sx) && Math.abs(sx - cx) <= tolerance && Math.abs(sy - cy) <= tolerance;
-      } else {
-        const normalize = (s: string) =>
-          s.trim().toLowerCase().replace(/[\s\u00a0]+/g, ' ').replace(/[.,!?;:'"]/g, '');
-        const normalizedStudent = normalize(finalVal);
-        const acceptedAnswers = currentQ.correct_answer.split('|').map(normalize);
-        isCorrect = acceptedAnswers.some(accepted => accepted === normalizedStudent);
-      }
+      const evalResult = evaluateAnswer(currentQ, finalVal);
 
       const answer: Answer = {
         questionId: currentQ.id,
         questionType: currentQ.question_type as QuestionType,
         textAnswer: finalVal,
-        isCorrect,
-        pointsEarned: isCorrect ? (currentQ.weight || 1) : 0,
+        isCorrect: evalResult.isCorrect,
+        pointsEarned: evalResult.pointsEarned,
         selectedOptionIndex: currentQ.options ? currentQ.options.indexOf(finalVal) : undefined,
-        needsReview: currentQ.question_type === 'essay' || currentQ.question_type === 'code',
+        needsReview: evalResult.needsReview,
       };
 
       newAnswers.push(answer);
-      if (isCorrect) anyCorrect = true;
+      if (evalResult.isCorrect) anyCorrect = true;
       else anyIncorrect = true;
     });
 
@@ -269,15 +245,11 @@ export default function QuizPage() {
     setAnswers(updatedAnswers);
 
     if (attemptId && !isPreview && newAnswers.length > 0) {
-      // Optimizasiya: DB yüklənməməsi üçün yalnız hər 5 sualdan bir aralıq yaddaş (draft) göndəririk.
-      // Sonda onsuz da completeAttempt hamısını birdən göndərir. 
-      // Qısa fasilələrdə local storage ehtiyat kimi çalışır.
-      if (updatedAnswers.length % 5 === 0) {
-        updateAttempt.mutate({
-          attemptId,
-          answers: updatedAnswers as unknown as Record<string, string>[],
-        });
-      }
+      // Real-time davamlı sinxronizasiya: Hər səhifə təsdiqində bazaya yazılır
+      updateAttempt.mutate({
+        attemptId,
+        answers: updatedAnswers as unknown as Record<string, string>[],
+      });
     }
 
     if (!isInstant) {
@@ -296,7 +268,30 @@ export default function QuizPage() {
 
   const resumeQuiz = useCallback(async (attempt: import('@/hooks/useQuizAttempts').QuizAttempt) => {
     if (!quiz) return;
-    const orderedQuestions = [...questions];
+    let orderedQuestions = [...questions];
+
+    const storedOrder = attempt.question_order || (() => {
+      try {
+        const raw = localStorage.getItem(`quiz_order_${attempt.id}`);
+        return raw ? (JSON.parse(raw) as string[]) : null;
+      } catch {
+        return null;
+      }
+    })();
+
+    if (storedOrder && Array.isArray(storedOrder) && storedOrder.length > 0) {
+      const qMap = new Map(questions.map(q => [q.id, q]));
+      const reordered: Question[] = [];
+      storedOrder.forEach(qId => {
+        const found = qMap.get(qId);
+        if (found) {
+          reordered.push(found);
+          qMap.delete(qId);
+        }
+      });
+      orderedQuestions = [...reordered, ...Array.from(qMap.values())];
+    }
+
     setDisplayQuestions(orderedQuestions);
     totalTimeUpRef.current = false;
 
@@ -360,17 +355,21 @@ export default function QuizPage() {
 
     try {
       let newAttemptId: string;
+      const questionOrder = orderedQuestions.map(q => q.id);
+
       if (isPreview) {
         newAttemptId = `preview-${Date.now()}`;
       } else {
         const attempt = await startAttempt.mutateAsync({
           quizId: quiz.id,
           totalQuestions: orderedQuestions.length,
+          questionOrder,
         });
         newAttemptId = attempt.id;
       }
 
       setAttemptId(newAttemptId);
+      localStorage.setItem(`quiz_order_${newAttemptId}`, JSON.stringify(questionOrder));
       const now = new Date();
       setStartTime(now);
       if (!isPreview) {
@@ -564,6 +563,10 @@ export default function QuizPage() {
     );
   }
 
+  const attemptsLimit = quiz?.attempts_limit ?? 0;
+  const completedCount = (myAttempts || []).filter(a => a.completed_at !== null).length;
+  const canRetry = attemptsLimit === 0 || completedCount < attemptsLimit;
+
   return (
     <QuizResult
       score={score}
@@ -578,6 +581,7 @@ export default function QuizPage() {
       answers={answers}
       questions={activeQuestions}
       backgroundImageUrl={quiz?.background_image_url}
+      canRetry={canRetry}
       showDetailedReview={(quiz?.feedback_timing || (quiz?.show_feedback === false ? 'never' : 'end_of_quiz')) !== 'never'}
       onRetry={() => {
         setQuizState('intro');

@@ -25,6 +25,7 @@ interface QuizResultProps {
   questions?: Question[];
   showDetailedReview?: boolean;
   backgroundImageUrl?: string | null;
+  canRetry?: boolean;
   onRetry: () => void;
   onHome: () => void;
 }
@@ -106,6 +107,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   questions = [],
   showDetailedReview = true,
   backgroundImageUrl,
+  canRetry = true,
   onRetry,
   onHome,
 }) => {
@@ -238,10 +240,17 @@ export const QuizResult: React.FC<QuizResultProps> = ({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row mb-4">
-            <Button variant="game" className="flex-1" onClick={onRetry}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Yenidən Başla
-            </Button>
+            {canRetry ? (
+              <Button variant="game" className="flex-1" onClick={onRetry}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Yenidən Başla
+              </Button>
+            ) : (
+              <Button variant="outline" className="flex-1 opacity-60 cursor-not-allowed" disabled>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Cəhd Limiti Dolub
+              </Button>
+            )}
             <Button variant="outline" className="flex-1" onClick={onHome}>
               <Home className="mr-2 h-4 w-4" />
               Ana Səhifə

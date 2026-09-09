@@ -71,7 +71,24 @@ export function parseMatchingValue(
 }
 
 export function isAnswerCorrect(question: Question, value: string): boolean {
+  if (!value && value !== '0') return false;
   const qt = question.question_type;
+
+  if (qt === 'essay' || qt === 'code') {
+    return false;
+  }
+
+  if (qt === 'multiple_choice') {
+    const ca = (question.correct_answer || '').trim();
+    const val = value.trim();
+    if (ca.length === 1 && /^[A-Z]$/i.test(ca) && question.options) {
+      const idx = ca.toUpperCase().charCodeAt(0) - 65;
+      if (question.options[idx] && question.options[idx].trim().toLowerCase() === val.toLowerCase()) {
+        return true;
+      }
+    }
+    return ca.toLowerCase() === val.toLowerCase();
+  }
 
   if (qt === 'numerical') {
     const numAnswer = parseFloat(value);
@@ -83,7 +100,7 @@ export function isAnswerCorrect(question: Question, value: string): boolean {
 
   if (qt === 'fill_blank') {
     const studentAnswers = value.split('|').map(a => a.trim().toLowerCase());
-    const correctAnswers = question.correct_answer.split('|').map(a => a.trim().toLowerCase());
+    const correctAnswers = (question.correct_answer || '').split('|').map(a => a.trim().toLowerCase());
     if (studentAnswers.length !== correctAnswers.length) return false;
     return studentAnswers.every((a, i) => a === correctAnswers[i]);
   }
@@ -93,7 +110,7 @@ export function isAnswerCorrect(question: Question, value: string): boolean {
     const correctSeq = (
       question.sequence_items?.length
         ? question.sequence_items
-        : question.correct_answer.split('|||')
+        : (question.correct_answer || '').split('|||')
     ).map(s => s.trim());
     if (studentSeq.length !== correctSeq.length) return false;
     return studentSeq.every((item, i) => item === correctSeq[i]);
@@ -125,9 +142,8 @@ export function isAnswerCorrect(question: Question, value: string): boolean {
     });
   }
 
-
   if (qt === 'hotspot') {
-    const parts = question.correct_answer.split(':');
+    const parts = (question.correct_answer || '').split(':');
     const cx = parseFloat(parts[0]);
     const cy = parseFloat(parts[1]);
     const tolerance = parts[2] ? parseFloat(parts[2]) : 10;
@@ -139,18 +155,110 @@ export function isAnswerCorrect(question: Question, value: string): boolean {
   }
 
   if (qt === 'true_false') {
-    const ca = question.correct_answer;
+    const ca = (question.correct_answer || '').trim();
     const isCorrectA = ca === 'A' || ca === 'Doğru' || ca.toLowerCase() === 'true';
     if (isCorrectA) return value === 'true' || value === 'A';
     return value === 'false' || value === 'B';
   }
 
   if (qt === 'multiple_select') {
-    const studentAnswers = value.split(',').map(a => a.trim()).filter(Boolean).sort();
-    const correctAnswers = question.correct_answer.split(',').map(a => a.trim()).filter(Boolean).sort();
+    const studentAnswers = value.split(',').map(a => a.trim().toLowerCase()).filter(Boolean).sort();
+    const correctAnswers = (question.correct_answer || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean).sort();
     if (studentAnswers.length !== correctAnswers.length) return false;
     return studentAnswers.every((a, i) => a === correctAnswers[i]);
   }
 
-  return value.trim() === question.correct_answer.trim();
+  // Short answer or fallback (allowing pipe-separated alternatives: "Bakı|Baku")
+  const normalize = (s: string) =>
+    s.trim().toLowerCase().replace(/[\s\u00a0]+/g, ' ').replace(/[.,!?;:'"]/g, '');
+  const normalizedStudent = normalize(value);
+  const acceptedAnswers = (question.correct_answer || '').split('|').map(normalize);
+  return acceptedAnswers.some(accepted => accepted === normalizedStudent);
+}
+
+export interface AnswerEvaluation {
+  isCorrect: boolean;
+  pointsEarned: number;
+  maxPoints: number;
+  needsReview: boolean;
+}
+
+export function evaluateAnswer(question: Question, value: string): AnswerEvaluation {
+  const maxPoints = question.weight ?? 1;
+  const qt = question.question_type;
+
+  if (qt === 'essay' || qt === 'code') {
+    return {
+      isCorrect: false,
+      pointsEarned: 0,
+      maxPoints,
+      needsReview: true,
+    };
+  }
+
+  // Partial credit for matching
+  if (qt === 'matching') {
+    const pairsRecord = normalizePairs(question.matching_pairs ?? null);
+    const studentPairs = parseMatchingValue(value, pairsRecord);
+    const correctPairs = parseMatchingValue(question.correct_answer, pairsRecord);
+
+    if (Object.keys(correctPairs).length === 0 && Object.keys(pairsRecord).length > 0) {
+      for (const [left, right] of Object.entries(pairsRecord)) {
+        correctPairs[left] = right.split(',').map(r => r.trim()).filter(Boolean);
+      }
+    }
+
+    const leftKeys = Object.keys(pairsRecord).length > 0
+      ? Object.keys(pairsRecord)
+      : Array.from(new Set([...Object.keys(studentPairs), ...Object.keys(correctPairs)]));
+
+    if (leftKeys.length === 0) {
+      return { isCorrect: false, pointsEarned: 0, maxPoints, needsReview: false };
+    }
+
+    let correctCount = 0;
+    for (const l of leftKeys) {
+      const sRights = (studentPairs[l] || []).map(s => s.trim().toLowerCase()).sort();
+      const cRights = (correctPairs[l] || []).map(s => s.trim().toLowerCase()).sort();
+      if (sRights.length > 0 && sRights.length === cRights.length && sRights.every((r, i) => r === cRights[i])) {
+        correctCount++;
+      }
+    }
+
+    const isCorrect = correctCount === leftKeys.length;
+    const pointsEarned = isCorrect
+      ? maxPoints
+      : Math.round((correctCount / leftKeys.length) * maxPoints * 100) / 100;
+
+    return { isCorrect, pointsEarned, maxPoints, needsReview: false };
+  }
+
+  // Partial credit for multiple_select
+  if (qt === 'multiple_select') {
+    const studentAnswers = value.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+    const correctAnswers = (question.correct_answer || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+
+    if (correctAnswers.length === 0) {
+      return { isCorrect: false, pointsEarned: 0, maxPoints, needsReview: false };
+    }
+
+    const correctSelected = studentAnswers.filter(a => correctAnswers.includes(a)).length;
+    const incorrectSelected = studentAnswers.filter(a => !correctAnswers.includes(a)).length;
+
+    const isCorrect = correctSelected === correctAnswers.length && incorrectSelected === 0;
+    const netCorrect = Math.max(0, correctSelected - incorrectSelected);
+    const pointsEarned = isCorrect
+      ? maxPoints
+      : Math.round((netCorrect / correctAnswers.length) * maxPoints * 100) / 100;
+
+    return { isCorrect, pointsEarned, maxPoints, needsReview: false };
+  }
+
+  const isCorrect = isAnswerCorrect(question, value);
+  return {
+    isCorrect,
+    pointsEarned: isCorrect ? maxPoints : 0,
+    maxPoints,
+    needsReview: false,
+  };
 }

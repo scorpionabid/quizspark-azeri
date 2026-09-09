@@ -155,27 +155,53 @@ export function useReplaceQuestions() {
     }: {
       quizId: string;
       oldQuestionIds: string[];
-      newQuestions: Omit<Question, 'id' | 'created_at'>[];
+      newQuestions: (Omit<Question, 'id' | 'created_at'> & { id?: string })[];
     }) => {
-      // Step 1: Insert new questions first (safe — old ones still exist)
-      const { data: inserted, error: insertError } = await supabase
-        .from('questions')
-        .insert(newQuestions)
-        .select();
+      const oldSet = new Set(oldQuestionIds);
+      const toUpdate: (Omit<Question, 'created_at'> & { id: string })[] = [];
+      const toInsert: Omit<Question, 'id' | 'created_at'>[] = [];
+      const keptIds = new Set<string>();
 
-      if (insertError) throw insertError;
+      for (const q of newQuestions) {
+        if (q.id && oldSet.has(q.id)) {
+          toUpdate.push(q as (Omit<Question, 'created_at'> & { id: string }));
+          keptIds.add(q.id);
+        } else {
+          const { id: _ignoreId, ...rest } = q;
+          toInsert.push(rest);
+        }
+      }
 
-      // Step 2: Delete old questions only after successful insert
-      if (oldQuestionIds.length > 0) {
+      const toDelete = oldQuestionIds.filter(qId => !keptIds.has(qId));
+
+      // 1. Update existing questions (preserves ID and FKs)
+      for (const item of toUpdate) {
+        const { id: qId, ...fields } = item;
+        const { error: updateError } = await supabase
+          .from('questions')
+          .update(fields)
+          .eq('id', qId);
+        if (updateError) throw updateError;
+      }
+
+      // 2. Insert new questions
+      if (toInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('questions')
+          .insert(toInsert);
+        if (insertError) throw insertError;
+      }
+
+      // 3. Delete only questions that were removed
+      if (toDelete.length > 0) {
         const { error: deleteError } = await supabase
           .from('questions')
           .delete()
-          .in('id', oldQuestionIds);
-
+          .in('id', toDelete);
         if (deleteError) throw deleteError;
       }
 
-      return inserted as Question[];
+      return true;
     },
     onSuccess: (_data, { quizId }) => {
       queryClient.invalidateQueries({ queryKey: ['questions', quizId] });

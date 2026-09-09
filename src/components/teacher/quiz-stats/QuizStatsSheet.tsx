@@ -11,8 +11,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { useQuizDetailedStats } from '@/hooks/useQuizAttempts';
+import { useQuizDetailedStats, useQuizAttemptsForTeacher } from '@/hooks/useQuizAttempts';
 import { useQuizFeedbacks } from '@/hooks/useQuizFeedback';
+import { useQuestions } from '@/hooks/useQuestions';
+import { MathRenderer } from '@/components/common/MathRenderer';
+import { Progress } from '@/components/ui/progress';
 import { QuizFeedbacksTab } from './QuizFeedbacksTab';
 import { PageLoader } from '@/components/ui/loading-spinner';
 
@@ -48,6 +51,34 @@ export function QuizStatsSheet({
 }: QuizStatsSheetProps) {
   const { data, isLoading } = useQuizDetailedStats(quizId ?? undefined, passPercentage);
   const { data: feedbacks = [] } = useQuizFeedbacks(quizId ?? undefined);
+  const { data: teacherAttempts = [] } = useQuizAttemptsForTeacher(quizId ?? undefined);
+  const { data: questions = [] } = useQuestions(quizId ?? undefined);
+
+  // Calculate question success metrics
+  const questionStats = questions.map((q, idx) => {
+    let attemptedCount = 0;
+    let correctCount = 0;
+
+    teacherAttempts.forEach(att => {
+      const answersList = Array.isArray(att.answers)
+        ? (att.answers as unknown as Array<{ questionId?: string; isCorrect?: boolean }>)
+        : [];
+      const found = answersList.find(a => a.questionId === q.id);
+      if (found) {
+        attemptedCount++;
+        if (found.isCorrect) correctCount++;
+      }
+    });
+
+    const successRate = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : null;
+    return {
+      index: idx + 1,
+      question: q,
+      attemptedCount,
+      correctCount,
+      successRate,
+    };
+  });
 
   // Last 7 days bar chart data
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -94,13 +125,21 @@ export function QuizStatsSheet({
 
         {!isLoading && data && (
           <Tabs defaultValue="overview">
-            <TabsList className="mb-4 w-full grid grid-cols-3">
-              <TabsTrigger value="overview" className="text-xs">Ümumi Baxış</TabsTrigger>
+            <TabsList className="mb-4 w-full grid grid-cols-4">
+              <TabsTrigger value="overview" className="text-xs">Ümumi</TabsTrigger>
               <TabsTrigger value="students" className="text-xs">
                 Tələbələr
                 {data.summary.total > 0 && (
                   <span className="ml-1 text-[10px] bg-primary/10 text-primary rounded px-1">
                     {data.summary.total}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="questions" className="text-xs">
+                Suallar
+                {questions.length > 0 && (
+                  <span className="ml-1 text-[10px] bg-primary/10 text-primary rounded px-1">
+                    {questions.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -225,6 +264,76 @@ export function QuizStatsSheet({
                           {r.percentage.toFixed(0)}%
                         </Badge>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ── Tab: Suallar (Question Breakdown) ── */}
+            <TabsContent value="questions" className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Sualların çətinlik və cavablanma göstəriciləri
+                </p>
+                {questions.length > 0 && (
+                  <span className="text-[11px] font-semibold text-muted-foreground">
+                    Cəmi: {questions.length} sual
+                  </span>
+                )}
+              </div>
+
+              {questions.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8 text-sm">
+                  Bu quizdə sual tapılmadı
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {questionStats.map((qs) => (
+                    <div
+                      key={qs.question.id}
+                      className="rounded-xl border bg-card p-3 space-y-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-foreground">
+                          Sual {qs.index}
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                          <Badge variant="outline" className="text-[10px] py-0">
+                            {qs.question.question_type}
+                          </Badge>
+                          {qs.successRate !== null ? (
+                            <Badge
+                              className={
+                                qs.successRate >= 70
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 border-emerald-300 text-[10px] py-0'
+                                  : qs.successRate >= 40
+                                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 border-amber-300 text-[10px] py-0'
+                                  : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 border-rose-300 text-[10px] py-0'
+                              }
+                            >
+                              {qs.successRate}% düzgün ({qs.correctCount}/{qs.attemptedCount})
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px] py-0">
+                              Cavab yoxdur
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-muted-foreground line-clamp-2">
+                        <MathRenderer text={qs.question.question_text} />
+                      </div>
+
+                      {qs.successRate !== null && (
+                        <div className="space-y-1 pt-1">
+                          <Progress
+                            value={qs.successRate}
+                            className="h-1.5"
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

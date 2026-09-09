@@ -145,7 +145,7 @@ function bankItemToDraft(item: QuestionBankItem, orderIndex: number): DraftQuest
 }
 
 function draftToDbInsert(q: DraftQuestion, quizId: string, index: number) {
-  const { localId: _localId, hotspot_data, matching_pairs, ...rest } = q;
+  const { localId, hotspot_data, matching_pairs, ...rest } = q;
   
   // Normalize matching_pairs: If array format, convert to Record<string, string>
   let normalizedPairs: Record<string, string> | null = null;
@@ -161,6 +161,7 @@ function draftToDbInsert(q: DraftQuestion, quizId: string, index: number) {
 
   return {
     ...rest,
+    id: localId,
     hotspot_data: hotspot_data as Record<string, unknown> | null | undefined,
     matching_pairs: normalizedPairs,
     quiz_id: quizId,
@@ -319,60 +320,60 @@ export default function CreateQuizPage() {
 
   // ── Auto-save ────────────────────────────────────────────────────────────────
   const formValues = form.watch();
+  const draftKey = id ? `quiz_draft_edit_${id}` : DRAFT_KEY;
 
   const saveDraftNow = useCallback(() => {
-    if (id) return;
+    if (id && (!existingQuiz || questions.length === 0)) return;
     localStorage.setItem(
-      DRAFT_KEY,
+      draftKey,
       JSON.stringify({ metadata: form.getValues(), questions, savedAt: Date.now() })
     );
-  }, [id, questions, form]);
+  }, [id, existingQuiz, questions, form, draftKey]);
 
   useEffect(() => {
-    if (id) return; // Edit mode: data lives in DB, no need to auto-save locally
+    if (id && (!existingQuiz || questions.length === 0)) return;
     const timeout = setTimeout(() => {
       localStorage.setItem(
-        DRAFT_KEY,
+        draftKey,
         JSON.stringify({ metadata: formValues, questions, savedAt: Date.now() })
       );
     }, 1500);
     return () => clearTimeout(timeout);
-  }, [questions, formValues, id]);
+  }, [questions, formValues, id, existingQuiz, draftKey]);
 
   // Draft recovery
   useEffect(() => {
-    if (id) return; // Never offer draft recovery when editing an existing quiz
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = localStorage.getItem(draftKey);
     if (!raw) return;
     try {
-        const draft = JSON.parse(raw);
-        const mins = Math.round((Date.now() - draft.savedAt) / 60000);
-        if (mins < 60 * 24) {
-          setDraftRecoveryInfo({ raw, mins });
-        }
-      } catch {
-        // ignore
+      const draft = JSON.parse(raw);
+      const mins = Math.round((Date.now() - draft.savedAt) / 60000);
+      if (mins < 60 * 24) {
+        setDraftRecoveryInfo({ raw, mins });
       }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  
-    const handleRestoreDraft = () => {
-      if (!draftRecoveryInfo) return;
-      try {
-        const draft = JSON.parse(draftRecoveryInfo.raw);
-        form.reset(draft.metadata);
-        setQuestions(draft.questions ?? []);
-        localStorage.removeItem(DRAFT_KEY);
-        setDraftRecoveryInfo(null);
-        toast.success('Qaralama uğurla bərpa edildi');
-      } catch {
-        toast.error('Qaralamanı bərpa etmək mümkün olmadı');
-      }
-    };
-  
-    const handleDiscardDraft = () => {
-      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+  }, [draftKey]);
+
+  const handleRestoreDraft = () => {
+    if (!draftRecoveryInfo) return;
+    try {
+      const draft = JSON.parse(draftRecoveryInfo.raw);
+      form.reset(draft.metadata);
+      setQuestions(draft.questions ?? []);
+      localStorage.removeItem(draftKey);
       setDraftRecoveryInfo(null);
-    };
+      toast.success('Qaralama uğurla bərpa edildi');
+    } catch {
+      toast.error('Qaralamanı bərpa etmək mümkün olmadı');
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(draftKey);
+    setDraftRecoveryInfo(null);
+  };
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const addQuestion = useCallback((type: QuestionType) => {
@@ -590,7 +591,10 @@ export default function CreateQuizPage() {
       } else {
         const quiz = await createQuiz.mutateAsync(quizPayload);
         quizId = quiz.id;
-        const questionsToCreate = questions.map((q, i) => draftToDbInsert(q, quizId!, i));
+        const questionsToCreate = questions.map((q, i) => {
+          const { id: _ignoreId, ...rest } = draftToDbInsert(q, quizId!, i);
+          return rest;
+        });
         await createQuestions.mutateAsync(questionsToCreate);
       }
 
@@ -598,6 +602,7 @@ export default function CreateQuizPage() {
         saveStoredCustomSubject(quizPayload.subject);
       }
 
+      localStorage.removeItem(draftKey);
       localStorage.removeItem(DRAFT_KEY);
       toast.success(id
         ? 'Quiz uğurla yeniləndi'
