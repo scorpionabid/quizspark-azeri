@@ -582,6 +582,7 @@ export default function MyQuizzesPage() {
         onOpenChange={setShareDialogOpen}
         quizId={shareQuizId}
         quizTitle={shareQuizTitle}
+        quiz={quizzes.find((q) => q.id === shareQuizId) || null}
       />
     </div>
   );

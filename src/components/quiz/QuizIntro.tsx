@@ -8,7 +8,7 @@ import { QuizRating } from "./QuizRating";
 import { QuizComments } from "./QuizComments";
 import { FavoriteButton } from "./FavoriteButton";
 
-import { Quiz } from "@/hooks/useQuizzes";
+import { Quiz, useVerifyQuizPassword } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
 
 import { User } from "@supabase/supabase-js";
@@ -38,12 +38,46 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
   isPending,
   isPreview,
 }) => {
-  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      return sp.get('pwd') || '';
+    }
+    return '';
+  });
   const [passwordError, setPasswordError] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const verifyPassword = useVerifyQuizPassword();
 
-  const handleStart = () => {
-    if (quiz.access_password?.trim()) {
-      if (passwordInput.trim().toLowerCase() !== quiz.access_password.trim().toLowerCase()) {
+  const requiresPassword = Boolean(quiz.has_password || (quiz.access_password && quiz.access_password.trim().length > 0));
+
+  const checkPassword = async (): Promise<boolean> => {
+    if (!requiresPassword) return true;
+
+    // Direct match if creator or known
+    if (quiz.access_password?.trim() && passwordInput.trim().toLowerCase() === quiz.access_password.trim().toLowerCase()) {
+      return true;
+    }
+
+    try {
+      setIsVerifying(true);
+      const isOk = await verifyPassword.mutateAsync({
+        quizId: quiz.id,
+        password: passwordInput.trim(),
+      });
+      return isOk;
+    } catch (err) {
+      console.error("Password verification error:", err);
+      return false;
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleStart = async () => {
+    if (requiresPassword) {
+      const isValid = await checkPassword();
+      if (!isValid) {
         setPasswordError(true);
         return;
       }
@@ -52,9 +86,10 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
     onStart();
   };
 
-  const handleResume = (attempt: QuizAttempt) => {
-    if (quiz.access_password?.trim()) {
-      if (passwordInput.trim().toLowerCase() !== quiz.access_password.trim().toLowerCase()) {
+  const handleResume = async (attempt: QuizAttempt) => {
+    if (requiresPassword) {
+      const isValid = await checkPassword();
+      if (!isValid) {
         setPasswordError(true);
         return;
       }
@@ -220,11 +255,11 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
           ) : (
             <div className="space-y-3">
               {/* Access password input */}
-              {quiz.access_password?.trim() && (
+              {requiresPassword && (
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                    Giriş şifrəsi
+                    <Lock className="h-4 w-4 text-primary" />
+                    Giriş şifrəsi tələb olunur
                   </label>
                   <Input
                     type="password"
@@ -236,6 +271,7 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                       passwordError && "border-destructive focus-visible:ring-destructive"
                     )}
                     onKeyDown={e => { if (e.key === 'Enter') handleStart(); }}
+                    disabled={isVerifying}
                   />
                   {passwordError && (
                     <p className="text-xs text-destructive font-medium">Şifrə yanlışdır. Yenidən cəhd edin.</p>
@@ -259,7 +295,7 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                     size="lg"
                     className="w-full border-warning/50 text-warning hover:bg-warning/10"
                     onClick={() => handleResume(incompleteAttempt)}
-                    disabled={isPending}
+                    disabled={isPending || isVerifying}
                   >
                     <RotateCcw className="mr-2 h-4 w-4" />
                     Davam Et
@@ -271,9 +307,9 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                 size="xl"
                 className="w-full"
                 onClick={handleStart}
-                disabled={isPending || isDisabled}
+                disabled={isPending || isDisabled || isVerifying}
               >
-                {isPending ? "Yüklənir..." : (isDisabled ? "Giriş qapalıdır" : incompleteAttempt ? "Yenidən Başla" : "Quizə Başla")}
+                {isVerifying ? "Şifrə yoxlanılır..." : isPending ? "Yüklənir..." : (isDisabled ? "Giriş qapalıdır" : incompleteAttempt ? "Yenidən Başla" : "Quizə Başla")}
               </Button>
             </div>
           )}

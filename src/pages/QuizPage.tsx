@@ -32,12 +32,12 @@ export default function QuizPage() {
   const { user } = useAuth();
 
   const { data: quiz, isLoading: quizLoading } = useQuiz(id);
-  const { data: questions = [], isLoading: questionsLoading } = useQuestions(id);
+  const { data: questions = [], isLoading: questionsLoading } = useQuestions(quiz?.id);
   const startAttempt = useStartAttempt();
   const updateAttempt = useUpdateAttempt();
   const completeAttempt = useCompleteAttempt();
 
-  const { data: myAttempts } = useMyAttempts(id);
+  const { data: myAttempts } = useMyAttempts(quiz?.id);
   const [displayQuestions, setDisplayQuestions] = useState<typeof questions>([]);
 
   const [quizState, setQuizState] = useState<QuizState>('intro');

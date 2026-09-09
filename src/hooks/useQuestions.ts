@@ -47,7 +47,7 @@ export function computeWeightedScore(answers: QuestionAnswer[], questions: Quest
   return { weightedScore, maxPossibleScore, percentage };
 }
 
-export function useQuestions(quizId: string | undefined) {
+export function useQuestions(quizId: string | undefined, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['questions', quizId],
     queryFn: async () => {
@@ -61,7 +61,7 @@ export function useQuestions(quizId: string | undefined) {
       if (error) throw error;
       return data as Question[];
     },
-    enabled: !!quizId,
+    enabled: !!quizId && (options?.enabled ?? true),
     staleTime: 10 * 60 * 1000, // 10 minutes cache
   });
 }

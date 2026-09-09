@@ -40,6 +40,8 @@ export interface Quiz {
   allow_bookmarks?: boolean;
   show_question_nav?: boolean;
   background_image_url?: string | null;
+  share_code?: string | null;
+  has_password?: boolean;
 }
 
 export interface QuizFilters {
@@ -117,21 +119,62 @@ export function useMyQuizzes(filters?: Omit<QuizFilters, 'creatorId'>) {
   return useQuizzes({ isArchived: false, ...filters, creatorId: user?.id });
 }
 
-export function useQuiz(quizId: string | undefined) {
+export function useQuiz(quizIdOrCode: string | undefined) {
   return useQuery({
-    queryKey: ['quiz', quizId],
+    queryKey: ['quiz', quizIdOrCode],
     queryFn: async () => {
-      if (!quizId) return null;
-      const { data, error } = await supabase
+      if (!quizIdOrCode) return null;
+      const clean = quizIdOrCode.trim();
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
+
+      let query = supabase
         .from('quizzes')
-        .select('*')
-        .eq('id', quizId)
-        .maybeSingle();
+        .select('*');
+
+      if (isUUID) {
+        query = query.eq('id', clean);
+      } else {
+        query = query.eq('share_code', clean);
+      }
+
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
-      return data as Quiz | null;
+      if (!data) return null;
+
+      const quiz = data as Quiz;
+      quiz.has_password = Boolean(quiz.access_password && quiz.access_password.trim().length > 0);
+      return quiz;
     },
-    enabled: !!quizId,
+    enabled: !!quizIdOrCode,
     staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
+}
+
+export function useVerifyQuizPassword() {
+  return useMutation({
+    mutationFn: async ({ quizId, password }: { quizId: string; password: string }) => {
+      const { data, error } = await supabase.rpc('verify_quiz_password', {
+        p_quiz_id: quizId,
+        p_password: password,
+      });
+      if (error) throw error;
+      return Boolean(data);
+    },
+  });
+}
+
+export function useQuizByCode(code: string | undefined) {
+  return useQuery({
+    queryKey: ['quiz-by-code', code],
+    queryFn: async () => {
+      if (!code) return null;
+      const { data, error } = await supabase.rpc('get_quiz_by_pin_or_code', {
+        p_code: code.trim(),
+      });
+      if (error) throw error;
+      return (data?.[0] as Quiz) || null;
+    },
+    enabled: !!code,
   });
 }
 

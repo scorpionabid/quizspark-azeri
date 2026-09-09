@@ -34,49 +34,40 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
     setIsLoading(true);
 
     try {
-      // 1. If user pasted a full URL like /quiz/UUID or https://.../quiz/UUID
-      const urlMatch = cleanPin.match(/quiz\/([a-zA-Z0-9-]+)/i);
+      // 1. If user pasted a full URL like /quiz/UUID or https://.../quiz/123456?pwd=xyz
+      const urlMatch = cleanPin.match(/quiz\/([a-zA-Z0-9-]+)(\?[^\s]*)?/i);
       const targetId = urlMatch ? urlMatch[1] : cleanPin;
+      const extraParams = urlMatch && urlMatch[2] ? urlMatch[2] : '';
 
-      // 2. Exact UUID match check
+      // 2. Call secure RPC get_quiz_by_pin_or_code
+      const { data, error } = await supabase.rpc('get_quiz_by_pin_or_code', {
+        p_code: targetId,
+      });
+
+      if (!error && data && data.length > 0) {
+        const quiz = data[0];
+        toast.success(`"${quiz.title}" imtahanına qoşulursunuz!`);
+        navigate(`/quiz/${quiz.share_code || quiz.id}${extraParams}`);
+        return;
+      }
+
+      // 3. Fallback direct check if RPC had any issue
       const isFullUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
-
+      let query = supabase.from('quizzes').select('id, title, share_code, is_published');
       if (isFullUUID) {
-        const { data: quiz } = await supabase
-          .from('quizzes')
-          .select('id, title, is_published')
-          .eq('id', targetId)
-          .maybeSingle();
-
-        if (quiz && (quiz.is_published || quiz.is_published === null)) {
-          toast.success(`"${quiz.title}" imtahanına qoşulursunuz!`);
-          navigate(`/quiz/${quiz.id}`);
-          return;
-        }
+        query = query.eq('id', targetId);
+      } else {
+        query = query.eq('share_code', targetId);
       }
 
-      // 3. Search by ID prefix (e.g. 6-8 hex character PIN) or search query
-      const { data: matchedQuizzes } = await supabase
-        .from('quizzes')
-        .select('id, title, is_published')
-        .limit(25);
-
-      if (matchedQuizzes && matchedQuizzes.length > 0) {
-        // Find matching quiz by ID starting with the PIN (case-insensitive)
-        const found = matchedQuizzes.find(
-          (q) =>
-            q.id.toLowerCase().startsWith(targetId.toLowerCase()) ||
-            q.id.replace(/-/g, '').toLowerCase().startsWith(targetId.toLowerCase())
-        );
-
-        if (found) {
-          toast.success(`"${found.title}" imtahanına qoşulursunuz!`);
-          navigate(`/quiz/${found.id}`);
-          return;
-        }
+      const { data: directQuiz } = await query.maybeSingle();
+      if (directQuiz && (directQuiz.is_published || directQuiz.is_published === null)) {
+        toast.success(`"${directQuiz.title}" imtahanına qoşulursunuz!`);
+        navigate(`/quiz/${directQuiz.share_code || directQuiz.id}${extraParams}`);
+        return;
       }
 
-      setErrorMsg('Bu kod ilə aktiv quiz tapılmadı. Kodu yenidən yoxlayın.');
+      setErrorMsg('Bu kod ilə aktiv quiz tapılmadı. Kodu düzgün daxil etdiyinizdən əmin olun.');
       toast.error('Quiz tapılmadı');
     } catch (err) {
       console.error('Join quiz error:', err);
