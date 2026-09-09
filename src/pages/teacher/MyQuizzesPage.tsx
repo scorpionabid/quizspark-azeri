@@ -18,6 +18,8 @@ import {
   ArrowUpDown,
   Share2,
   FileDown,
+  KeyRound,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -405,6 +407,28 @@ export default function MyQuizzesPage() {
                         <Badge variant={quiz.is_published ? 'success' : 'warning'}>
                           {quiz.is_published ? 'Dərc Olunmuş' : 'Qaralama'}
                         </Badge>
+                        {quiz.share_code && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(quiz.share_code!);
+                              toast.success(`PIN Kod (${quiz.share_code}) kopyalandı!`);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-mono font-bold transition-all shadow-sm active:scale-95"
+                            title="PIN Kodu kopyalamaq üçün klikləyin"
+                          >
+                            <KeyRound className="h-3 w-3" />
+                            <span>PIN: {quiz.share_code}</span>
+                            <Copy className="h-3 w-3 opacity-60 ml-0.5" />
+                          </button>
+                        )}
+                        {quiz.access_password && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-mono font-bold">
+                            <Lock className="h-3 w-3" />
+                            <span>Şifrə: {quiz.access_password}</span>
+                          </span>
+                        )}
                         {quiz.difficulty && (
                           <Badge variant={quiz.difficulty}>
                             {DIFFICULTY_LABELS[quiz.difficulty] || quiz.difficulty}

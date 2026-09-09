@@ -353,7 +353,9 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                             value={field.value ?? ''}
                                                         />
                                                     </FormControl>
-                                                    <FormDescription>Yalnız şifrəni bilənlər testə daxil ola bilər</FormDescription>
+                                                    <FormDescription>
+                                                        Yalnız şifrəni bilənlər testə daxil ola bilər (Qeyd: İmtahanın tapılması üçün sistem avtomatik 6 rəqəmli PIN Kod təyin edir; tələbələr əvvəlcə PIN kodla testi tapır, sonra bu şifrəni daxil edirlər).
+                                                    </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}

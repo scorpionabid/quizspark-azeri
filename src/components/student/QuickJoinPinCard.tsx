@@ -47,27 +47,31 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
       if (!error && data && data.length > 0) {
         const quiz = data[0];
         toast.success(`"${quiz.title}" imtahanına qoşulursunuz!`);
-        navigate(`/quiz/${quiz.share_code || quiz.id}${extraParams}`);
+        const isPasswordMatch = cleanPin !== quiz.share_code && quiz.has_password;
+        const queryParams = extraParams || (isPasswordMatch ? `?pwd=${encodeURIComponent(cleanPin)}` : '');
+        navigate(`/quiz/${quiz.share_code || quiz.id}${queryParams}`);
         return;
       }
 
       // 3. Fallback direct check if RPC had any issue
       const isFullUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
-      let query = supabase.from('quizzes').select('id, title, share_code, is_published');
+      let query = supabase.from('quizzes').select('id, title, share_code, is_published, access_password');
       if (isFullUUID) {
         query = query.eq('id', targetId);
       } else {
-        query = query.eq('share_code', targetId);
+        query = query.or(`share_code.eq.${targetId},access_password.eq.${targetId}`);
       }
 
       const { data: directQuiz } = await query.maybeSingle();
       if (directQuiz && (directQuiz.is_published || directQuiz.is_published === null)) {
         toast.success(`"${directQuiz.title}" imtahanına qoşulursunuz!`);
-        navigate(`/quiz/${directQuiz.share_code || directQuiz.id}${extraParams}`);
+        const isPwd = cleanPin === directQuiz.access_password;
+        const queryParams = extraParams || (isPwd ? `?pwd=${encodeURIComponent(cleanPin)}` : '');
+        navigate(`/quiz/${directQuiz.share_code || directQuiz.id}${queryParams}`);
         return;
       }
 
-      setErrorMsg('Bu kod ilə aktiv quiz tapılmadı. Kodu düzgün daxil etdiyinizdən əmin olun.');
+      setErrorMsg('Bu kod ilə aktiv quiz tapılmadı. 6 rəqəmli PIN kodu və ya təyin olunmuş şifrəni düzgün daxil etdiyinizdən əmin olun.');
       toast.error('Quiz tapılmadı');
     } catch (err) {
       console.error('Join quiz error:', err);
@@ -88,7 +92,7 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
               setPinCode(e.target.value.toUpperCase());
               if (errorMsg) setErrorMsg(null);
             }}
-            placeholder="PIN KOD (məs: A7F39B)"
+            placeholder="PIN KOD VƏ YA ŞİFRƏ"
             autoCapitalize="characters"
             autoCorrect="off"
             spellCheck={false}
@@ -118,10 +122,10 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
             <span>Sürətli İmtahana Giriş</span>
           </div>
           <h3 className="text-lg sm:text-xl lg:text-2xl font-black text-foreground break-words leading-tight">
-            Müəllimin verdiyi <span className="text-primary italic">PIN Kod</span> var?
+            İmtahan <span className="text-primary italic">PIN Kodu</span> və ya <span className="text-primary italic">Şifrəniz</span> var?
           </h3>
           <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
-            Kodu daxil et və birbaşa sınaq imtahanına başla.
+            PIN kod və ya imtahan şifrəsini daxil edərək birbaşa sınağa qoşulun.
           </p>
         </div>
 
@@ -135,7 +139,7 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
                   setPinCode(e.target.value.toUpperCase());
                   if (errorMsg) setErrorMsg(null);
                 }}
-                placeholder="PIN KODU DAXİL ET"
+                placeholder="PIN KOD VƏ YA ŞİFRƏ"
                 autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck={false}
