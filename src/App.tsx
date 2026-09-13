@@ -26,6 +26,7 @@ const AuthPage = lazy(() => import("./pages/auth/AuthPage"));
 const ResetPasswordPage = lazy(() => import("./pages/auth/ResetPasswordPage"));
 const PendingApprovalPage = lazy(() => import("./pages/auth/PendingApprovalPage"));
 const SupportChatPage = lazy(() => import("./pages/chat/SupportChatPage"));
+const ExamLoginPage = lazy(() => import("./pages/exam/ExamLoginPage"));
 
 // Teacher Pages — lazy
 const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));
@@ -42,6 +43,7 @@ const AIConfigPage = lazy(() => import("./pages/admin/AIConfigPage"));
 const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
 const AdminChatPage = lazy(() => import("./pages/admin/AdminChatPage"));
 const AuditLogsPage = lazy(() => import("./pages/admin/AuditLogsPage"));
+const AdminExamsPage = lazy(() => import("./pages/admin/AdminExamsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,6 +117,11 @@ function AppRoutes() {
         <Route path="/support" element={
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>
             <MainLayout><SupportChatPage /></MainLayout>
+          </Suspense>
+        } />
+        <Route path="/imtahan" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ExamLoginPage />
           </Suspense>
         } />
 
@@ -209,6 +216,13 @@ function AppRoutes() {
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>
             <ProtectedRoute allowedRoles={['admin']}>
               <MainLayout><AuditLogsPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+        <Route path="/admin/exams" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><AdminExamsPage /></MainLayout>
             </ProtectedRoute>
           </Suspense>
         } />

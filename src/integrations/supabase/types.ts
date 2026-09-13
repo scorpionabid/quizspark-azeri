@@ -544,6 +544,7 @@ export type Database = {
           bio: string | null
           created_at: string | null
           email: string | null
+          fin: string | null
           full_name: string | null
           grade: string | null
           id: string
@@ -552,6 +553,7 @@ export type Database = {
           level: number | null
           phone: string | null
           school: string | null
+          specialty: string | null
           status: string | null
           streak_count: number | null
           subscription_tier: string
@@ -565,6 +567,7 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           email?: string | null
+          fin?: string | null
           full_name?: string | null
           grade?: string | null
           id?: string
@@ -573,6 +576,7 @@ export type Database = {
           level?: number | null
           phone?: string | null
           school?: string | null
+          specialty?: string | null
           status?: string | null
           streak_count?: number | null
           subscription_tier?: string
@@ -586,6 +590,7 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           email?: string | null
+          fin?: string | null
           full_name?: string | null
           grade?: string | null
           id?: string
@@ -594,6 +599,7 @@ export type Database = {
           level?: number | null
           phone?: string | null
           school?: string | null
+          specialty?: string | null
           status?: string | null
           streak_count?: number | null
           subscription_tier?: string
@@ -1716,6 +1722,7 @@ export type Database = {
           description: string | null
           difficulty: string | null
           duration: number | null
+          exam_category: string | null
           grade: string | null
           id: string
           is_archived: boolean
@@ -1731,6 +1738,7 @@ export type Database = {
           feedback_timing?: string | null
           show_question_nav: boolean
           shuffle_questions: boolean | null
+          specialty_key: string | null
           strict_mode: boolean
           subject: string | null
           time_bonus_enabled: boolean | null
@@ -1753,6 +1761,7 @@ export type Database = {
           description?: string | null
           difficulty?: string | null
           duration?: number | null
+          exam_category?: string | null
           grade?: string | null
           id?: string
           is_archived?: boolean
@@ -1768,6 +1777,7 @@ export type Database = {
           feedback_timing?: string | null
           show_question_nav?: boolean
           shuffle_questions?: boolean | null
+          specialty_key?: string | null
           strict_mode?: boolean
           subject?: string | null
           time_bonus_enabled?: boolean | null
@@ -1790,6 +1800,7 @@ export type Database = {
           description?: string | null
           difficulty?: string | null
           duration?: number | null
+          exam_category?: string | null
           grade?: string | null
           id?: string
           is_archived?: boolean
@@ -1805,6 +1816,7 @@ export type Database = {
           feedback_timing?: string | null
           show_question_nav?: boolean
           shuffle_questions?: boolean | null
+          specialty_key?: string | null
           strict_mode?: boolean
           subject?: string | null
           time_bonus_enabled?: boolean | null

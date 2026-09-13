@@ -18,6 +18,7 @@ import {
   Database,
   MessageCircle,
   ShieldAlert,
+  Award,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -56,6 +57,7 @@ const navigationGroups: NavGroup[] = [
     label: "Əsas",
     items: [
       { title: "Ana Səhifə", url: "/", icon: Home, roles: ['admin', 'teacher', 'student', 'guest'] },
+      { title: "İşə Qəbul İmtahanı", url: "/imtahan", icon: Award, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Quizlər", url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Liderlik Lövhəsi", url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student'] },
       { title: "Dəstək", url: "/support", icon: MessageCircle, roles: ['admin', 'teacher', 'student'] },
@@ -74,6 +76,7 @@ const navigationGroups: NavGroup[] = [
     label: "Admin",
     items: [
       { title: "Admin Panel", url: "/admin/dashboard", icon: Shield, roles: ['admin'] },
+      { title: "Rəsmi İmtahanlar & İxrac", url: "/admin/exams", icon: Award, roles: ['admin'] },
       { title: "İstifadəçilər", url: "/admin/users", icon: Users, roles: ['admin'] },
       { title: "Mesajlar", url: "/admin/chat", icon: MessageCircle, roles: ['admin'] },
       { title: "İcazələr", url: "/admin/permissions", icon: Key, roles: ['admin'] },
