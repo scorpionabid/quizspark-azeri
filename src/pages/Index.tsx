@@ -152,10 +152,18 @@ export default function Index() {
   }, [quizzes, quizMeta]);
 
   const handlePlayQuiz = (quiz: import("@/hooks/useQuizzes").Quiz) => {
+    if (quiz.exam_category === 'official_exam') {
+      navigate('/imtahan');
+      return;
+    }
     navigate(`/quiz/${quiz.id}`);
   };
 
   const handlePreviewQuiz = (quiz: import("@/hooks/useQuizzes").Quiz) => {
+    if (quiz.exam_category === 'official_exam') {
+      navigate('/imtahan');
+      return;
+    }
     navigate(`/quiz/${quiz.id}?preview=true`);
   };
 
@@ -283,6 +291,40 @@ export default function Index() {
           </div>
         </section>
       )}
+
+      {/* Official Exam Portal Banner */}
+      <section className="px-3 sm:px-6 lg:px-8 pb-6 w-full min-w-0">
+        <div className="mx-auto max-w-7xl w-full min-w-0">
+          <div className="rounded-3xl border border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-white to-blue-50/50 dark:from-blue-950/40 dark:via-slate-900 dark:to-blue-950/20 p-5 sm:p-7 shadow-sm flex flex-col md:flex-row items-center justify-between gap-5">
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
+                <Award className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                    Məktəbəqədər və Ümumi Təhsil üzrə Dövlət Agentliyi
+                  </span>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">9 İxtisas Üzrə Rəsmi İmtahan</span>
+                </div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100">
+                  Ümumi Təhsil Müəssisələrində Vakant Vəzifələr Üzrə İmtahan Portalı
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
+                  Namizədlər üçün FİN kod və nəzarətçi kodu ilə təhlükəsiz imtahan mühiti (120 dəqiqə, 60 sual).
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => navigate('/imtahan')}
+              className="h-11 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-600/20 shrink-0 w-full md:w-auto"
+            >
+              Rəsmi İmtahan Portalı
+            </Button>
+          </div>
+        </div>
+      </section>
 
       {/* Categories */}
       <section className="px-4 pb-4 sm:px-6 lg:px-8">

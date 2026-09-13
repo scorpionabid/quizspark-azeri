@@ -1,4 +1,4 @@
-import { BookOpen, Clock, Users, Star, Trophy, Zap } from "lucide-react";
+import { BookOpen, Clock, Users, Star, Trophy, Zap, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -65,6 +65,12 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
               <Badge variant="secondary" className="flex items-center gap-1 text-[9px] sm:text-[10px] px-1.5 py-0.5 shrink-0">
                 <Trophy className="h-2.5 w-2.5" />
                 Populyar
+              </Badge>
+            )}
+            {quiz.exam_category === 'official_exam' && (
+              <Badge className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 text-[9px] sm:text-[10px] px-1.5 py-0.5 shadow-sm shrink-0">
+                <Lock className="h-2.5 w-2.5" />
+                Rəsmi İmtahan
               </Badge>
             )}
             {status && (
@@ -145,7 +151,7 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
 
         {/* Actions */}
         <div className="flex gap-2 mt-auto w-full">
-          {onPreview && (
+          {quiz.exam_category !== 'official_exam' && onPreview && (
             <Button
               variant="outline"
               size="sm"
@@ -156,12 +162,19 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
             </Button>
           )}
           <Button
-            variant="game"
+            variant={quiz.exam_category === 'official_exam' ? "default" : "game"}
             size="sm"
-            className="flex-1 rounded-xl h-9 sm:h-10 text-xs sm:text-sm font-bold shadow-sm"
+            className={cn(
+              "flex-1 rounded-xl h-9 sm:h-10 text-xs sm:text-sm font-bold shadow-sm",
+              quiz.exam_category === 'official_exam' && "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
+            )}
             onClick={() => onPlay(quiz)}
           >
-            {isGuest ? 'Başla' : 'Quizə Başla'}
+            {quiz.exam_category === 'official_exam' ? (
+              <span className="flex items-center justify-center gap-1.5">
+                <Lock className="h-3.5 w-3.5" /> İmtahan Portalı
+              </span>
+            ) : isGuest ? 'Başla' : 'Quizə Başla'}
           </Button>
         </div>
       </div>

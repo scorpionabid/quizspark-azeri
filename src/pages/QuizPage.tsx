@@ -9,7 +9,8 @@ import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt } 
 import { useAuth } from "@/contexts/AuthContext";
 import { useGamification } from "@/hooks/useGamification";
 
-// UI Components
+import { Lock, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -507,6 +508,31 @@ export default function QuizPage() {
 
   if (isLoading) return <div className="min-h-screen bg-gradient-hero"><PageLoader text="Quiz yüklənir..." /></div>;
   if (!quiz) return <div className="flex-1 bg-background p-8 flex flex-col items-center justify-center"><EmptyState icon="😕" title="Quiz tapılmadı" description="Bu quiz mövcud deyil və ya silinib." action={{ label: "Ana Səhifəyə Qayıt", onClick: () => navigate('/') }} /></div>;
+
+  // Official Exam direct access protection
+  if (quiz.exam_category === 'official_exam') {
+    if (isPreview || !user) {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 flex items-center justify-center">
+          <div className="max-w-md w-full text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-xl space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
+              <Shield className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Rəsmi İmtahan Portalı</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              Bu rəsmi vakant vəzifələr üzrə imtahandır. Suallar yalnız imtahan zalında FİN kod və nəzarətçi kodu ilə portala daxil olduqda açılır.
+            </p>
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 rounded-xl shadow-lg shadow-blue-600/20"
+              onClick={() => navigate('/imtahan')}
+            >
+              Rəsmi İmtahan Portalına Keç
+            </Button>
+          </div>
+        </div>
+      );
+    }
+  }
 
   if (quizState === 'intro') {
     return (

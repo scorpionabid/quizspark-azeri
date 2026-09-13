@@ -57,7 +57,8 @@ const navigationGroups: NavGroup[] = [
     label: "Əsas",
     items: [
       { title: "Ana Səhifə", url: "/", icon: Home, roles: ['admin', 'teacher', 'student', 'guest'] },
-      { title: "Quizlər", url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
+      { title: "Quizlər və Kurslar", url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
+      { title: "Rəsmi İmtahan Portalı", url: "/imtahan", icon: Award, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Liderlik Lövhəsi", url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student'] },
       { title: "Dəstək", url: "/support", icon: MessageCircle, roles: ['admin', 'teacher', 'student'] },
     ],

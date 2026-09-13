@@ -115,6 +115,11 @@ export default function ExamLoginPage() {
       return;
     }
 
+    if (!settings.is_active) {
+      toast.error('İmtahan portalı hələ aktivləşdirilməyib. Zəhmət olmasa zal nəzarətçisinin təlimatını gözləyin.');
+      return;
+    }
+
     // Verify access code
     if (cleanExamCode !== settings.access_code.trim()) {
       toast.error('İmtahan giriş kodu yanlışdır! Yalnız nəzarətçi tərəfindən elan olunan parolu daxil edin.');
@@ -266,43 +271,6 @@ export default function ExamLoginPage() {
               <p className="text-sm text-slate-500">İmtahan serverinin statusu yoxlanılır...</p>
             </div>
           </Card>
-        ) : !settings?.is_active ? (
-          /* LOCKED / CLOSED STATE */
-          <Card className="border-red-200 dark:border-red-900/60 shadow-xl bg-white dark:bg-slate-900 text-center">
-            <CardHeader className="pb-4">
-              <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-950/60 text-red-600 rounded-full flex items-center justify-center mb-3">
-                <Lock className="w-8 h-8" />
-              </div>
-              <Badge variant="outline" className="mx-auto border-red-400 text-red-600 bg-red-50 dark:bg-red-950/40 mb-2">
-                Giriş Qadağandır • Sistem Qapalıdır
-              </Badge>
-              <CardTitle className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white">
-                İmtahan Portalı Hazırda Qapalıdır
-              </CardTitle>
-              <CardDescription className="text-slate-600 dark:text-slate-300 text-sm max-w-lg mx-auto pt-2 leading-relaxed">
-                Hörmətli namizəd, imtahan sessiyası yalnız rəsmi təyin olunmuş vaxtda və imtahan zalında nəzarətçi tərəfindən aktivləşdiriləcəkdir. Hələlik sistemə giriş tam qapalıdır.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 leading-relaxed text-left space-y-2">
-                <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 text-amber-500" /> Təlimat:
-                </div>
-                <p>1. Zəhmət olmasa təyin edilmiş imtahan saatını və nəzarətçinin göstərişini gözləyin.</p>
-                <p>2. İmtahan aktivləşdirildikdə nəzarətçi tərəfindən zalda xüsusi <strong>İmtahan Giriş Parolu</strong> elan olunacaqdır.</p>
-                <p>3. Statusu yenidən yoxlamaq üçün aşağıdakı düyməyə basa bilərsiniz.</p>
-              </div>
-            </CardContent>
-            <CardFooter className="pt-2">
-              <Button
-                variant="outline"
-                onClick={fetchSettings}
-                className="w-full flex items-center justify-center gap-2 h-11"
-              >
-                <RefreshCw className="w-4 h-4" /> Statusu Yenidən Yoxla
-              </Button>
-            </CardFooter>
-          </Card>
         ) : completedInfo ? (
           /* ALREADY COMPLETED STATE */
           <Card className="border-blue-200 dark:border-blue-900 shadow-xl bg-white dark:bg-slate-900">
@@ -374,13 +342,43 @@ export default function ExamLoginPage() {
                 <CardTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <User className="w-5 h-5 text-blue-600" /> İştirakçının Qeydiyyatı və Giriş
                 </CardTitle>
-                <Badge variant="outline" className="border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40">
-                  Sessiya Aktivdir
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      settings?.is_active
+                        ? "border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+                        : "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/40"
+                    )}
+                  >
+                    {settings?.is_active ? 'Sessiya Aktivdir' : 'Gözləmə Rejimi'}
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={fetchSettings}
+                    className="h-7 px-2 text-xs text-slate-500 hover:text-slate-900"
+                    title="Statusu yenilə"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
               <CardDescription>
                 Şəxsiyyət vəsiqənizin FİN kodunu, ad və soyadınızı yazın, ixtisasınızı seçin və zalda verilən imtahan parolunu daxil edin.
               </CardDescription>
+              {!settings?.is_active && (
+                <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Lock className="w-4 h-4 text-amber-600" />
+                    İmtahan Portalı Hazırda Gözləmə Rejimindədir
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Məlumatlarınızı (FİN, Ad, Soyad, İxtisas) doldura bilərsiniz. İmtahan zalda nəzarətçi tərəfindən başladıldıqda və otaq parolu elan edildikdə imtahana başlaya biləcəksiniz.
+                  </p>
+                </div>
+              )}
             </CardHeader>
 
             <CardContent>
@@ -519,13 +517,17 @@ export default function ExamLoginPage() {
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                  disabled={!isFormValid || isLoading}
-                  className="w-full h-11 text-sm sm:text-base font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 rounded-xl transition-all"
+                  disabled={!isFormValid || isLoading || !settings?.is_active}
+                  className="w-full h-11 text-sm sm:text-base font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 rounded-xl transition-all disabled:opacity-60"
                 >
                   {isLoading ? (
                     <span className="flex items-center gap-2">
                       <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                       İmtahan sessiyası başladılır...
+                    </span>
+                  ) : !settings?.is_active ? (
+                    <span className="flex items-center gap-2">
+                      <Lock className="w-4 h-4" /> Sessiyanın Başlaması Gözlənilir
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">

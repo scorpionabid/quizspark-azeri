@@ -76,10 +76,18 @@ export default function QuizzesPage() {
     });
 
   const handlePlayQuiz = (quiz: DbQuiz) => {
+    if (quiz.exam_category === 'official_exam') {
+      navigate('/imtahan');
+      return;
+    }
     navigate(`/quiz/${quiz.id}`);
   };
 
   const handlePreviewQuiz = (quiz: DbQuiz) => {
+    if (quiz.exam_category === 'official_exam') {
+      navigate('/imtahan');
+      return;
+    }
     navigate(`/quiz/${quiz.id}?preview=true`);
   };
 
@@ -114,8 +122,8 @@ export default function QuizzesPage() {
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="mb-2 font-display text-3xl font-bold text-foreground">Quizlər</h1>
-          <p className="text-muted-foreground">Müxtəlif fənlər üzrə quizləri kəşf et</p>
+          <h1 className="mb-2 font-display text-3xl font-bold text-foreground">Quizlər və Kurslar</h1>
+          <p className="text-muted-foreground">Müxtəlif fənlər və ixtisaslar üzrə sınaq və imtahan kurslarını kəşf et</p>
         </div>
 
         {/* Filters */}
