@@ -216,31 +216,6 @@ export default function Index() {
               yeni şeylər öyrən və liderlik lövhəsində yarış!
             </p>
 
-            {/* Official State Exam Banner */}
-            <div className="mx-auto mb-6 max-w-2xl">
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 p-5 text-white shadow-xl text-left border border-blue-400/30">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-xs font-semibold tracking-wide">
-                      <Award className="w-3.5 h-3.5 text-amber-300" /> Rəsmi İşə Qəbul İmtahanı
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold">
-                      Vakant Vəzifələr Üzrə İmtahan Portalı
-                    </h3>
-                    <p className="text-xs text-blue-100">
-                      GÇH, Laborant, Psixoloq, Katibə, Təsərrüfat müdiri və s. (120 dəq, 60 sual)
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => navigate('/imtahan')}
-                    className="shrink-0 w-full sm:w-auto bg-white text-blue-900 hover:bg-blue-50 font-bold px-5 py-2 rounded-xl shadow-md transition-all text-xs sm:text-sm"
-                  >
-                    İmtahana Daxil Ol →
-                  </Button>
-                </div>
-              </div>
-            </div>
-
             {/* Quick PIN Join Card for Guests */}
             <div className="mx-auto mb-8 max-w-2xl text-left">
               <QuickJoinPinCard variant="card" />

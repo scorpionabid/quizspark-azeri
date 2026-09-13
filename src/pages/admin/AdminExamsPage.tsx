@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   FileSpreadsheet,
@@ -13,11 +13,18 @@ import {
   BookOpen,
   ArrowUpDown,
   Download,
+  Lock,
+  Unlock,
+  KeyRound,
+  ShieldCheck,
+  Save,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,6 +56,61 @@ export default function AdminExamsPage() {
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'passed' | 'failed' | 'in_progress'>('all');
   const [isExporting, setIsExporting] = useState(false);
+
+  // Security / Portal Lock state
+  const [portalActive, setPortalActive] = useState(false);
+  const [portalCode, setPortalCode] = useState('EXAM2026');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Fetch security settings
+  const { data: examSettings, refetch: refetchSettings } = useQuery({
+    queryKey: ['official_exam_settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('official_exam_settings')
+        .select('*')
+        .eq('id', 'current')
+        .maybeSingle();
+      if (error) throw error;
+      return data || { is_active: false, access_code: 'EXAM2026' };
+    },
+  });
+
+  useEffect(() => {
+    if (examSettings) {
+      setPortalActive(examSettings.is_active);
+      setPortalCode(examSettings.access_code);
+    }
+  }, [examSettings]);
+
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('official_exam_settings')
+        .upsert({
+          id: 'current',
+          is_active: portalActive,
+          access_code: portalCode.trim(),
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+
+      toast.success(
+        portalActive
+          ? 'İmtahan portalı AKTİVLƏŞDİRİLDİ! Təyin olunmuş kodla daxil olmaq olar.'
+          : 'İmtahan portalı KİLİDLƏNDİ! İştirakçıların girişi tam dayandırıldı.'
+      );
+      void refetchSettings();
+    } catch (err: unknown) {
+      console.error('Settings save error:', err);
+      const msg = err instanceof Error ? err.message : 'Xəta baş verdi';
+      toast.error(`Ayarları yadda saxlamaq olmadı: ${msg}`);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   // Fetch official quizzes
   const { data: officialQuizzes = [] } = useQuery({
@@ -156,7 +218,7 @@ export default function AdminExamsPage() {
 
       return rows;
     },
-    refetchInterval: 30000, // Live poll every 30 seconds
+    refetchInterval: 30000,
   });
 
   // Filtered rows
@@ -237,21 +299,20 @@ export default function AdminExamsPage() {
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
 
-      // Set column widths
       worksheet['!cols'] = [
-        { wch: 6 }, // S/S
-        { wch: 12 }, // FIN
-        { wch: 28 }, // Full Name
-        { wch: 38 }, // Specialty
-        { wch: 12 }, // Dogru
-        { wch: 12 }, // Sehv
-        { wch: 12 }, // Bos
-        { wch: 15 }, // Bal
-        { wch: 15 }, // Kecid
-        { wch: 15 }, // Status
-        { wch: 18 }, // Vaxt
-        { wch: 22 }, // Baslama
-        { wch: 22 }, // Bitme
+        { wch: 6 },
+        { wch: 12 },
+        { wch: 28 },
+        { wch: 38 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 18 },
+        { wch: 22 },
+        { wch: 22 },
       ];
 
       const workbook = XLSX.utils.book_new();
@@ -315,6 +376,66 @@ export default function AdminExamsPage() {
           </Button>
         </div>
       </div>
+
+      {/* SECURITY / PORTAL LOCK CONTROL CARD */}
+      <Card className="border-blue-200 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/50 via-white to-indigo-50/50 dark:from-slate-900 dark:to-slate-900 shadow-sm">
+        <CardHeader className="p-4 pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+              <ShieldCheck className="w-5 h-5 text-blue-600" /> İmtahan Nəzarət Mərkəzi (Təhlükəsizlik və Giriş Qıfılı)
+            </CardTitle>
+            <CardDescription className="text-xs text-slate-500">
+              İmtahanı vaxtından əvvəl heç kimin görməməsi üçün qapalı saxlayın, yalnız zalda imtahan başladıqda aktiv edin.
+            </CardDescription>
+          </div>
+          <Badge
+            variant={portalActive ? 'default' : 'destructive'}
+            className="text-xs px-3 py-1 font-semibold flex items-center gap-1.5"
+          >
+            {portalActive ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+            {portalActive ? 'PORTAL AKTİVDİR (GİRİŞ AÇIQDIR)' : 'PORTAL KİLİDLİDİR (GİRİŞ QADAĞANDIR)'}
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-4 pt-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+            {/* Toggle Active Switch */}
+            <div className="flex items-center space-x-3">
+              <Switch
+                id="portal-active"
+                checked={portalActive}
+                onCheckedChange={setPortalActive}
+              />
+              <Label htmlFor="portal-active" className="text-xs sm:text-sm font-semibold cursor-pointer">
+                {portalActive ? 'İmtahana Girişi İcazəli Et (Aktiv)' : 'İmtahanı Tam Kilidlə (Qapalı)'}
+              </Label>
+            </div>
+
+            {/* Access Code Input */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                <KeyRound className="w-4 h-4 text-blue-600" />
+                <span className="text-xs text-slate-500">Zal Parolu:</span>
+                <Input
+                  value={portalCode}
+                  onChange={(e) => setPortalCode(e.target.value)}
+                  className="h-7 w-32 font-mono text-xs font-bold uppercase tracking-wider"
+                  placeholder="Məs: EXAM2026"
+                />
+              </div>
+
+              <Button
+                size="sm"
+                onClick={handleSaveSettings}
+                disabled={isSavingSettings}
+                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 h-8 text-xs font-semibold"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {isSavingSettings ? 'Yadda saxlanılır...' : 'Yadda Saxla'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

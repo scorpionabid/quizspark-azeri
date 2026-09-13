@@ -34,6 +34,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      official_exam_settings: {
+        Row: {
+          id: string
+          is_active: boolean
+          access_code: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          access_code?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          access_code?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           id: string
