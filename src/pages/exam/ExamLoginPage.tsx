@@ -150,17 +150,32 @@ export default function ExamLoginPage() {
       const email = `fin_${cleanFin.toLowerCase()}@imtahan.store`;
       const password = `Imtahan2026_${cleanFin}!`;
 
-      // Try signIn first
       let authUserId: string | null = null;
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
 
-      if (signInData?.user) {
-        authUserId = signInData.user.id;
-      } else if (signInError) {
-        // User might not exist yet, attempt signUp
+      // Check if user already exists to eliminate console 400 Bad Request
+      let isExistingCandidate = false;
+      try {
+        const { data: exists } = await supabase.rpc('check_candidate_exists', { p_fin: cleanFin });
+        isExistingCandidate = Boolean(exists);
+      } catch {
+        isExistingCandidate = false;
+      }
+
+      if (isExistingCandidate) {
+        // Existing candidate -> direct signIn
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          throw new Error(`Daxilolma xətası: ${signInError.message}`);
+        }
+        if (signInData?.user) {
+          authUserId = signInData.user.id;
+        }
+      } else {
+        // New candidate -> direct signUp (no 400 Bad Request in console!)
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -175,9 +190,18 @@ export default function ExamLoginPage() {
         });
 
         if (signUpError) {
-          throw new Error(`Daxilolma xətası: ${signUpError.message}`);
-        }
-        if (signUpData?.user) {
+          // If already registered in an edge case, fallback to signIn
+          if (signUpError.message?.toLowerCase().includes('already') || signUpError.message?.toLowerCase().includes('registered')) {
+            const { data: fallbackSignIn, error: fallbackError } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+            if (fallbackError) throw new Error(`Daxilolma xətası: ${fallbackError.message}`);
+            authUserId = fallbackSignIn?.user?.id ?? null;
+          } else {
+            throw new Error(`Qeydiyyat xətası: ${signUpError.message}`);
+          }
+        } else if (signUpData?.user) {
           authUserId = signUpData.user.id;
         }
       }
