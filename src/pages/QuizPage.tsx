@@ -91,6 +91,13 @@ export default function QuizPage() {
     };
   }, []);
 
+  const sendHeartbeatRef = useRef(examHeartbeat.mutate);
+  sendHeartbeatRef.current = examHeartbeat.mutate;
+  const updateAttemptMutateRef = useRef(updateAttempt.mutate);
+  updateAttemptMutateRef.current = updateAttempt.mutate;
+  const currentPageRef = useRef(currentPage);
+  currentPageRef.current = currentPage;
+
   // Auto-Save Draft to LocalStorage + Debounced DB Sync
   useEffect(() => {
     if (attemptId && quizState === 'playing' && Object.keys(localAnswers).length > 0 && !isPreview) {
@@ -120,10 +127,10 @@ export default function QuizPage() {
           });
 
         setAnswers(answersArray);
-        updateAttempt.mutate({
+        updateAttemptMutateRef.current({
           attemptId,
           answers: answersArray as unknown as Record<string, string>[],
-          currentQuestionIndex: currentPage,
+          currentQuestionIndex: currentPageRef.current,
         });
       }, 1500);
     }
@@ -133,28 +140,28 @@ export default function QuizPage() {
         clearTimeout(debouncedSyncRef.current);
       }
     };
-  }, [localAnswers, attemptId, quizState, isPreview, displayQuestions, questions, currentPage, updateAttempt]);
+  }, [localAnswers, attemptId, quizState, isPreview, displayQuestions, questions]);
 
   // 20-second Heartbeat interval
   useEffect(() => {
     if (quizState === 'playing' && attemptId && !isPreview) {
-      examHeartbeat.mutate({
+      sendHeartbeatRef.current({
         attemptId,
-        questionIndex: currentPage + 1,
+        questionIndex: currentPageRef.current + 1,
         tabSwitches: strictViolationsRef.current,
       });
 
       const interval = setInterval(() => {
-        examHeartbeat.mutate({
+        sendHeartbeatRef.current({
           attemptId,
-          questionIndex: currentPage + 1,
+          questionIndex: currentPageRef.current + 1,
           tabSwitches: strictViolationsRef.current,
         });
       }, 20000);
 
       return () => clearInterval(interval);
     }
-  }, [quizState, attemptId, isPreview, currentPage, examHeartbeat]);
+  }, [quizState, attemptId, isPreview]);
 
   // Restore Draft on Mount
   useEffect(() => {

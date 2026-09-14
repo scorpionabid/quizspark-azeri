@@ -166,6 +166,7 @@ export function useExamHeartbeat() {
         console.warn('Heartbeat update error:', error.message);
       }
     },
+    retry: false,
   });
 }
 

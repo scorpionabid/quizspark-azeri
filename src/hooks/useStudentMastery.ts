@@ -207,11 +207,11 @@ export async function syncStudentMasteryAfterQuiz(params: {
   try {
     // 1. Quiz və sual məlumatlarını çəkirik
     const [{ data: quizData }, { data: questionsData }] = await Promise.all([
-      supabase.from('quizzes').select('title, category').eq('id', quizId).maybeSingle(),
-      supabase.from('questions').select('id, category, topic, bloom_level, weight').eq('quiz_id', quizId),
+      supabase.from('quizzes').select('title, subject, exam_category').eq('id', quizId).maybeSingle(),
+      supabase.from('questions').select('id, topic, weight').eq('quiz_id', quizId),
     ]);
 
-    const defaultCategory = quizData?.category || 'Ümumi';
+    const defaultCategory = quizData?.subject || quizData?.exam_category || 'Ümumi';
     const questionsMap = new Map((questionsData || []).map((q) => [q.id, q]));
 
     // 2. Mövcud qeydləri toplayırıq
@@ -225,12 +225,12 @@ export async function syncStudentMasteryAfterQuiz(params: {
 
     answers.forEach((ans) => {
       const q = questionsMap.get(ans.questionId);
-      const category = q?.category || defaultCategory;
+      const category = defaultCategory;
       const topic = q?.topic || 'Əsas mövzu';
-      const bloom_level = q?.bloom_level || null;
+      const bloom_level = null;
       const isCorrect = Boolean(ans.isCorrect || (ans.pointsEarned && ans.pointsEarned > 0));
 
-      const key = `${category}:::${topic}:::${bloom_level || 'none'}`;
+      const key = `${category}:::${topic}:::none`;
       if (!aggregations[key]) {
         aggregations[key] = {
           category,
