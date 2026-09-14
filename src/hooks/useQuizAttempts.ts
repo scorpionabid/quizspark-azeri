@@ -15,6 +15,11 @@ export interface QuizAttempt {
   time_spent: number | null;
   answers: Record<string, string>[];
   question_order?: string[] | null;
+  last_heartbeat_at?: string | null;
+  current_question_index?: number | null;
+  tab_switch_count?: number | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
 }
 
 export interface QuizResult {
@@ -109,13 +114,24 @@ export function useStartAttempt() {
 }
 
 export function useUpdateAttempt() {
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({ attemptId, answers }: { attemptId: string; answers: Record<string, string>[] }) => {
+    mutationFn: async ({
+      attemptId,
+      answers,
+      currentQuestionIndex,
+    }: {
+      attemptId: string;
+      answers: Record<string, string>[];
+      currentQuestionIndex?: number;
+    }) => {
+      const updateData: Record<string, any> = { answers };
+      if (currentQuestionIndex !== undefined) {
+        updateData.current_question_index = currentQuestionIndex;
+      }
+
       const { data, error } = await supabase
         .from('quiz_attempts')
-        .update({ answers })
+        .update(updateData)
         .eq('id', attemptId)
         .select()
         .single();
@@ -123,8 +139,32 @@ export function useUpdateAttempt() {
       if (error) throw error;
       return data as QuizAttempt;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['attempts'] });
+    // Redundant invalidateQueries(['attempts']) intentionally omitted to eliminate DB query storms
+    // for 300+ concurrent participants answering questions.
+  });
+}
+
+export function useExamHeartbeat() {
+  return useMutation({
+    mutationFn: async ({
+      attemptId,
+      questionIndex,
+      tabSwitches,
+    }: {
+      attemptId: string;
+      questionIndex: number;
+      tabSwitches: number;
+    }) => {
+      const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null;
+      const { error } = await supabase.rpc('record_exam_heartbeat', {
+        p_attempt_id: attemptId,
+        p_question_index: questionIndex,
+        p_tab_switches: tabSwitches,
+        p_user_agent: userAgent,
+      });
+      if (error) {
+        console.warn('Heartbeat update error:', error.message);
+      }
     },
   });
 }

@@ -18,6 +18,13 @@ import {
   KeyRound,
   ShieldCheck,
   Save,
+  Eye,
+  Activity,
+  AlertTriangle,
+  Wifi,
+  WifiOff,
+  FileText,
+  ShieldAlert,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +34,13 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -49,6 +63,11 @@ interface ExamAttemptRow {
   correctCount: number;
   incorrectCount: number;
   unansweredCount: number;
+  lastHeartbeatAt: string | null;
+  currentQuestionIndex: number | null;
+  tabSwitchCount: number;
+  ipAddress: string | null;
+  userAgent: string | null;
 }
 
 export default function AdminExamsPage() {
@@ -127,6 +146,29 @@ export default function AdminExamsPage() {
 
   const officialQuizIds = useMemo(() => officialQuizzes.map((q) => q.id), [officialQuizzes]);
 
+  const [selectedAttemptForLogs, setSelectedAttemptForLogs] = useState<ExamAttemptRow | null>(null);
+
+  // Fetch audit logs for selected candidate
+  const { data: attemptAuditLogs = [], isLoading: isLoadingLogs } = useQuery({
+    queryKey: ['attempt_audit_logs', selectedAttemptForLogs?.userId, selectedAttemptForLogs?.id],
+    enabled: !!selectedAttemptForLogs,
+    queryFn: async () => {
+      if (!selectedAttemptForLogs) return [];
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .or(`user_id.eq.${selectedAttemptForLogs.userId},entity_id.eq.${selectedAttemptForLogs.id}`)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.warn('Audit logs fetch error:', error);
+        return [];
+      }
+      return data || [];
+    },
+  });
+
   // Fetch attempts & results for official quizzes
   const {
     data: attemptsData = [],
@@ -140,7 +182,7 @@ export default function AdminExamsPage() {
       // 1. Fetch attempts
       const { data: attempts, error: attError } = await supabase
         .from('quiz_attempts')
-        .select('id, quiz_id, user_id, started_at, completed_at, score, total_questions, time_spent, answers')
+        .select('id, quiz_id, user_id, started_at, completed_at, score, total_questions, time_spent, answers, last_heartbeat_at, current_question_index, tab_switch_count, ip_address, user_agent')
         .in('quiz_id', officialQuizIds)
         .order('started_at', { ascending: false });
 
@@ -213,12 +255,17 @@ export default function AdminExamsPage() {
           correctCount: correct,
           incorrectCount: incorrect,
           unansweredCount: unanswered,
+          lastHeartbeatAt: att.last_heartbeat_at,
+          currentQuestionIndex: att.current_question_index,
+          tabSwitchCount: att.tab_switch_count || 0,
+          ipAddress: att.ip_address,
+          userAgent: att.user_agent,
         };
       });
 
       return rows;
     },
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   });
 
   // Filtered rows
@@ -285,13 +332,17 @@ export default function AdminExamsPage() {
           'FİN Kod': row.fin,
           'Ad, Soyad': row.fullName,
           'İxtisas / Vəzifə': row.specialty,
+          'Cari Sual': row.isCompleted ? 'Tamamlanıb' : `Sual ${row.currentQuestionIndex || 1}`,
           'Doğru Sayı': row.correctCount,
           'Səhv Sayı': row.incorrectCount,
           'Boş Sayı': row.unansweredCount,
           'Yekun Bal (%)': row.isCompleted ? row.score : 'Davam edir',
           'Keçid Həddi (%)': row.passPercentage,
           'Status': !row.isCompleted ? 'Davam edir' : row.isPassed ? 'KEÇDİ' : 'KEÇMƏDİ',
+          'Pəncərə Dəyişmə Sayı': row.tabSwitchCount,
+          'IP Ünvanı': row.ipAddress || '—',
           'Sərf Olunan Vaxt': formatTime(row.timeSpent),
+          'Son Əlaqə': row.lastHeartbeatAt ? new Date(row.lastHeartbeatAt).toLocaleTimeString('az-AZ') : '—',
           'Başlama Tarixi': new Date(row.startedAt).toLocaleString('az-AZ'),
           'Bitirmə Tarixi': row.completedAt ? new Date(row.completedAt).toLocaleString('az-AZ') : '—',
         };
@@ -304,13 +355,17 @@ export default function AdminExamsPage() {
         { wch: 12 },
         { wch: 28 },
         { wch: 38 },
+        { wch: 14 },
         { wch: 12 },
         { wch: 12 },
         { wch: 12 },
         { wch: 15 },
         { wch: 15 },
         { wch: 15 },
+        { wch: 20 },
+        { wch: 16 },
         { wch: 18 },
+        { wch: 14 },
         { wch: 22 },
         { wch: 22 },
       ];
@@ -551,95 +606,250 @@ export default function AdminExamsPage() {
           <Table>
             <TableHeader className="bg-slate-50 dark:bg-slate-800/60">
               <TableRow className="text-xs font-semibold">
-                <TableHead className="w-12 text-center">№</TableHead>
+                <TableHead className="w-10 text-center">№</TableHead>
                 <TableHead>FİN Kod</TableHead>
                 <TableHead>Namizəd (Ad, Soyad)</TableHead>
                 <TableHead>İxtisas</TableHead>
+                <TableHead className="text-center">Cari Sual</TableHead>
                 <TableHead className="text-center">Doğru / Cəmi</TableHead>
-                <TableHead className="text-center">Səhv / Boş</TableHead>
                 <TableHead className="text-center">Yekun Bal</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-center">Sərf Olunan Vaxt</TableHead>
-                <TableHead className="text-right">Tarix</TableHead>
+                <TableHead className="text-center">Canlı Status</TableHead>
+                <TableHead className="text-center">Pəncərə</TableHead>
+                <TableHead className="text-center">Vaxt</TableHead>
+                <TableHead className="text-center">Loglar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="h-32 text-center text-slate-500 text-sm">
+                  <TableCell colSpan={11} className="h-32 text-center text-slate-500 text-sm">
                     Məlumatlar yüklənir...
                   </TableCell>
                 </TableRow>
               ) : filteredRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="h-32 text-center text-slate-500 text-sm">
+                  <TableCell colSpan={11} className="h-32 text-center text-slate-500 text-sm">
                     Heç bir nəticə tapılmadı.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRows.map((row, idx) => (
-                  <TableRow key={row.id} className="text-xs hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
-                    <TableCell className="text-center font-medium text-slate-400">{idx + 1}</TableCell>
-                    <TableCell>
-                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                        {row.fin}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
-                      {row.fullName}
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={row.specialty}>
-                      <span className="text-slate-600 dark:text-slate-300 font-medium">{row.specialty}</span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span className="font-bold text-emerald-600">{row.correctCount}</span>
-                      <span className="text-slate-400"> / {row.totalQuestions}</span>
-                    </TableCell>
-                    <TableCell className="text-center text-slate-500">
-                      <span className="text-red-500">{row.incorrectCount}</span> / <span>{row.unansweredCount}</span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {row.isCompleted ? (
-                        <span className="font-extrabold text-sm text-blue-600 dark:text-blue-400">
-                          %{row.score}
+                filteredRows.map((row, idx) => {
+                  const diffMs = row.lastHeartbeatAt ? Date.now() - new Date(row.lastHeartbeatAt).getTime() : null;
+
+                  return (
+                    <TableRow key={row.id} className="text-xs hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                      <TableCell className="text-center font-medium text-slate-400">{idx + 1}</TableCell>
+                      <TableCell>
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                          {row.fin}
                         </span>
-                      ) : (
-                        <span className="text-amber-500 font-medium">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {!row.isCompleted ? (
-                        <Badge variant="outline" className="border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
-                          Davam edir
-                        </Badge>
-                      ) : row.isPassed ? (
-                        <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
-                          Keçdi
-                        </Badge>
-                      ) : (
-                        <Badge variant="destructive" className="font-semibold">
-                          Keçmədi
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center text-slate-500 font-mono">
-                      {formatSeconds(row.timeSpent)}
-                    </TableCell>
-                    <TableCell className="text-right text-slate-500 whitespace-nowrap">
-                      {new Date(row.startedAt).toLocaleDateString('az-AZ', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
+                        {row.fullName}
+                      </TableCell>
+                      <TableCell className="max-w-[180px] truncate" title={row.specialty}>
+                        <span className="text-slate-600 dark:text-slate-300 font-medium">{row.specialty}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {row.isCompleted ? (
+                          <span className="text-emerald-600 font-semibold text-xs">Tamamlanıb</span>
+                        ) : (
+                          <div className="flex flex-col items-center">
+                            <span className="font-bold text-slate-800 dark:text-slate-200">
+                              Sual {row.currentQuestionIndex || 1}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {row.correctCount + row.incorrectCount} / {row.totalQuestions} yazıldı
+                            </span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="font-bold text-emerald-600">{row.correctCount}</span>
+                        <span className="text-slate-400"> / {row.totalQuestions}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {row.isCompleted ? (
+                          <span className="font-extrabold text-sm text-blue-600 dark:text-blue-400">
+                            %{row.score}
+                          </span>
+                        ) : (
+                          <span className="text-amber-500 font-medium">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {row.isCompleted ? (
+                          row.isPassed ? (
+                            <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                              Keçdi
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="font-semibold">
+                              Keçmədi
+                            </Badge>
+                          )
+                        ) : diffMs !== null && diffMs < 35000 ? (
+                          <Badge variant="outline" className="border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 gap-1.5 font-bold">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            Canlı
+                          </Badge>
+                        ) : diffMs !== null && diffMs < 75000 ? (
+                          <Badge variant="outline" className="border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/30 gap-1.5 font-medium">
+                            <span className="w-2 h-2 rounded-full bg-amber-400" />
+                            Zəif əlaqə
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-red-400 text-red-600 bg-red-50 dark:bg-red-950/30 gap-1.5 font-medium">
+                            <span className="w-2 h-2 rounded-full bg-red-400" />
+                            Oflayn
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {row.tabSwitchCount === 0 ? (
+                          <span className="text-slate-400 font-mono text-xs">0</span>
+                        ) : row.tabSwitchCount < 3 ? (
+                          <Badge variant="outline" className="border-amber-400 text-amber-600 bg-amber-50 font-bold">
+                            {row.tabSwitchCount}
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="font-bold flex items-center gap-1 mx-auto w-fit animate-pulse">
+                            <ShieldAlert className="w-3 h-3" />
+                            {row.tabSwitchCount}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center text-slate-500 font-mono">
+                        {formatSeconds(row.timeSpent)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg flex items-center gap-1 mx-auto"
+                          onClick={() => setSelectedAttemptForLogs(row)}
+                          title="Namizədin imtahan audit loglarına bax"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Loglar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* AUDIT LOGS DIALOG */}
+      <Dialog
+        open={!!selectedAttemptForLogs}
+        onOpenChange={(open) => !open && setSelectedAttemptForLogs(null)}
+      >
+        <DialogContent className="max-w-2xl rounded-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <FileText className="w-5 h-5 text-blue-600" />
+              İmtahan Audit Logları
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs pt-1 text-slate-500">
+                <span>Namizəd: <strong className="text-slate-800 dark:text-slate-200">{selectedAttemptForLogs?.fullName}</strong></span>
+                <span>FİN: <strong className="font-mono text-slate-800 dark:text-slate-200">{selectedAttemptForLogs?.fin}</strong></span>
+                <span>İxtisas: <strong className="text-slate-800 dark:text-slate-200">{selectedAttemptForLogs?.specialty}</strong></span>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-3 overflow-y-auto flex-1 pr-1">
+            {/* Metadata Card */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs">
+              <div>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">IP Ünvanı</span>
+                <span className="font-mono font-semibold">{selectedAttemptForLogs?.ipAddress || 'Məlum deyil'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Pəncərə Dəyişmə</span>
+                <span className={cn(
+                  "font-bold font-mono",
+                  (selectedAttemptForLogs?.tabSwitchCount || 0) >= 3 ? "text-destructive" : "text-slate-700 dark:text-slate-300"
+                )}>
+                  {selectedAttemptForLogs?.tabSwitchCount || 0} dəfə
+                </span>
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Son Əlaqə</span>
+                <span className="font-mono">{selectedAttemptForLogs?.lastHeartbeatAt ? new Date(selectedAttemptForLogs.lastHeartbeatAt).toLocaleTimeString('az-AZ') : '—'}</span>
+              </div>
+              {selectedAttemptForLogs?.userAgent && (
+                <div className="col-span-2 sm:col-span-3 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Cihaz / Brauzer</span>
+                  <span className="text-[11px] text-slate-600 dark:text-slate-400 truncate block font-mono">
+                    {selectedAttemptForLogs.userAgent}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Timeline */}
+            <div className="space-y-2 pt-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                Fəaliyyət Xronologiyası
+              </span>
+
+              {isLoadingLogs ? (
+                <div className="py-8 text-center text-xs text-slate-400">Loglar yüklənir...</div>
+              ) : attemptAuditLogs.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">Bu cəhd üzrə əlavə qeyd tapılmadı.</div>
+              ) : (
+                <div className="space-y-2">
+                  {attemptAuditLogs.map((log: any) => {
+                    const isWarning = log.action === 'tab_switch_detected';
+                    const isSuccess = log.action === 'quiz_completed';
+
+                    return (
+                      <div
+                        key={log.id}
+                        className={cn(
+                          "p-2.5 rounded-xl border text-xs flex items-start justify-between gap-3",
+                          isWarning ? "bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-900/40" :
+                          isSuccess ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40" :
+                          "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                        )}
+                      >
+                        <div className="flex items-start gap-2">
+                          {isWarning ? (
+                            <ShieldAlert className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                          ) : isSuccess ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                          ) : (
+                            <Activity className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                          )}
+                          <div>
+                            <span className="font-semibold block text-slate-800 dark:text-slate-200">
+                              {log.description || log.action}
+                            </span>
+                            {log.new_values && (
+                              <span className="text-[11px] text-slate-500 font-mono block pt-0.5">
+                                {typeof log.new_values === 'object' ? JSON.stringify(log.new_values) : String(log.new_values)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-slate-400 font-mono shrink-0">
+                          {new Date(log.created_at).toLocaleTimeString('az-AZ')}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

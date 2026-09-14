@@ -5,7 +5,7 @@ import { toast } from "sonner";
 // Hooks & Context
 import { useQuiz } from "@/hooks/useQuizzes";
 import { useQuestions } from "@/hooks/useQuestions";
-import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt } from "@/hooks/useQuizAttempts";
+import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt, useExamHeartbeat } from "@/hooks/useQuizAttempts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGamification } from "@/hooks/useGamification";
 
@@ -59,6 +59,11 @@ export default function QuizPage() {
   
   const { updateXPAsync } = useGamification();
 
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const autoResumeAttemptedRef = useRef(false);
+  const debouncedSyncRef = useRef<NodeJS.Timeout | null>(null);
+  const examHeartbeat = useExamHeartbeat();
+
   const timeLeftRef = useRef(timeLeft);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const questionStartTimeRef = useRef<number>(Date.now());
@@ -68,12 +73,88 @@ export default function QuizPage() {
   const draftLoadedRef = useRef(false);
   const strictViolationsRef = useRef(0);
 
-  // Auto-Save Draft to LocalStorage
+  // Online / Offline Detection
   useEffect(() => {
-    if (attemptId && quizState === 'playing' && Object.keys(localAnswers).length > 0) {
+    const handleOnline = () => {
+      setIsOnline(true);
+      toast.success("İnternet bağlantısı aktivdir.");
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast.error("İnternet bağlantısı kəsildi! Cavablarınız yerli yaddaşda qorunur.");
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Auto-Save Draft to LocalStorage + Debounced DB Sync
+  useEffect(() => {
+    if (attemptId && quizState === 'playing' && Object.keys(localAnswers).length > 0 && !isPreview) {
+      // 1. Immediate local backup
       localStorage.setItem(`quiz_draft_${attemptId}`, JSON.stringify(localAnswers));
+
+      // 2. Debounced DB Sync
+      if (debouncedSyncRef.current) {
+        clearTimeout(debouncedSyncRef.current);
+      }
+      debouncedSyncRef.current = setTimeout(() => {
+        const activeQs = displayQuestions.length > 0 ? displayQuestions : questions;
+        const answersArray: Answer[] = activeQs
+          .filter(q => localAnswers[q.id] !== undefined && localAnswers[q.id] !== '')
+          .map(q => {
+            const val = localAnswers[q.id];
+            const evalResult = evaluateAnswer(q, val);
+            return {
+              questionId: q.id,
+              questionType: q.question_type as QuestionType,
+              textAnswer: val,
+              isCorrect: evalResult.isCorrect,
+              pointsEarned: evalResult.pointsEarned,
+              selectedOptionIndex: q.options ? q.options.indexOf(val) : undefined,
+              needsReview: evalResult.needsReview,
+            };
+          });
+
+        setAnswers(answersArray);
+        updateAttempt.mutate({
+          attemptId,
+          answers: answersArray as unknown as Record<string, string>[],
+          currentQuestionIndex: currentPage,
+        });
+      }, 1500);
     }
-  }, [localAnswers, attemptId, quizState]);
+
+    return () => {
+      if (debouncedSyncRef.current) {
+        clearTimeout(debouncedSyncRef.current);
+      }
+    };
+  }, [localAnswers, attemptId, quizState, isPreview, displayQuestions, questions, currentPage, updateAttempt]);
+
+  // 20-second Heartbeat interval
+  useEffect(() => {
+    if (quizState === 'playing' && attemptId && !isPreview) {
+      examHeartbeat.mutate({
+        attemptId,
+        questionIndex: currentPage + 1,
+        tabSwitches: strictViolationsRef.current,
+      });
+
+      const interval = setInterval(() => {
+        examHeartbeat.mutate({
+          attemptId,
+          questionIndex: currentPage + 1,
+          tabSwitches: strictViolationsRef.current,
+        });
+      }, 20000);
+
+      return () => clearInterval(interval);
+    }
+  }, [quizState, attemptId, isPreview, currentPage, examHeartbeat]);
 
   // Restore Draft on Mount
   useEffect(() => {
@@ -138,6 +219,25 @@ export default function QuizPage() {
           }
         }
 
+        // Audit log for quiz completion
+        try {
+          await supabase.from('audit_logs').insert({
+            user_id: user.id,
+            action: 'quiz_completed',
+            entity_type: 'quiz_attempt',
+            entity_id: attemptId,
+            description: `İmtahan tamamlandı. Nəticə: ${weightedScore}%`,
+            new_values: {
+              score: weightedScore,
+              total_questions: displayQuestions.length,
+              time_spent: timeSpent,
+              completed_at: new Date().toISOString(),
+            },
+          });
+        } catch (logErr) {
+          console.warn("Could not insert completion audit log:", logErr);
+        }
+
         const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
         setEarnedXP(prev => prev + xpGain);
         if (xpGain > 0) {
@@ -150,28 +250,42 @@ export default function QuizPage() {
     setQuizState('result');
   }, [isPreview, attemptId, startTime, user, quiz, displayQuestions, completeAttempt, updateXPAsync]);
 
-  // Strict Mode — tab violations tracked; 3 violations → auto-submit
+  // Soft Strict Mode & Anti-cheat logging (Does NOT cut candidate exam short)
   useEffect(() => {
-    if (quizState === 'playing' && quiz?.strict_mode && !isPreview) {
-      const handleVisibilityChange = () => {
+    if (quizState === 'playing' && !isPreview && attemptId && user) {
+      const handleVisibilityChange = async () => {
         if (document.hidden) {
           strictViolationsRef.current += 1;
           const count = strictViolationsRef.current;
-          if (count >= 3) {
-            toast.error('Qaydalar pozuldu: Səhifəni 3 dəfə tərk etdiniz. Quiz avtomatik tamamlandı.', { duration: 8000 });
-            void completeQuizWithAnswers(answersRef.current);
-          } else {
-            toast.warning(
-              `Xəbərdarlıq (${count}/3): Səhifəni tərk etdiniz. Daha ${3 - count} pozuntu olsa quiz avtomatik bitəcək.`,
-              { duration: 5000 },
-            );
+
+          try {
+            await supabase.from('audit_logs').insert({
+              user_id: user.id,
+              action: 'tab_switch_detected',
+              entity_type: 'quiz_attempt',
+              entity_id: attemptId,
+              description: `İştirakçı imtahan pəncərəsini tərk etdi (${count}-ci dəfə)`,
+              new_values: {
+                violation_count: count,
+                current_page: currentPage + 1,
+                timestamp: new Date().toISOString(),
+              },
+            });
+          } catch (logErr) {
+            console.warn('Could not insert audit log:', logErr);
           }
+
+          toast.warning(
+            `Xəbərdarlıq (${count}): İmtahan pəncərəsini tərk etdiniz! Fəaliyyətiniz sistemdə qeydə alınır və nəzarətçi tərəfindən izlənilir.`,
+            { duration: 6000 }
+          );
         }
       };
+
       document.addEventListener("visibilitychange", handleVisibilityChange);
       return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
     }
-  }, [quizState, quiz, isPreview, completeQuizWithAnswers]);
+  }, [quizState, isPreview, attemptId, user, currentPage]);
 
   const questionsPerPage = quiz?.questions_per_page && quiz.questions_per_page > 0 
     ? quiz.questions_per_page 
@@ -300,10 +414,25 @@ export default function QuizPage() {
     setAnswers(prevAnswers);
     setAttemptId(attempt.id);
 
+    if (attempt.tab_switch_count) {
+      strictViolationsRef.current = attempt.tab_switch_count;
+    }
+
     const initialLocalAnswers: Record<string, string> = {};
     prevAnswers.forEach(ans => {
       initialLocalAnswers[ans.questionId] = ans.textAnswer || '';
     });
+    try {
+      const savedDraft = localStorage.getItem(`quiz_draft_${attempt.id}`);
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && typeof parsed === 'object') {
+          Object.assign(initialLocalAnswers, parsed);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load local draft:", e);
+    }
     setLocalAnswers(initialLocalAnswers);
 
     const startedAt = new Date(attempt.started_at);
@@ -319,9 +448,15 @@ export default function QuizPage() {
       return;
     }
 
-    const nextIdx = Math.min(prevAnswers.length, orderedQuestions.length - 1);
     const qPerPage = quiz?.questions_per_page && quiz.questions_per_page > 0 ? quiz.questions_per_page : orderedQuestions.length;
-    setCurrentPage(Math.floor(nextIdx / qPerPage));
+    let targetPage = 0;
+    if (attempt.current_question_index != null && attempt.current_question_index >= 0) {
+      targetPage = Math.min(attempt.current_question_index, Math.max(0, Math.ceil(orderedQuestions.length / qPerPage) - 1));
+    } else {
+      const nextIdx = Math.min(Object.keys(initialLocalAnswers).length, orderedQuestions.length - 1);
+      targetPage = Math.floor(nextIdx / qPerPage);
+    }
+    setCurrentPage(targetPage);
     
     setTotalTimeLeft(remaining);
     setTimeLeft(remaining); // Optional: calculate per page timeLeft if needed
@@ -329,6 +464,17 @@ export default function QuizPage() {
     setShowHint({});
     setQuizState('playing');
   }, [quiz, questions, completeQuizWithAnswers]);
+
+  // Seamless Auto-Resume on Page Load / Refresh
+  useEffect(() => {
+    if (quizState === 'intro' && myAttempts && questions.length > 0 && !isPreview && !autoResumeAttemptedRef.current) {
+      const incomplete = myAttempts.find(a => a.completed_at === null);
+      if (incomplete) {
+        autoResumeAttemptedRef.current = true;
+        void resumeQuiz(incomplete);
+      }
+    }
+  }, [quizState, myAttempts, questions.length, isPreview, resumeQuiz]);
 
   const startQuiz = async () => {
     if (!quiz || !user) {
@@ -557,6 +703,7 @@ export default function QuizPage() {
         currentPage={currentPage}
         totalPages={totalPages}
         pageQuestions={pageQuestions}
+        allQuestions={displayQuestions.length > 0 ? displayQuestions : questions}
         totalQuestions={questions.length}
         totalTimeLeft={totalTimeLeft}
         questionTimeLeft={pageQuestions.length === 1 && pageQuestions[0]?.time_limit ? timeLeft : null}
@@ -585,6 +732,9 @@ export default function QuizPage() {
         bookmarkedQuestions={bookmarkedQuestions}
         toggleBookmark={toggleBookmark}
         getPageStatus={getPageStatus}
+        isOnline={isOnline}
+        isSyncing={updateAttempt.isPending}
+        onFinalSubmit={() => void completeQuizWithAnswers(answersRef.current)}
       />
     );
   }

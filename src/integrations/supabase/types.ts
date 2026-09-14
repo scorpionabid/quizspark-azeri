@@ -1597,48 +1597,63 @@ export type Database = {
           answers: Json | null
           bookmarked_questions: string[] | null
           completed_at: string | null
+          current_question_index: number | null
           device_type: string | null
           hint_used_questions: string[] | null
           id: string
+          ip_address: string | null
+          last_heartbeat_at: string | null
           question_order: string[] | null
           question_timings: Json | null
           quiz_id: string
           score: number | null
           started_at: string | null
+          tab_switch_count: number | null
           time_spent: number | null
           total_questions: number | null
+          user_agent: string | null
           user_id: string
         }
         Insert: {
           answers?: Json | null
           bookmarked_questions?: string[] | null
           completed_at?: string | null
+          current_question_index?: number | null
           device_type?: string | null
           hint_used_questions?: string[] | null
           id?: string
+          ip_address?: string | null
+          last_heartbeat_at?: string | null
           question_order?: string[] | null
           question_timings?: Json | null
           quiz_id: string
           score?: number | null
           started_at?: string | null
+          tab_switch_count?: number | null
           time_spent?: number | null
           total_questions?: number | null
+          user_agent?: string | null
           user_id: string
         }
         Update: {
           answers?: Json | null
           bookmarked_questions?: string[] | null
           completed_at?: string | null
+          current_question_index?: number | null
           device_type?: string | null
           hint_used_questions?: string[] | null
           id?: string
+          ip_address?: string | null
+          last_heartbeat_at?: string | null
           question_order?: string[] | null
           question_timings?: Json | null
           quiz_id?: string
           score?: number | null
           started_at?: string | null
+          tab_switch_count?: number | null
           time_spent?: number | null
           total_questions?: number | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: [

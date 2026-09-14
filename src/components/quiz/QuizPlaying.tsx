@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle, Maximize, Minimize, MessageSquarePlus } from "lucide-react";
+import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle, Maximize, Minimize, MessageSquarePlus, Wifi, WifiOff, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -34,6 +34,7 @@ interface QuizPlayingProps {
   currentPage: number;
   totalPages: number;
   pageQuestions: Question[];
+  allQuestions?: Question[];
   totalQuestions: number;
   totalTimeLeft: number;
   questionTimeLeft?: number | null;
@@ -51,6 +52,9 @@ interface QuizPlayingProps {
   bookmarkedQuestions: Set<string>;
   toggleBookmark: (id: string) => void;
   getPageStatus: (pageIdx: number) => PageNavStatus;
+  isOnline?: boolean;
+  isSyncing?: boolean;
+  onFinalSubmit?: () => void;
 }
 
 export const QuizPlaying: React.FC<QuizPlayingProps> = ({
@@ -58,6 +62,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   currentPage,
   totalPages,
   pageQuestions,
+  allQuestions,
   totalQuestions,
   totalTimeLeft,
   questionTimeLeft,
@@ -74,7 +79,10 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   feedbackEnabled = true,
   bookmarkedQuestions,
   toggleBookmark,
-  getPageStatus
+  getPageStatus,
+  isOnline = true,
+  isSyncing = false,
+  onFinalSubmit,
   }) => {
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [showExitConfirm, setShowExitConfirm] = React.useState(false);
@@ -133,14 +141,60 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
     }
   }, [hasUnanswered, handlePageSubmit, pageQuestions, localAnswers]);
 
-  // Keyboard Navigation
+  const [showFinalSubmitModal, setShowFinalSubmitModal] = React.useState(false);
+
+  const unansweredCount = Math.max(0, totalQuestions - answeredCount);
+  const unansweredIndices = React.useMemo(() => {
+    if (!allQuestions || allQuestions.length === 0) return [];
+    const list: number[] = [];
+    allQuestions.forEach((q, idx) => {
+      if (!localAnswers[q.id] || localAnswers[q.id].trim() === '') {
+        list.push(idx);
+      }
+    });
+    return list;
+  }, [allQuestions, localAnswers]);
+
+  // Keyboard Navigation & Option Selection
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
 
+      // Option selection with 1-5 or A-E
+      if (pageQuestions.length === 1) {
+        const q = pageQuestions[0];
+        const opts = q.options || [];
+        const key = e.key.toUpperCase();
+        let optIdx = -1;
+
+        if (['1', '2', '3', '4', '5'].includes(e.key)) {
+          optIdx = parseInt(e.key, 10) - 1;
+        } else if (['A', 'B', 'C', 'D', 'E'].includes(key)) {
+          optIdx = key.charCodeAt(0) - 65;
+        }
+
+        if (optIdx >= 0 && optIdx < opts.length && !showFeedback) {
+          e.preventDefault();
+          const selectedOpt = opts[optIdx];
+          setLocalAnswers(prev => ({ ...prev, [q.id]: selectedOpt }));
+          return;
+        }
+
+        // Bookmark shortcut 'B'
+        if (key === 'B' && quiz.allow_bookmarks) {
+          e.preventDefault();
+          toggleBookmark(q.id);
+          return;
+        }
+      }
+
       if (e.key === 'ArrowRight') {
         if (!showFeedback) {
-          onCheckSubmitClick();
+          if (currentPage === totalPages - 1) {
+            setShowFinalSubmitModal(true);
+          } else {
+            onCheckSubmitClick();
+          }
         } else {
           handleNextPage();
         }
@@ -150,13 +204,17 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showFeedback, currentPage, quiz.allow_backtracking, hasUnanswered, localAnswers, pageQuestions, onCheckSubmitClick, handleNextPage, handlePrevPage]);
+  }, [showFeedback, currentPage, totalPages, quiz.allow_backtracking, quiz.allow_bookmarks, hasUnanswered, localAnswers, pageQuestions, onCheckSubmitClick, handleNextPage, handlePrevPage, setLocalAnswers, toggleBookmark]);
 
   const MapGrid = () => (
-    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 gap-2">
+    <div className="grid grid-cols-5 sm:grid-cols-6 lg:grid-cols-5 xl:grid-cols-6 gap-2">
       {Array.from({ length: totalPages }).map((_, idx) => {
           const status = getPageStatus(idx);
           const isCurrent = currentPage === idx;
+          const q = allQuestions && allQuestions[idx] ? allQuestions[idx] : null;
+          const isBookmarked = q ? bookmarkedQuestions.has(q.id) : false;
+          const hasAnswer = q ? Boolean(localAnswers[q.id]?.trim()) : false;
+
           return (
               <button
                   key={idx}
@@ -166,24 +224,27 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     setIsMobileMenuOpen(false);
                   }}
                   className={cn(
-                      "h-10 rounded-lg flex items-center justify-center font-medium text-sm transition-all border-2 relative",
+                      "h-10 rounded-xl flex items-center justify-center font-bold text-xs sm:text-sm transition-all border-2 relative select-none",
                       // 1. Düzgün cavablandırılmış (Yaşıl)
                       status === 'correct' && "border-green-500/60 bg-green-500/15 text-green-700 dark:text-green-400 hover:bg-green-500/25",
                       // 2. Səhv cavablandırılmış (Qırmızı)
                       status === 'incorrect' && "border-destructive/60 bg-destructive/15 text-destructive dark:text-red-400 hover:bg-destructive/25",
-                      // 3. Standart tamamlanmış (İmtahan rejimində nəticə hələ gizli saxlananda)
-                      status === 'completed' && "border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20",
-                      // 4. Cari aktiv səhifə (hələ cavab verilməyibsə)
-                      status === 'current' && "border-primary bg-primary/10 text-primary shadow-sm",
+                      // 3. Standart tamamlanmış və ya yerli olaraq cavablandırılmış
+                      (status === 'completed' || (!isInstantFeedback && hasAnswer)) && "border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25",
+                      // 4. Cari aktiv səhifə (cavab verilməyibsə)
+                      status === 'current' && !hasAnswer && "border-primary bg-primary/10 text-primary shadow-sm",
                       // 5. Gözləyən (cavablandırılmamış)
-                      status === 'pending' && "border-transparent bg-muted text-muted-foreground hover:bg-border hover:text-foreground",
+                      status === 'pending' && !hasAnswer && "border-transparent bg-muted/60 text-muted-foreground hover:bg-border/60 hover:text-foreground",
                       // Cari sual aktiv halqası (ring)
-                      isCurrent && "ring-2 ring-primary ring-offset-2 ring-offset-background font-bold shadow-md",
+                      isCurrent && "ring-2 ring-primary ring-offset-2 ring-offset-background font-extrabold shadow-md",
                       // Geri qayıtmağa icazə verilməyən halda
                       (!quiz.allow_backtracking && idx < currentPage) && "opacity-50 cursor-not-allowed hover:bg-muted"
                   )}
               >
                   {idx + 1}
+                  {isBookmarked && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-500 ring-2 ring-background flex items-center justify-center" title="Sancaqlandı" />
+                  )}
               </button>
           );
       })}
@@ -241,15 +302,37 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
         {/* Main Content Area */}
         <div className="flex-1 max-w-3xl lg:max-w-4xl w-full mx-auto">
             <div className="mb-4 sm:mb-6 flex items-center justify-between">
-            <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowExitConfirm(true)}
-                className="text-muted-foreground hover:text-foreground -ml-2"
-            >
-                <ArrowLeft className="mr-1 h-4 w-4" />
-                <span className="hidden sm:inline">Çıx</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowExitConfirm(true)}
+                  className="text-muted-foreground hover:text-foreground -ml-2"
+              >
+                  <ArrowLeft className="mr-1 h-4 w-4" />
+                  <span className="hidden sm:inline">Çıx</span>
+              </Button>
+
+              {/* Network & Sync Status */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border bg-background/80 backdrop-blur-md text-[11px] font-medium shadow-sm">
+                {!isOnline ? (
+                  <span className="flex items-center gap-1 text-destructive font-bold">
+                    <WifiOff className="w-3.5 h-3.5" />
+                    <span>Oflayn (Yaddaşda)</span>
+                  </span>
+                ) : isSyncing ? (
+                  <span className="flex items-center gap-1 text-amber-500 font-medium">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Sinxron...</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Yadda saxlanıldı</span>
+                  </span>
+                )}
+              </div>
+            </div>
 
             <div className="flex flex-col items-end gap-1">
                 <div className="flex items-center gap-2 md:gap-3">
@@ -482,9 +565,15 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     size="xl"
                     className={cn(
                         "flex-1 sm:flex-none sm:min-w-[200px] h-12 shadow-game active:translate-y-1 transition-all rounded-xl",
-                        currentPage === totalPages - 1 && "bg-green-600 hover:bg-green-700 text-white border-green-700"
+                        currentPage === totalPages - 1 && "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700"
                     )}
-                    onClick={onCheckSubmitClick}
+                    onClick={() => {
+                      if (currentPage === totalPages - 1) {
+                        setShowFinalSubmitModal(true);
+                      } else {
+                        onCheckSubmitClick();
+                      }
+                    }}
                 >
                     <span className="hidden sm:inline">{currentPage === totalPages - 1 ? 'İmtahanı Bitir' : 'Növbəti Səhifə'}</span>
                     <span className="sm:hidden">{currentPage === totalPages - 1 ? 'Bitir' : 'İrəli'}</span>
@@ -525,6 +614,19 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     </div>
                     <MapGrid />
                     <MapLegend />
+
+                    {!isInstantFeedback && (
+                      <div className="mt-5 pt-4 border-t border-border/40">
+                        <Button
+                          type="button"
+                          className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-none shadow-md shadow-emerald-600/20"
+                          onClick={() => setShowFinalSubmitModal(true)}
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          İmtahanı Bitir
+                        </Button>
+                      </div>
+                    )}
                 </div>
             </div>
         )}
@@ -575,6 +677,81 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
               }}
             >
               Bəli, Davam Et
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showFinalSubmitModal} onOpenChange={setShowFinalSubmitModal}>
+        <AlertDialogContent className="rounded-3xl max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2.5 text-xl font-bold">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              İmtahanı tamamlamaq istəyirsiniz?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 pt-2 text-foreground">
+                <p className="text-sm text-muted-foreground">
+                  İmtahanı bitirdikdən sonra cavablarınızı dəyişmək mümkün olmayacaq. Zəhmət olmasa aşağıdakı icmalı yoxlayın:
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-muted/40 border">
+                  <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{answeredCount}</span>
+                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Cavablandırıldı</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+                    <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{unansweredCount}</span>
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Cavabsız qaldı</span>
+                  </div>
+                </div>
+
+                {unansweredIndices.length > 0 ? (
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-destructive flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Cavablandırılmayan suallar:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 rounded-xl bg-destructive/5 border border-destructive/20">
+                      {unansweredIndices.map(idx => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setShowFinalSubmitModal(false);
+                            jumpToPage(idx);
+                          }}
+                          className="px-2.5 py-1 text-xs font-bold rounded-lg bg-background border border-destructive/40 text-destructive hover:bg-destructive hover:text-white transition-colors"
+                          title={`Sual ${idx + 1}-ə keç`}
+                        >
+                          Sual {idx + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-medium flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Təbriklər! Bütün {totalQuestions} sual cavablandırılıb.</span>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2">
+            <AlertDialogCancel className="rounded-xl h-11">İmtahana Qayıt</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-md shadow-emerald-600/20"
+              onClick={() => {
+                setShowFinalSubmitModal(false);
+                if (onFinalSubmit) {
+                  onFinalSubmit();
+                } else {
+                  handlePageSubmit();
+                }
+              }}
+            >
+              Bəli, İmtahanı Bitir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
