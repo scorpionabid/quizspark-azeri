@@ -25,6 +25,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { OFFICIAL_EXAMS } from '@/lib/constants/exams';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 interface CompletedAttemptInfo {
   quizId: string;
@@ -42,6 +44,7 @@ interface ExamSettings {
 
 export default function ExamLoginPage() {
   const navigate = useNavigate();
+  const { language, t } = useLanguage();
   const [fin, setFin] = useState('');
   const [fullName, setFullName] = useState('');
   const [selectedKey, setSelectedKey] = useState('');
@@ -97,33 +100,28 @@ export default function ExamLoginPage() {
     e.preventDefault();
 
     if (!settings?.is_active) {
-      toast.error('İmtahan portalı hazırda qapalıdır! İmtahan vaxtını gözləyin.');
+      toast.error(t('portal_closed'));
       return;
     }
 
     if (!isFormValid) {
       if (!isFinValid) {
-        toast.error('FİN kod dəqiq 7 simvoldan ibarət olmalıdır (Məsələn: 7ABC123)');
+        toast.error(t('err_fin_req'));
       } else if (!isNameValid) {
-        toast.error('Zəhmət olmasa Ad və Soyadınızı daxil edin');
+        toast.error(t('err_name_req'));
       } else if (!selectedKey) {
-        toast.error('Zəhmət olmasa imtahan ixtisasını seçin');
+        toast.error(t('err_specialty_req'));
       } else if (!isCodeValid) {
-        toast.error('İmtahan zalında nəzarətçi tərəfindən verilən imtahan kodunu daxil edin');
+        toast.error(t('err_code_req'));
       } else if (!agreed) {
-        toast.error('İmtahan qaydaları ilə razılaşmalısınız');
+        toast.error(t('err_agree_req'));
       }
-      return;
-    }
-
-    if (!settings.is_active) {
-      toast.error('İmtahan portalı hələ aktivləşdirilməyib. Zəhmət olmasa zal nəzarətçisinin təlimatını gözləyin.');
       return;
     }
 
     // Verify access code
     if (cleanExamCode !== settings.access_code.trim()) {
-      toast.error('İmtahan giriş kodu yanlışdır! Yalnız nəzarətçi tərəfindən elan olunan parolu daxil edin.');
+      toast.error(t('err_wrong_code'));
       return;
     }
 
@@ -241,15 +239,15 @@ export default function ExamLoginPage() {
           totalQuestions: completed.total_questions ?? 60,
           percentage: completed.score ?? 0,
           completedAt: completed.completed_at,
-          specialtyTitle: selectedExam.title,
+          specialtyTitle: language === 'ka' ? selectedExam.title_ka : selectedExam.title,
         });
-        toast.info('Siz bu imtahanı artıq tamamlamısınız.');
+        toast.info(t('already_completed'));
         setIsLoading(false);
         return;
       }
 
       // 5. Navigate to Quiz
-      toast.success('İmtahana xoş gəlmisiniz! Uğurlar arzulayırıq.');
+      toast.success(t('welcome_exam'));
       navigate(`/quiz/${quizData.id}`);
     } catch (err: unknown) {
       console.error('Exam login error:', err);
@@ -262,18 +260,30 @@ export default function ExamLoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12 px-4 flex flex-col justify-center items-center">
-      {/* Clean Minimal Header */}
+      {/* Minimal Header with Language Switcher */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full text-center mb-6"
+        className="max-w-md w-full mb-6"
       >
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-          İmtahan Portalı
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Daxil olmaq üçün məlumatlarınızı qeyd edin
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+              QS
+            </div>
+            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">QuizSpark Exam</span>
+          </div>
+          <LanguageSwitcher />
+        </div>
+
+        <div className="text-center">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+            {t('exam_portal')}
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            {t('exam_portal_desc')}
+          </p>
+        </div>
       </motion.div>
 
       {/* Main Card */}
@@ -287,7 +297,7 @@ export default function ExamLoginPage() {
           <Card className="border-slate-200 dark:border-slate-800 p-10 text-center">
             <div className="flex flex-col items-center justify-center space-y-3">
               <RefreshCw className="w-7 h-7 text-blue-600 animate-spin" />
-              <p className="text-sm text-slate-500">Yoxlanılır...</p>
+              <p className="text-sm text-slate-500">{t('checking_btn')}</p>
             </div>
           </Card>
         ) : completedInfo ? (
@@ -298,36 +308,38 @@ export default function ExamLoginPage() {
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">
-                İmtahan Artıq Tamamlanıb
+                {t('already_completed')}
               </CardTitle>
               <CardDescription className="text-xs">
-                Bu FİN kod ilə imtahan artıq təhvil verilib.
+                {language === 'ka' 
+                  ? 'ამ პირადი ნომრით გამოცდა უკვე ჩაბარებულია.'
+                  : 'Bu FİN kod ilə imtahan artıq təhvil verilib.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 px-6 py-4">
               <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
                 <div className="flex justify-between py-0.5">
-                  <span className="text-slate-500">FİN Kod:</span>
+                  <span className="text-slate-500">{t('fin_label')}:</span>
                   <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{cleanFin}</span>
                 </div>
                 <div className="flex justify-between py-0.5">
-                  <span className="text-slate-500">Ad, Soyad:</span>
+                  <span className="text-slate-500">{t('fullname_label')}:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{fullName}</span>
                 </div>
                 <div className="flex justify-between py-0.5">
-                  <span className="text-slate-500">İxtisas:</span>
+                  <span className="text-slate-500">{t('specialty_label')}:</span>
                   <span className="font-medium text-slate-800 dark:text-slate-200">{completedInfo.specialtyTitle}</span>
                 </div>
                 <div className="flex justify-between py-0.5 border-t border-slate-200 dark:border-slate-700 pt-1.5">
-                  <span className="text-slate-500">Yekun Nəticə:</span>
+                  <span className="text-slate-500">{t('result')}:</span>
                   <span className="font-bold text-blue-600 dark:text-blue-400">
                     %{completedInfo.percentage} ({completedInfo.score} Bal)
                   </span>
                 </div>
                 <div className="flex justify-between py-0.5">
-                  <span className="text-slate-500">Tarix:</span>
+                  <span className="text-slate-500">{language === 'ka' ? 'თარიღი' : 'Tarix'}:</span>
                   <span className="text-slate-600 dark:text-slate-400">
-                    {new Date(completedInfo.completedAt).toLocaleString('az-AZ')}
+                    {new Date(completedInfo.completedAt).toLocaleString(language === 'ka' ? 'ka-GE' : 'az-AZ')}
                   </span>
                 </div>
               </div>
@@ -343,7 +355,7 @@ export default function ExamLoginPage() {
                   setExamCode('');
                 }}
               >
-                Digər FİN ilə Giriş
+                {language === 'ka' ? 'სხვა FIN-ით შესვლა' : 'Digər FİN ilə Giriş'}
               </Button>
             </CardFooter>
           </Card>
@@ -353,7 +365,7 @@ export default function ExamLoginPage() {
             <CardHeader className="pb-3 pt-6 px-6">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
-                  İştirakçı Girişi
+                  {language === 'ka' ? 'მონაწილის შესვლა' : 'İştirakçı Girişi'}
                 </CardTitle>
                 <Badge
                   variant="outline"
@@ -364,12 +376,14 @@ export default function ExamLoginPage() {
                       : "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/40"
                   )}
                 >
-                  {settings?.is_active ? 'Aktivdir' : 'Gözləmə Rejimi'}
+                  {settings?.is_active 
+                    ? (language === 'ka' ? 'აქტიურია' : 'Aktivdir') 
+                    : (language === 'ka' ? 'მოლოდინის რეჟიმი' : 'Gözləmə Rejimi')}
                 </Badge>
               </div>
               {!settings?.is_active && (
                 <div className="mt-2 p-2.5 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs">
-                  İmtahan nəzarətçi tərəfindən aktiv edildikdən sonra daxil ola bilərsiniz.
+                  {t('portal_closed')}
                 </div>
               )}
             </CardHeader>
@@ -380,7 +394,7 @@ export default function ExamLoginPage() {
                 <div className="space-y-1">
                   <div className="flex justify-between">
                     <Label htmlFor="fin" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      FİN Kod <span className="text-red-500">*</span>
+                      {t('fin_label')} <span className="text-red-500">*</span>
                     </Label>
                     <span className="text-[11px] text-slate-400">{cleanFin.length} / 7</span>
                   </div>
@@ -389,7 +403,7 @@ export default function ExamLoginPage() {
                       id="fin"
                       value={fin}
                       onChange={(e) => setFin(e.target.value.toUpperCase().slice(0, 7))}
-                      placeholder="7 simvollu FİN kod"
+                      placeholder={t('fin_placeholder')}
                       maxLength={7}
                       className="font-mono text-sm tracking-wider uppercase font-semibold h-10 pl-3 pr-10"
                       autoComplete="off"
@@ -404,13 +418,13 @@ export default function ExamLoginPage() {
                 {/* Full Name */}
                 <div className="space-y-1">
                   <Label htmlFor="fullName" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Ad və Soyad <span className="text-red-500">*</span>
+                    {t('fullname_label')} <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="fullName"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Ad və soyadınızı daxil edin"
+                    placeholder={t('fullname_placeholder')}
                     className="h-10 text-sm"
                     autoComplete="name"
                     required
@@ -420,16 +434,18 @@ export default function ExamLoginPage() {
                 {/* Specialty Select */}
                 <div className="space-y-1">
                   <Label htmlFor="specialty" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    İmtahan İxtisası <span className="text-red-500">*</span>
+                    {t('specialty_label')} <span className="text-red-500">*</span>
                   </Label>
                   <Select value={selectedKey} onValueChange={setSelectedKey}>
                     <SelectTrigger id="specialty" className="h-10 text-sm">
-                      <SelectValue placeholder="İxtisası seçin..." />
+                      <SelectValue placeholder={t('specialty_placeholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {OFFICIAL_EXAMS.map((exam) => (
                         <SelectItem key={exam.key} value={exam.key} className="py-2">
-                          <span className="font-medium">{exam.title}</span>
+                          <span className="font-medium">
+                            {language === 'ka' ? exam.title_ka : exam.title}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -439,14 +455,14 @@ export default function ExamLoginPage() {
                 {/* Access Code */}
                 <div className="space-y-1">
                   <Label htmlFor="examCode" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Zal Kodu (Giriş Şifrəsi) <span className="text-red-500">*</span>
+                    {t('exam_code_label')} <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="examCode"
                     type="password"
                     value={examCode}
                     onChange={(e) => setExamCode(e.target.value)}
-                    placeholder="Nəzarətçi tərəfindən elan edilən kod"
+                    placeholder={t('exam_code_placeholder')}
                     className="h-10 text-sm"
                     autoComplete="off"
                     required
@@ -464,7 +480,7 @@ export default function ExamLoginPage() {
                     htmlFor="agreed"
                     className="text-xs cursor-pointer text-slate-600 dark:text-slate-400 select-none"
                   >
-                    Məlumatların düzgünlüyünü təsdiq edirəm
+                    {t('agree_terms')}
                   </Label>
                 </div>
 
@@ -477,15 +493,15 @@ export default function ExamLoginPage() {
                   {isLoading ? (
                     <span className="flex items-center gap-2">
                       <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      Giriş edilir...
+                      {t('checking_btn')}
                     </span>
                   ) : !settings?.is_active ? (
                     <span className="flex items-center gap-2">
-                      <Lock className="w-4 h-4" /> Başlaması Gözlənilir
+                      <Lock className="w-4 h-4" /> {language === 'ka' ? 'დაწყების მოლოდინში' : 'Başlaması Gözlənilir'}
                     </span>
                   ) : (
                     <span className="flex items-center justify-center gap-2">
-                      İmtahana Başla <ArrowRight className="w-4 h-4" />
+                      {t('start_exam_btn')} <ArrowRight className="w-4 h-4" />
                     </span>
                   )}
                 </Button>

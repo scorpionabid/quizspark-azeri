@@ -47,19 +47,55 @@ export function computeWeightedScore(answers: QuestionAnswer[], questions: Quest
   return { weightedScore, maxPossibleScore, percentage };
 }
 
-export function useQuestions(quizId: string | undefined, options?: { enabled?: boolean }) {
+export function useQuestions(quizId: string | undefined, options?: { enabled?: boolean; language?: string }) {
+  const currentLang =
+    options?.language ||
+    (typeof window !== 'undefined' ? localStorage.getItem('quiz_language') : 'az') ||
+    'az';
+
   return useQuery({
-    queryKey: ['questions', quizId],
+    queryKey: ['questions', quizId, currentLang],
     queryFn: async () => {
       if (!quizId) return [];
-      const { data, error } = await supabase
+
+      let { data, error } = await supabase
         .from('questions')
-        .select('*')
+        .select('*, question_translations(*)')
         .eq('quiz_id', quizId)
         .order('order_index', { ascending: true });
 
-      if (error) throw error;
-      return data as Question[];
+      if (error) {
+        console.warn('Could not join question_translations, falling back to base questions:', error);
+        const fallback = await supabase
+          .from('questions')
+          .select('*')
+          .eq('quiz_id', quizId)
+          .order('order_index', { ascending: true });
+        if (fallback.error) throw fallback.error;
+        data = fallback.data;
+      }
+
+      if (!data) return [];
+
+      if (currentLang === 'ka') {
+        return (data as any[]).map((q) => {
+          const transList = Array.isArray(q.question_translations) ? q.question_translations : [];
+          const trans = transList.find((t: any) => t.language_code === 'ka');
+          if (trans) {
+            return {
+              ...q,
+              question_text: trans.question_text || q.question_text,
+              options: trans.options || q.options,
+              correct_answer: trans.correct_answer || q.correct_answer,
+              explanation: trans.explanation ?? q.explanation,
+              hint: trans.hint ?? q.hint,
+            } as Question;
+          }
+          return q as Question;
+        });
+      }
+
+      return data as unknown as Question[];
     },
     enabled: !!quizId && (options?.enabled ?? true),
     staleTime: 10 * 60 * 1000, // 10 minutes cache
