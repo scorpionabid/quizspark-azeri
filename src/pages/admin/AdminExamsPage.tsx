@@ -44,6 +44,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { cn } from '@/lib/utils';
 
 interface ExamAttemptRow {
   id: string;
