@@ -9,6 +9,14 @@ export interface OfficialExamConfig {
 
 export const OFFICIAL_EXAMS: OfficialExamConfig[] = [
   {
+    key: 'demo_test',
+    title: 'Demo İmtahan (Sınaq - 5 Sual)',
+    subject: 'Sınaq İmtahanı',
+    passScore: 60,
+    duration: 15,
+    questions: 5,
+  },
+  {
     key: 'gch',
     title: 'Gənclərin çağırışaqədərki hazırlığı rəhbəri (GÇH)',
     subject: 'GÇH rəhbəri',
