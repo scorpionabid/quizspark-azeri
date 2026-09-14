@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, BookOpen, Share2, Sparkles } from "lucide-react";
+import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, BookOpen, Share2, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,7 @@ interface QuizResultProps {
   showDetailedReview?: boolean;
   backgroundImageUrl?: string | null;
   canRetry?: boolean;
+  isOfficialExam?: boolean;
   onRetry: () => void;
   onHome: () => void;
 }
@@ -108,6 +109,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   showDetailedReview = true,
   backgroundImageUrl,
   canRetry = true,
+  isOfficialExam = false,
   onRetry,
   onHome,
 }) => {
@@ -117,6 +119,65 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   const hasPassed = score >= passThreshold;
   const [reviewOpen, setReviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Minimal and clean layout for official exams
+  if (isOfficialExam) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-8 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-lg text-center space-y-5">
+          <div className="mx-auto w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+              İmtahan Tamamlandı
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Cavablarınız qeydə alındı və nəticəniz hesablandı
+            </p>
+          </div>
+
+          {/* Score circle */}
+          <div className="mx-auto flex h-28 w-28 flex-col items-center justify-center rounded-full border-4 border-blue-600 bg-blue-50/60 dark:bg-blue-950/30">
+            <div className="text-3xl font-black text-blue-600 dark:text-blue-400">{score}%</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nəticə</div>
+          </div>
+
+          {/* Metrics grid */}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 p-2.5">
+              <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{correctAnswers}</div>
+              <div className="text-[10px] text-slate-500">Düzgün</div>
+            </div>
+            <div className="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 p-2.5">
+              <div className="text-lg font-bold text-rose-600 dark:text-rose-400">{totalQuestions - correctAnswers}</div>
+              <div className="text-[10px] text-slate-500">Yanlış / Boş</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-2.5">
+              <div className="text-lg font-bold text-slate-800 dark:text-slate-200">{formatTime(timeSpent)}</div>
+              <div className="text-[10px] text-slate-500">Müddət</div>
+            </div>
+          </div>
+
+          {/* Pass status */}
+          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs flex justify-between items-center">
+            <span className="text-slate-500">Keçid balı ({passThreshold}%):</span>
+            <span className={cn("font-bold", hasPassed ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
+              {hasPassed ? "✓ Keçdiniz" : "✗ Keçid balı toplanmadı"}
+            </span>
+          </div>
+
+          <Button
+            className="w-full h-10 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm"
+            onClick={() => navigate('/imtahan')}
+          >
+            İmtahanı Bitir və Çıxış Et
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const isPattern = isPatternBackground(backgroundImageUrl);
   const bgStyle = getQuizBackgroundStyle(backgroundImageUrl);

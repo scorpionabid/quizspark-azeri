@@ -261,24 +261,18 @@ export default function ExamLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-10 px-4 flex flex-col justify-center items-center">
-      {/* Official Header */}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12 px-4 flex flex-col justify-center items-center">
+      {/* Clean Minimal Header */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-2xl w-full text-center mb-8"
+        className="max-w-md w-full text-center mb-6"
       >
-        <div className="inline-flex items-center justify-center p-3 bg-blue-100 dark:bg-blue-950/60 rounded-2xl mb-4 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-200/60 dark:border-blue-800">
-          <Shield className="w-10 h-10" />
-        </div>
-        <h3 className="text-xs font-bold tracking-widest text-blue-700 dark:text-blue-400 uppercase mb-2">
-          Azərbaycan Respublikası Elm və Təhsil Nazirliyi
-        </h3>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight mb-2">
-          Məktəbəqədər və Ümumi Təhsil üzrə Dövlət Agentliyi
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+          İmtahan Portalı
         </h1>
-        <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 font-medium">
-          Ümumi Təhsil Müəssisələrində Vakant Vəzifələrə İşə Qəbul İmtahanı Portalı
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Daxil olmaq üçün məlumatlarınızı qeyd edin
         </p>
       </motion.div>
 
@@ -286,59 +280,59 @@ export default function ExamLoginPage() {
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
-        className="max-w-2xl w-full"
+        transition={{ delay: 0.05 }}
+        className="max-w-md w-full"
       >
         {isCheckingSettings ? (
-          <Card className="border-slate-200 dark:border-slate-800 p-12 text-center">
+          <Card className="border-slate-200 dark:border-slate-800 p-10 text-center">
             <div className="flex flex-col items-center justify-center space-y-3">
-              <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
-              <p className="text-sm text-slate-500">İmtahan serverinin statusu yoxlanılır...</p>
+              <RefreshCw className="w-7 h-7 text-blue-600 animate-spin" />
+              <p className="text-sm text-slate-500">Yoxlanılır...</p>
             </div>
           </Card>
         ) : completedInfo ? (
           /* ALREADY COMPLETED STATE */
-          <Card className="border-blue-200 dark:border-blue-900 shadow-xl bg-white dark:bg-slate-900">
-            <CardHeader className="text-center pb-4">
-              <div className="mx-auto w-14 h-14 bg-amber-100 dark:bg-amber-950/60 text-amber-600 rounded-full flex items-center justify-center mb-2">
-                <AlertCircle className="w-8 h-8" />
+          <Card className="border-slate-200 dark:border-slate-800 shadow-md bg-white dark:bg-slate-900">
+            <CardHeader className="text-center pb-2 pt-6">
+              <div className="mx-auto w-12 h-12 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 rounded-full flex items-center justify-center mb-2">
+                <CheckCircle2 className="w-6 h-6" />
               </div>
-              <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">
+              <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">
                 İmtahan Artıq Tamamlanıb
               </CardTitle>
-              <CardDescription>
-                Siz bu ixtisas üzrə imtahanı əvvəllər təhvil vermisiniz. Təkrar cəhdə icazə verilmir.
+              <CardDescription className="text-xs">
+                Bu FİN kod ilə imtahan artıq təhvil verilib.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2 text-sm">
-                <div className="flex justify-between py-1 border-b border-slate-200 dark:border-slate-700">
-                  <span className="text-slate-500">İştirakçı FİN:</span>
+            <CardContent className="space-y-3 px-6 py-4">
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                <div className="flex justify-between py-0.5">
+                  <span className="text-slate-500">FİN Kod:</span>
                   <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{cleanFin}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between py-0.5">
                   <span className="text-slate-500">Ad, Soyad:</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{fullName}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between py-0.5">
                   <span className="text-slate-500">İxtisas:</span>
                   <span className="font-medium text-slate-800 dark:text-slate-200">{completedInfo.specialtyTitle}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between py-0.5 border-t border-slate-200 dark:border-slate-700 pt-1.5">
                   <span className="text-slate-500">Yekun Nəticə:</span>
                   <span className="font-bold text-blue-600 dark:text-blue-400">
                     %{completedInfo.percentage} ({completedInfo.score} Bal)
                   </span>
                 </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-slate-500">Tamamlanma Tarixi:</span>
-                  <span className="text-slate-700 dark:text-slate-300">
+                <div className="flex justify-between py-0.5">
+                  <span className="text-slate-500">Tarix:</span>
+                  <span className="text-slate-600 dark:text-slate-400">
                     {new Date(completedInfo.completedAt).toLocaleString('az-AZ')}
                   </span>
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col sm:flex-row gap-3">
+            <CardFooter className="px-6 pb-6 pt-0">
               <Button
                 variant="outline"
                 className="w-full"
@@ -351,116 +345,51 @@ export default function ExamLoginPage() {
               >
                 Digər FİN ilə Giriş
               </Button>
-              <Button
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => navigate(`/quiz/${completedInfo.quizId}`)}
-              >
-                Nəticə Protokoluna Bax
-              </Button>
             </CardFooter>
           </Card>
         ) : (
-          /* ACTIVE EXAM FORM WITH PASSWORD */
-          <Card className="border-slate-200 dark:border-slate-800 shadow-xl bg-white dark:bg-slate-900">
-            <CardHeader className="pb-4">
+          /* ACTIVE EXAM FORM */
+          <Card className="border-slate-200 dark:border-slate-800 shadow-lg bg-white dark:bg-slate-900">
+            <CardHeader className="pb-3 pt-6 px-6">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <User className="w-5 h-5 text-blue-600" /> İştirakçının Qeydiyyatı və Giriş
+                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
+                  İştirakçı Girişi
                 </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      settings?.is_active
-                        ? "border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
-                        : "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/40"
-                    )}
-                  >
-                    {settings?.is_active ? 'Sessiya Aktivdir' : 'Gözləmə Rejimi'}
-                  </Badge>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={fetchSettings}
-                    className="h-7 px-2 text-xs text-slate-500 hover:text-slate-900"
-                    title="Statusu yenilə"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs px-2.5 py-0.5",
+                    settings?.is_active
+                      ? "border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+                      : "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/40"
+                  )}
+                >
+                  {settings?.is_active ? 'Aktivdir' : 'Gözləmə Rejimi'}
+                </Badge>
               </div>
-              <CardDescription>
-                Şəxsiyyət vəsiqənizin FİN kodunu, ad və soyadınızı yazın, ixtisasınızı seçin və zalda verilən imtahan parolunu daxil edin.
-              </CardDescription>
               {!settings?.is_active && (
-                <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs space-y-1">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <Lock className="w-4 h-4 text-amber-600" />
-                    İmtahan Portalı Hazırda Gözləmə Rejimindədir
-                  </div>
-                  <p className="text-[11px] leading-relaxed">
-                    Məlumatlarınızı (FİN, Ad, Soyad, İxtisas) doldura bilərsiniz. İmtahan zalda nəzarətçi tərəfindən başladıldıqda və otaq parolu elan edildikdə imtahana başlaya biləcəksiniz.
-                  </p>
+                <div className="mt-2 p-2.5 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs">
+                  İmtahan nəzarətçi tərəfindən aktiv edildikdən sonra daxil ola bilərsiniz.
                 </div>
               )}
             </CardHeader>
 
-            <CardContent>
-              <form onSubmit={handleStartExam} className="space-y-4">
-                {/* 3 Overview Badges */}
-                <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
-                  <div className="flex flex-col items-center justify-center p-1">
-                    <Clock className="w-4 h-4 text-blue-600 mb-1" />
-                    <span className="text-[11px] text-slate-500">Müddət</span>
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">120 dəqiqə</span>
-                  </div>
-                  <div className="flex flex-col items-center justify-center p-1 border-x border-slate-200 dark:border-slate-700">
-                    <FileCheck className="w-4 h-4 text-emerald-600 mb-1" />
-                    <span className="text-[11px] text-slate-500">Sual Sayı</span>
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">60 Sual</span>
-                  </div>
-                  <div className="flex flex-col items-center justify-center p-1">
-                    <Award className="w-4 h-4 text-amber-600 mb-1" />
-                    <span className="text-[11px] text-slate-500">Variant</span>
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">A - E (5)</span>
-                  </div>
-                </div>
-
-                {/* Password / Access Code Input */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900">
-                  <Label htmlFor="examCode" className="text-xs font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
-                    <KeyRound className="w-3.5 h-3.5 text-blue-600" /> İmtahan Giriş Parolu (Nəzarətçi Kodu) <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="examCode"
-                    type="password"
-                    value={examCode}
-                    onChange={(e) => setExamCode(e.target.value)}
-                    placeholder="İmtahan zalında elan olunan parol..."
-                    className="h-10 text-sm bg-white dark:bg-slate-900"
-                    autoComplete="off"
-                    required
-                  />
-                  <p className="text-[10px] text-blue-700 dark:text-blue-300">
-                    Bu parol imtahan zalında komissiya üzvləri tərəfindən elan olunur.
-                  </p>
-                </div>
-
+            <CardContent className="px-6 pb-6 pt-2">
+              <form onSubmit={handleStartExam} className="space-y-3.5">
                 {/* FIN input */}
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex justify-between">
-                    <Label htmlFor="fin" className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                      FİN Kod (Şəxsiyyət Vəsiqəsi) <span className="text-red-500">*</span>
+                    <Label htmlFor="fin" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      FİN Kod <span className="text-red-500">*</span>
                     </Label>
-                    <span className="text-[11px] text-slate-400">{cleanFin.length} / 7 simvol</span>
+                    <span className="text-[11px] text-slate-400">{cleanFin.length} / 7</span>
                   </div>
                   <div className="relative">
                     <Input
                       id="fin"
                       value={fin}
                       onChange={(e) => setFin(e.target.value.toUpperCase().slice(0, 7))}
-                      placeholder="Məsələn: 7ABC123"
+                      placeholder="7 simvollu FİN kod"
                       maxLength={7}
                       className="font-mono text-sm tracking-wider uppercase font-semibold h-10 pl-3 pr-10"
                       autoComplete="off"
@@ -473,15 +402,15 @@ export default function ExamLoginPage() {
                 </div>
 
                 {/* Full Name */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="fullName" className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                    Ad, Soyad və Ata adı <span className="text-red-500">*</span>
+                <div className="space-y-1">
+                  <Label htmlFor="fullName" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Ad və Soyad <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="fullName"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Məsələn: Murad Əliyev Vüqar"
+                    placeholder="Ad və soyadınızı daxil edin"
                     className="h-10 text-sm"
                     autoComplete="name"
                     required
@@ -489,86 +418,79 @@ export default function ExamLoginPage() {
                 </div>
 
                 {/* Specialty Select */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="specialty" className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                    İmtahan İxtisası / Vakansiya <span className="text-red-500">*</span>
+                <div className="space-y-1">
+                  <Label htmlFor="specialty" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    İmtahan İxtisası <span className="text-red-500">*</span>
                   </Label>
                   <Select value={selectedKey} onValueChange={setSelectedKey}>
-                    <SelectTrigger id="specialty" className="h-10 text-xs sm:text-sm">
-                      <SelectValue placeholder="İmtahan veriləcək ixtisası seçin..." />
+                    <SelectTrigger id="specialty" className="h-10 text-sm">
+                      <SelectValue placeholder="İxtisası seçin..." />
                     </SelectTrigger>
                     <SelectContent>
                       {OFFICIAL_EXAMS.map((exam) => (
-                        <SelectItem key={exam.key} value={exam.key} className="py-1.5">
+                        <SelectItem key={exam.key} value={exam.key} className="py-2">
                           <span className="font-medium">{exam.title}</span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            (Keçid: %{exam.passScore})
-                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Warning & Instructions */}
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs space-y-1">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                    Mühüm İmtahan Qaydaları:
-                  </div>
-                  <ul className="list-disc list-inside space-y-0.5 pl-1 text-[11px] leading-relaxed">
-                    <li>İmtahan müddəti 120 dəqiqədir. Vaxt bitdikdə sistem avtomatik yekunlaşır.</li>
-                    <li>Hər iştirakçıya yalnız <strong>1 cəhd</strong> hüququ verilir.</li>
-                    <li>İmtahan zamanı başqa pəncərəyə keçmək qayda pozuntusudur.</li>
-                  </ul>
+                {/* Access Code */}
+                <div className="space-y-1">
+                  <Label htmlFor="examCode" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Zal Kodu (Giriş Şifrəsi) <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="examCode"
+                    type="password"
+                    value={examCode}
+                    onChange={(e) => setExamCode(e.target.value)}
+                    placeholder="Nəzarətçi tərəfindən elan edilən kod"
+                    className="h-10 text-sm"
+                    autoComplete="off"
+                    required
+                  />
                 </div>
 
-                {/* Agreement Checkbox */}
-                <div className="flex items-start space-x-2 pt-1">
+                {/* Agreement */}
+                <div className="flex items-center space-x-2 pt-1">
                   <Checkbox
                     id="agreed"
                     checked={agreed}
                     onCheckedChange={(checked) => setAgreed(!!checked)}
-                    className="mt-0.5"
                   />
                   <Label
                     htmlFor="agreed"
-                    className="text-xs leading-snug cursor-pointer text-slate-700 dark:text-slate-300 select-none"
+                    className="text-xs cursor-pointer text-slate-600 dark:text-slate-400 select-none"
                   >
-                    Qaydalarla tanış oldum, daxil etdiyim məlumatların doğruluğunu təsdiq edirəm.
+                    Məlumatların düzgünlüyünü təsdiq edirəm
                   </Label>
                 </div>
 
-                {/* Submit Button */}
+                {/* Submit */}
                 <Button
                   type="submit"
                   disabled={!isFormValid || isLoading || !settings?.is_active}
-                  className="w-full h-11 text-sm sm:text-base font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 rounded-xl transition-all disabled:opacity-60"
+                  className="w-full h-11 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md transition-all mt-2"
                 >
                   {isLoading ? (
                     <span className="flex items-center gap-2">
                       <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      İmtahan sessiyası başladılır...
+                      Giriş edilir...
                     </span>
                   ) : !settings?.is_active ? (
                     <span className="flex items-center gap-2">
-                      <Lock className="w-4 h-4" /> Sessiyanın Başlaması Gözlənilir
+                      <Lock className="w-4 h-4" /> Başlaması Gözlənilir
                     </span>
                   ) : (
-                    <span className="flex items-center gap-2">
+                    <span className="flex items-center justify-center gap-2">
                       İmtahana Başla <ArrowRight className="w-4 h-4" />
                     </span>
                   )}
                 </Button>
               </form>
             </CardContent>
-
-            <CardFooter className="border-t border-slate-100 dark:border-slate-800 pt-3 flex justify-between text-xs text-slate-500">
-              <span className="flex items-center gap-1">
-                <Lock className="w-3.5 h-3.5 text-slate-400" /> Təhlükəsiz SSL Bağlantı
-              </span>
-              <span>Regional Təhsil İdarəetmə Sistemi © 2026</span>
-            </CardFooter>
           </Card>
         )}
       </motion.div>

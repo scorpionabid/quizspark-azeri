@@ -765,6 +765,7 @@ export default function QuizPage() {
       questions={activeQuestions}
       backgroundImageUrl={quiz?.background_image_url}
       canRetry={canRetry}
+      isOfficialExam={quiz?.exam_category === 'official_exam'}
       showDetailedReview={(quiz?.feedback_timing || (quiz?.show_feedback === false ? 'never' : 'end_of_quiz')) !== 'never'}
       onRetry={() => {
         setQuizState('intro');
@@ -777,7 +778,7 @@ export default function QuizPage() {
         setBookmarkedQuestions(new Set());
         totalTimeUpRef.current = false;
       }}
-      onHome={() => navigate('/')}
+      onHome={() => navigate(quiz?.exam_category === 'official_exam' ? '/imtahan' : '/')}
     />
   );
 }
