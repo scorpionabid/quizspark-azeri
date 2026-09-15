@@ -843,14 +843,14 @@ export default function QuizPage() {
             setCurrentPage(prevPage);
             const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
             const targetSlice = displayQuestions.slice(prevPage * questionsPerPage, (prevPage + 1) * questionsPerPage);
-            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => answers.some(a => a.questionId === q.id && a.textAnswer && a.textAnswer.trim().length > 0));
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => Boolean(localAnswers[q.id]?.trim()?.length));
             setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
         }}
         jumpToPage={(idx) => {
             setCurrentPage(idx);
             const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
             const targetSlice = displayQuestions.slice(idx * questionsPerPage, (idx + 1) * questionsPerPage);
-            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => answers.some(a => a.questionId === q.id && a.textAnswer && a.textAnswer.trim().length > 0));
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => Boolean(localAnswers[q.id]?.trim()?.length));
             setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
         }}
         onExit={() => navigate(quiz.exam_category === 'official_exam' ? '/imtahan' : '/')}

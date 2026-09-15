@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { QuestionMap } from "./QuestionMap";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { QuestionRenderer } from "./QuestionRenderer";
@@ -209,89 +210,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showFeedback, currentPage, totalPages, quiz.allow_backtracking, quiz.allow_bookmarks, hasUnanswered, localAnswers, pageQuestions, onCheckSubmitClick, handleNextPage, handlePrevPage, setLocalAnswers, toggleBookmark]);
 
-  const MapGrid = () => (
-    <div className="grid grid-cols-5 gap-2 max-h-[60vh] overflow-y-auto pr-1">
-      {Array.from({ length: totalPages }, (_, idx) => {
-          const isCurrent = idx === currentPage;
-          const targetSlice = allQuestions ? allQuestions.slice(idx * quiz.questions_per_page!, (idx + 1) * quiz.questions_per_page!) : [];
-          const hasAnswer = targetSlice.length > 0 && targetSlice.some(q => {
-            const val = localAnswers[q.id];
-            return typeof val === 'string' && val.trim().length > 0;
-          });
-          const isBookmarked = targetSlice.length > 0 && targetSlice.some(q => bookmarkedQuestions.has(q.id));
-          const status = getPageStatus(idx);
 
-          let colorClasses = "border-border/40 bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground";
-
-          if (isCurrent) {
-            colorClasses = "border-primary bg-primary/10 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background font-extrabold shadow-sm";
-          } else if (isInstantFeedback && status === 'correct') {
-            colorClasses = "border-green-500/60 bg-green-500/15 text-green-700 dark:text-green-400 hover:bg-green-500/25 font-bold";
-          } else if (isInstantFeedback && status === 'incorrect') {
-            colorClasses = "border-destructive/60 bg-destructive/15 text-destructive dark:text-red-400 hover:bg-destructive/25 font-bold";
-          } else if (hasAnswer) {
-            colorClasses = "border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 font-bold";
-          }
-
-          return (
-              <button
-                  key={idx}
-                  disabled={!quiz.allow_backtracking && idx < currentPage}
-                  onClick={() => {
-                    jumpToPage(idx);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={cn(
-                      "h-10 rounded-xl flex items-center justify-center text-xs sm:text-sm transition-all border-2 relative select-none",
-                      colorClasses,
-                      (!quiz.allow_backtracking && idx < currentPage) && "opacity-50 cursor-not-allowed hover:bg-muted"
-                  )}
-              >
-                  {idx + 1}
-                  {isBookmarked && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-500 ring-2 ring-background flex items-center justify-center shadow-sm" title={language === 'ka' ? 'ნიშნული' : 'Sancaq'} />
-                  )}
-              </button>
-          );
-      })}
-    </div>
-  );
-
-  const MapLegend = () => (
-    <div className="mt-6 grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-4 border-t border-border/40">
-      <div className="flex items-center gap-2">
-        <div className="w-3.5 h-3.5 rounded-lg bg-primary/20 border-2 border-primary shrink-0"></div>
-        <span className="font-medium text-foreground">{t('current')}</span>
-      </div>
-      {isInstantFeedback ? (
-        <>
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 rounded-lg bg-green-500/20 border-2 border-green-500/60 shrink-0"></div>
-            <span className="text-green-700 dark:text-green-400 font-medium">{t('correct_count')}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 rounded-lg bg-destructive/20 border-2 border-destructive/60 shrink-0"></div>
-            <span className="text-destructive dark:text-red-400 font-medium">{language === 'ka' ? 'არასწორი' : 'Səhv'}</span>
-          </div>
-        </>
-      ) : (
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded-lg bg-emerald-500/20 border-2 border-emerald-500/60 shrink-0"></div>
-          <span className="text-emerald-700 dark:text-emerald-400 font-medium">{t('answered')}</span>
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <div className="w-3.5 h-3.5 rounded-lg bg-muted/60 border border-border/60 shrink-0"></div>
-        <span>{t('unanswered')}</span>
-      </div>
-      {quiz.allow_bookmarks && (
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0"></div>
-          <span>{language === 'ka' ? 'ნიშნული' : 'Sancaq'}</span>
-        </div>
-      )}
-    </div>
-  );
 
   const isTimeless = !quiz.duration || quiz.duration === 0;
   const totalTime = isTimeless ? 0 : quiz.duration * 60;
@@ -354,18 +273,32 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                       <SheetTrigger asChild>
                         <Button variant="outline" size="sm" className="lg:hidden h-10 px-3 rounded-xl border-dashed">
                            <Menu className="h-4 w-4 mr-2" />
-                           Xəritə
+                           {language === 'ka' ? 'რუკა' : 'Xəritə'}
                         </Button>
                       </SheetTrigger>
-                      <SheetContent side="bottom" className="rounded-t-3xl max-h-[80vh] overflow-y-auto">
-                        <SheetHeader className="mb-4 text-left">
+                      <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] p-5 flex flex-col">
+                        <SheetHeader className="mb-3 text-left">
                           <SheetTitle className="flex items-center gap-2">
                             <LayoutGrid className="w-5 h-5 text-primary" />
-                            Sual Xəritəsi
+                            {t('question_map')}
                           </SheetTitle>
                         </SheetHeader>
-                        <MapGrid />
-                        <MapLegend />
+                        <QuestionMap
+                          totalPages={totalPages}
+                          currentPage={currentPage}
+                          allQuestions={allQuestions}
+                          questionsPerPage={quiz.questions_per_page || 1}
+                          localAnswers={localAnswers}
+                          bookmarkedQuestions={bookmarkedQuestions}
+                          allowBacktracking={quiz.allow_backtracking}
+                          allowBookmarks={quiz.allow_bookmarks}
+                          isInstantFeedback={isInstantFeedback}
+                          jumpToPage={jumpToPage}
+                          onSelectQuestion={() => setIsMobileMenuOpen(false)}
+                          language={language}
+                          t={t}
+                          maxHeightClass="max-h-[50vh]"
+                        />
                       </SheetContent>
                    </Sheet>
                   )}
@@ -623,16 +556,29 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
         {/* Desktop Side Navigation Panel */}
         {quiz.show_question_nav && (
             <div className="hidden lg:block w-72 shrink-0">
-                <div className="sticky top-8 bg-card/90 backdrop-blur-md border border-border/50 rounded-2xl p-5 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4 text-foreground font-semibold border-b pb-3">
+                <div className="sticky top-8 bg-card/90 backdrop-blur-md border border-border/50 rounded-2xl p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3 text-foreground font-semibold border-b pb-2.5">
                         <LayoutGrid className="w-5 h-5 text-primary" />
                         <h2>{t('question_map')}</h2>
                     </div>
-                    <MapGrid />
-                    <MapLegend />
+                    <QuestionMap
+                      totalPages={totalPages}
+                      currentPage={currentPage}
+                      allQuestions={allQuestions}
+                      questionsPerPage={quiz.questions_per_page || 1}
+                      localAnswers={localAnswers}
+                      bookmarkedQuestions={bookmarkedQuestions}
+                      allowBacktracking={quiz.allow_backtracking}
+                      allowBookmarks={quiz.allow_bookmarks}
+                      isInstantFeedback={isInstantFeedback}
+                      jumpToPage={jumpToPage}
+                      language={language}
+                      t={t}
+                      maxHeightClass="max-h-[min(340px,40vh)]"
+                    />
 
                     {!isInstantFeedback && (
-                      <div className="mt-5 pt-4 border-t border-border/40">
+                      <div className="mt-4 pt-3 border-t border-border/40">
                         <Button
                           type="button"
                           className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-none shadow-md shadow-emerald-600/20"
