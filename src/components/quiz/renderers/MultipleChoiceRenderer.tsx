@@ -12,24 +12,46 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
   disabled,
   showFeedback,
 }) => {
+  // Find matching option for the RadioGroup value prop across languages
+  const activeRadioValue = (() => {
+    if (!value) return '';
+    if (question.options?.includes(value)) return value;
+    if (question.base_options && question.options) {
+      const baseIdx = question.base_options.findIndex(b => b?.trim()?.toLowerCase() === value?.trim()?.toLowerCase());
+      if (baseIdx !== -1 && question.options[baseIdx]) return question.options[baseIdx];
+    }
+    if (question.translation_options && question.options) {
+      const transIdx = question.translation_options.findIndex(t => t?.trim()?.toLowerCase() === value?.trim()?.toLowerCase());
+      if (transIdx !== -1 && question.options[transIdx]) return question.options[transIdx];
+    }
+    return value;
+  })();
+
   const isCorrect = (opt: string) => {
-    const ca = question.correct_answer;
+    const ca = (question.correct_answer || '').trim().toLowerCase();
+    const optClean = opt.trim().toLowerCase();
+    if (ca === optClean) return true;
     if (ca.length === 1 && /^[A-Z]$/i.test(ca)) {
       const idx = ca.toUpperCase().charCodeAt(0) - 65;
-      return question.options?.[idx] === opt;
+      return question.options?.[idx]?.trim()?.toLowerCase() === optClean;
     }
-    return ca === opt;
+    if (question.base_correct_answer && question.base_options && question.options) {
+      const bCa = question.base_correct_answer.trim().toLowerCase();
+      const bIdx = question.base_options.findIndex(b => b.trim().toLowerCase() === bCa);
+      if (bIdx !== -1 && question.options[bIdx]?.trim()?.toLowerCase() === optClean) return true;
+    }
+    return false;
   };
 
   return (
     <RadioGroup
-      value={value}
+      value={activeRadioValue}
       onValueChange={onChange}
       disabled={disabled}
       className="space-y-3"
     >
       {question.options?.map((opt, i) => {
-        const isSelected = value === opt;
+        const isSelected = activeRadioValue === opt;
         const optIsCorrect = isCorrect(opt);
         
         let statusClass = "border-border/40 bg-muted/10";

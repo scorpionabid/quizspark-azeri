@@ -1,21 +1,23 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 // Hooks & Context
 import { useQuiz } from "@/hooks/useQuizzes";
-import { useQuestions } from "@/hooks/useQuestions";
+import { useQuestions, Question } from "@/hooks/useQuestions";
 import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt, useExamHeartbeat } from "@/hooks/useQuizAttempts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGamification } from "@/hooks/useGamification";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-import { Lock, Shield } from "lucide-react";
+import { Lock, Shield, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 
 // Quiz Sub-components
 import { QuizIntro } from "@/components/quiz/QuizIntro";
+import { OfficialExamIntro } from "@/components/quiz/OfficialExamIntro";
 import { QuizPlaying, PageNavStatus } from "@/components/quiz/QuizPlaying";
 import { QuizResult } from "@/components/quiz/QuizResult";
 
@@ -33,15 +35,36 @@ export default function QuizPage() {
   const [searchParams] = useSearchParams();
   const isPreview = searchParams.get('preview') === 'true';
   const { user } = useAuth();
+  const { language, t } = useLanguage();
 
   const { data: quiz, isLoading: quizLoading } = useQuiz(id);
-  const { data: questions = [], isLoading: questionsLoading } = useQuestions(quiz?.id);
+  const { data: questions = [], isLoading: questionsLoading } = useQuestions(quiz?.id, { language });
   const startAttempt = useStartAttempt();
   const updateAttempt = useUpdateAttempt();
   const completeAttempt = useCompleteAttempt();
 
-  const { data: myAttempts } = useMyAttempts(quiz?.id);
-  const [displayQuestions, setDisplayQuestions] = useState<typeof questions>([]);
+  const { data: myAttempts, isLoading: attemptsLoading } = useMyAttempts(quiz?.id);
+  const [questionOrder, setQuestionOrder] = useState<string[]>([]);
+
+  // Dynamically derive displayQuestions while strictly preserving questionOrder
+  const displayQuestions = useMemo(() => {
+    if (!questions || questions.length === 0) return [];
+    if (questionOrder.length === 0) return questions;
+    const qMap = new Map(questions.map((q) => [q.id, q]));
+    const ordered: Question[] = [];
+    questionOrder.forEach((qId) => {
+      const found = qMap.get(qId);
+      if (found) {
+        ordered.push(found);
+      }
+    });
+    questions.forEach((q) => {
+      if (!ordered.some((o) => o.id === q.id)) {
+        ordered.push(q);
+      }
+    });
+    return ordered;
+  }, [questions, questionOrder]);
 
   const [quizState, setQuizState] = useState<QuizState>('intro');
   const [currentPage, setCurrentPage] = useState(0);
@@ -72,16 +95,85 @@ export default function QuizPage() {
   const answersRef = useRef<Answer[]>([]);
   const draftLoadedRef = useRef(false);
   const strictViolationsRef = useRef(0);
+  const localAnswersRef = useRef<Record<string, string>>({});
+  const isCompletingRef = useRef(false);
 
-  // Online / Offline Detection
+  useEffect(() => {
+    localAnswersRef.current = localAnswers;
+  }, [localAnswers]);
+
+  // Synchronize localAnswers values into new language when language toggles
+  const prevLangRef = useRef(language);
+  useEffect(() => {
+    if (prevLangRef.current !== language) {
+      prevLangRef.current = language;
+      if (questions.length > 0 && Object.keys(localAnswers).length > 0) {
+        setLocalAnswers((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          questions.forEach((q) => {
+            const currentVal = next[q.id];
+            if (currentVal && q.question_type === 'multiple_choice' && q.options) {
+              let matchIdx = -1;
+              if (q.base_options) {
+                matchIdx = q.base_options.findIndex((b) => b?.trim()?.toLowerCase() === currentVal?.trim()?.toLowerCase());
+              }
+              if (matchIdx === -1 && q.translation_options) {
+                matchIdx = q.translation_options.findIndex((t) => t?.trim()?.toLowerCase() === currentVal?.trim()?.toLowerCase());
+              }
+              if (matchIdx !== -1 && q.options[matchIdx] && q.options[matchIdx] !== currentVal) {
+                next[q.id] = q.options[matchIdx];
+                changed = true;
+              }
+            }
+          });
+          return changed ? next : prev;
+        });
+      }
+    }
+  }, [language, questions, localAnswers]);
+
+  const buildCompleteAnswersFromLocal = useCallback(
+    (overrideMap?: Record<string, string>): Answer[] => {
+      const activeMap = overrideMap || localAnswersRef.current;
+      const activeQs = displayQuestions.length > 0 ? displayQuestions : questions;
+      return activeQs.map((q) => {
+        const val = activeMap[q.id] || '';
+        const evalResult = evaluateAnswer(q, val);
+        return {
+          questionId: q.id,
+          questionType: q.question_type as QuestionType,
+          textAnswer: val,
+          isCorrect: evalResult.isCorrect,
+          pointsEarned: evalResult.pointsEarned,
+          selectedOptionIndex: q.options ? q.options.indexOf(val) : undefined,
+          needsReview: evalResult.needsReview,
+        };
+      });
+    },
+    [displayQuestions, questions]
+  );
+
+  // Online / Offline Detection with instant flush on reconnection
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      toast.success("İnternet bağlantısı aktivdir.");
+      toast.success(t('online_resumed'));
+
+      // Instant flush to server on reconnect
+      if (attemptId && Object.keys(localAnswersRef.current).length > 0 && !isPreview) {
+        const answersArray = buildCompleteAnswersFromLocal(localAnswersRef.current);
+        setAnswers(answersArray);
+        updateAttempt.mutate({
+          attemptId,
+          answers: answersArray as unknown as Record<string, string>[],
+          currentQuestionIndex: currentPageRef.current,
+        });
+      }
     };
     const handleOffline = () => {
       setIsOnline(false);
-      toast.error("İnternet bağlantısı kəsildi! Cavablarınız yerli yaddaşda qorunur.");
+      toast.error(t('offline_warning'));
     };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -89,7 +181,7 @@ export default function QuizPage() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [attemptId, isPreview, buildCompleteAnswersFromLocal, updateAttempt, t]);
 
   const sendHeartbeatRef = useRef(examHeartbeat.mutate);
   sendHeartbeatRef.current = examHeartbeat.mutate;
@@ -109,23 +201,7 @@ export default function QuizPage() {
         clearTimeout(debouncedSyncRef.current);
       }
       debouncedSyncRef.current = setTimeout(() => {
-        const activeQs = displayQuestions.length > 0 ? displayQuestions : questions;
-        const answersArray: Answer[] = activeQs
-          .filter(q => localAnswers[q.id] !== undefined && localAnswers[q.id] !== '')
-          .map(q => {
-            const val = localAnswers[q.id];
-            const evalResult = evaluateAnswer(q, val);
-            return {
-              questionId: q.id,
-              questionType: q.question_type as QuestionType,
-              textAnswer: val,
-              isCorrect: evalResult.isCorrect,
-              pointsEarned: evalResult.pointsEarned,
-              selectedOptionIndex: q.options ? q.options.indexOf(val) : undefined,
-              needsReview: evalResult.needsReview,
-            };
-          });
-
+        const answersArray = buildCompleteAnswersFromLocal(localAnswers);
         setAnswers(answersArray);
         updateAttemptMutateRef.current({
           attemptId,
@@ -140,7 +216,7 @@ export default function QuizPage() {
         clearTimeout(debouncedSyncRef.current);
       }
     };
-  }, [localAnswers, attemptId, quizState, isPreview, displayQuestions, questions]);
+  }, [localAnswers, attemptId, quizState, isPreview, buildCompleteAnswersFromLocal]);
 
   // 20-second Heartbeat interval
   useEffect(() => {
@@ -181,15 +257,19 @@ export default function QuizPage() {
     }
   }, [attemptId, quizState, localAnswers]);
 
-  const isLoading = quizLoading || questionsLoading;
-
-  // Moved Strict Mode hook down to avoid block-scoped reference error
+  const isLoading = quizLoading || questionsLoading || (quiz?.exam_category === 'official_exam' && attemptsLoading);
 
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
 
-  const completeQuizWithAnswers = useCallback(async (latestAnswers: Answer[]) => {
+  const completeQuizWithAnswers = useCallback(async (overrideAnswers?: Answer[]) => {
+    if (isCompletingRef.current) return;
+    isCompletingRef.current = true;
+
+    const latestAnswers = overrideAnswers || buildCompleteAnswersFromLocal();
+    setAnswers(latestAnswers);
+
     if (!isPreview && attemptId && startTime && user && quiz) {
       const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
       setTimeSpent(timeSpent);
@@ -390,7 +470,6 @@ export default function QuizPage() {
 
   const resumeQuiz = useCallback(async (attempt: import('@/hooks/useQuizAttempts').QuizAttempt) => {
     if (!quiz) return;
-    let orderedQuestions = [...questions];
 
     const storedOrder = attempt.question_order || (() => {
       try {
@@ -402,19 +481,11 @@ export default function QuizPage() {
     })();
 
     if (storedOrder && Array.isArray(storedOrder) && storedOrder.length > 0) {
-      const qMap = new Map(questions.map(q => [q.id, q]));
-      const reordered: Question[] = [];
-      storedOrder.forEach(qId => {
-        const found = qMap.get(qId);
-        if (found) {
-          reordered.push(found);
-          qMap.delete(qId);
-        }
-      });
-      orderedQuestions = [...reordered, ...Array.from(qMap.values())];
+      setQuestionOrder(storedOrder);
+    } else {
+      setQuestionOrder(questions.map((q) => q.id));
     }
 
-    setDisplayQuestions(orderedQuestions);
     totalTimeUpRef.current = false;
 
     const prevAnswers = (attempt.answers || []) as unknown as Answer[];
@@ -455,18 +526,18 @@ export default function QuizPage() {
       return;
     }
 
-    const qPerPage = quiz?.questions_per_page && quiz.questions_per_page > 0 ? quiz.questions_per_page : orderedQuestions.length;
+    const qPerPage = quiz?.questions_per_page && quiz.questions_per_page > 0 ? quiz.questions_per_page : (questions.length || 1);
     let targetPage = 0;
     if (attempt.current_question_index != null && attempt.current_question_index >= 0) {
-      targetPage = Math.min(attempt.current_question_index, Math.max(0, Math.ceil(orderedQuestions.length / qPerPage) - 1));
+      targetPage = Math.min(attempt.current_question_index, Math.max(0, Math.ceil((storedOrder?.length || questions.length) / qPerPage) - 1));
     } else {
-      const nextIdx = Math.min(Object.keys(initialLocalAnswers).length, orderedQuestions.length - 1);
+      const nextIdx = Math.min(Object.keys(initialLocalAnswers).length, (storedOrder?.length || questions.length) - 1);
       targetPage = Math.floor(nextIdx / qPerPage);
     }
     setCurrentPage(targetPage);
     
     setTotalTimeLeft(remaining);
-    setTimeLeft(remaining); // Optional: calculate per page timeLeft if needed
+    setTimeLeft(remaining);
     setShowFeedback(false);
     setShowHint({});
     setQuizState('playing');
@@ -501,29 +572,29 @@ export default function QuizPage() {
       }
     }
 
-    const orderedQuestions = quiz.shuffle_questions
+    const shuffled = quiz.shuffle_questions
       ? [...questions].sort(() => Math.random() - 0.5)
       : [...questions];
-    setDisplayQuestions(orderedQuestions);
+    const questionOrderIds = shuffled.map((q) => q.id);
+    setQuestionOrder(questionOrderIds);
     totalTimeUpRef.current = false;
 
     try {
       let newAttemptId: string;
-      const questionOrder = orderedQuestions.map(q => q.id);
 
       if (isPreview) {
         newAttemptId = `preview-${Date.now()}`;
       } else {
         const attempt = await startAttempt.mutateAsync({
           quizId: quiz.id,
-          totalQuestions: orderedQuestions.length,
-          questionOrder,
+          totalQuestions: questionOrderIds.length,
+          questionOrder: questionOrderIds,
         });
         newAttemptId = attempt.id;
       }
 
       setAttemptId(newAttemptId);
-      localStorage.setItem(`quiz_order_${newAttemptId}`, JSON.stringify(questionOrder));
+      localStorage.setItem(`quiz_order_${newAttemptId}`, JSON.stringify(questionOrderIds));
       const now = new Date();
       setStartTime(now);
       if (!isPreview) {
@@ -585,7 +656,7 @@ export default function QuizPage() {
         if (totalRemaining <= 0) {
           if (!totalTimeUpRef.current) {
             totalTimeUpRef.current = true;
-            void completeQuizWithAnswers(answersRef.current);
+            void completeQuizWithAnswers();
           }
           return;
         }
@@ -687,7 +758,51 @@ export default function QuizPage() {
     }
   }
 
+  // Check completed official exam attempt
+  const incompleteAttempt = myAttempts?.find((a) => a.completed_at === null);
+  const completedAttempt = myAttempts?.find((a) => a.completed_at !== null);
+
+  if (
+    quiz.exam_category === 'official_exam' &&
+    completedAttempt &&
+    !incompleteAttempt &&
+    quizState === 'intro' &&
+    !isLoading
+  ) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 flex items-center justify-center">
+        <div className="max-w-md w-full text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-lg space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t('already_completed')}</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {language === 'ka'
+              ? 'ამ პირადი ნომრით გამოცდა უკვე ჩაბარებულია.'
+              : 'Bu FİN kod ilə imtahan artıq təhvil verilib.'}
+          </p>
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 rounded-xl"
+            onClick={() => navigate('/imtahan')}
+          >
+            {t('exit_btn')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (quizState === 'intro') {
+    if (quiz.exam_category === 'official_exam') {
+      return (
+        <OfficialExamIntro
+          quiz={quiz}
+          user={user}
+          onStart={startQuiz}
+          isPending={startAttempt.isPending}
+        />
+      );
+    }
     return (
       <QuizIntro
         quiz={quiz}
@@ -734,14 +849,14 @@ export default function QuizPage() {
             const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => answers.some(a => a.questionId === q.id));
             setShowFeedback(isAlreadyAnswered && (quiz?.feedback_timing === 'instant' || quiz?.show_feedback));
         }}
-        onExit={() => navigate('/')}
+        onExit={() => navigate(quiz.exam_category === 'official_exam' ? '/imtahan' : '/')}
         feedbackEnabled={feedbackEnabled}
         bookmarkedQuestions={bookmarkedQuestions}
         toggleBookmark={toggleBookmark}
         getPageStatus={getPageStatus}
         isOnline={isOnline}
         isSyncing={updateAttempt.isPending}
-        onFinalSubmit={() => void completeQuizWithAnswers(answersRef.current)}
+        onFinalSubmit={() => void completeQuizWithAnswers()}
       />
     );
   }

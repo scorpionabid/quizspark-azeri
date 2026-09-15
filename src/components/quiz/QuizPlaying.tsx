@@ -86,6 +86,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   isSyncing = false,
   onFinalSubmit,
   }) => {
+  const { language, t } = useLanguage();
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [showExitConfirm, setShowExitConfirm] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
@@ -305,7 +306,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                   className="text-muted-foreground hover:text-foreground -ml-2"
               >
                   <ArrowLeft className="mr-1 h-4 w-4" />
-                  <span className="hidden sm:inline">Çıx</span>
+                  <span className="hidden sm:inline">{language === 'ka' ? 'გასვლა' : 'Çıx'}</span>
               </Button>
 
               {/* Network & Sync Status */}
@@ -313,17 +314,17 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                 {!isOnline ? (
                   <span className="flex items-center gap-1 text-destructive font-bold">
                     <WifiOff className="w-3.5 h-3.5" />
-                    <span>Oflayn (Yaddaşda)</span>
+                    <span>{t('offline_status')}</span>
                   </span>
                 ) : isSyncing ? (
                   <span className="flex items-center gap-1 text-amber-500 font-medium">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Sinxron...</span>
+                    <span>{t('syncing_status')}</span>
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Yadda saxlanıldı</span>
+                    <span>{t('synced_status')}</span>
                   </span>
                 )}
               </div>
@@ -502,36 +503,38 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                       feedbackEnabled={feedbackEnabled}
                     />
 
-                    <div className="mt-4 flex items-center justify-between gap-2 pt-2 border-t border-border/40">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setFeedbackQuestion({
-                          question,
-                          index: quiz.questions_per_page! * currentPage + idx,
-                        })}
-                        className="text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full px-3 h-8"
-                        title="Bu suala rəy yaz və ya xəta bildir"
-                      >
-                        <MessageSquarePlus className="mr-1.5 h-3.5 w-3.5" />
-                        <span>Rəy / Xəta Bildir</span>
-                      </Button>
-
-                      {question.hint && !showFeedback && (
+                    {quiz.exam_category !== 'official_exam' && (
+                      <div className="mt-4 flex items-center justify-between gap-2 pt-2 border-t border-border/40">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setShowHint(prev => ({ ...prev, [question.id]: !prev[question.id] }))}
-                          className={cn(
-                            "text-xs transition-all rounded-full px-3 h-8",
-                            showHint[question.id] && "text-primary bg-primary/10"
-                          )}
+                          onClick={() => setFeedbackQuestion({
+                            question,
+                            index: quiz.questions_per_page! * currentPage + idx,
+                          })}
+                          className="text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full px-3 h-8"
+                          title="Bu suala rəy yaz və ya xəta bildir"
                         >
-                          <Lightbulb className={cn("mr-1.5 h-3.5 w-3.5", showHint[question.id] && "text-primary fill-primary")} />
-                          İpucu Göstər
+                          <MessageSquarePlus className="mr-1.5 h-3.5 w-3.5" />
+                          <span>Rəy / Xəta Bildir</span>
                         </Button>
-                      )}
-                    </div>
+
+                        {question.hint && !showFeedback && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowHint(prev => ({ ...prev, [question.id]: !prev[question.id] }))}
+                            className={cn(
+                              "text-xs transition-all rounded-full px-3 h-8",
+                              showHint[question.id] && "text-primary bg-primary/10"
+                            )}
+                          >
+                            <Lightbulb className={cn("mr-1.5 h-3.5 w-3.5", showHint[question.id] && "text-primary fill-primary")} />
+                            İpucu Göstər
+                          </Button>
+                        )}
+                      </div>
+                    )}
                 </div>
                 );
                 })}
@@ -635,19 +638,19 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
-              Quizi tərk et?
+              {t('exit_confirm_title')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Quizi tərk etsəniz irəliləyişiniz itiriləcək. Davam etmək istədiyinizə əminsiniz?
+              {t('exit_confirm_desc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Qal</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl">{t('exit_confirm_stay')}</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-xl bg-destructive hover:bg-destructive/90 text-white"
               onClick={onExit}
             >
-              Bəli, Çıx
+              {t('exit_confirm_leave')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

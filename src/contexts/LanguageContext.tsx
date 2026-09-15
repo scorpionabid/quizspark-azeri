@@ -78,6 +78,22 @@ const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     passed: '✓ Keçdiniz',
     failed: '✗ Keçid balı toplanmadı',
     exit_btn: 'İmtahanı Bitir və Çıxış Et',
+
+    // Official Exam Briefing & Rules
+    official_exam_briefing: 'İmtahan Təlimatı',
+    candidate_info: 'İştirakçı Məlumatları',
+    exam_rules: 'İmtahan Qaydaları',
+    rule_1: 'Cavablarınız sistemdə avtomatik yadda saxlanılır.',
+    rule_2: 'Suallar arasında sərbəst hərəkət edə bilərsiniz.',
+    rule_3: 'İmtahanı istədiyiniz vaxt və ya vaxt bitdikdə təhvil verə bilərsiniz.',
+    exit_confirm_title: 'İmtahanı tərk etmək istəyirsiniz?',
+    exit_confirm_desc: 'İmtahan müddəti arxa fonda davam edəcək və vaxt bitənə qədər yenidən daxil ola bilərsiniz.',
+    exit_confirm_stay: 'İmtahanda Qal',
+    exit_confirm_leave: 'Çıxış Et',
+    online_resumed: 'İnternet bərpa olundu, bütün cavablar sinxronlaşdırıldı.',
+    synced_status: 'Yadda saxlanıldı',
+    syncing_status: 'Sinxronlaşdırılır...',
+    offline_status: 'Oflayn (Yaddaşda)',
   },
   ka: {
     // General & Header
@@ -148,6 +164,22 @@ const UI_TRANSLATIONS: Record<AppLanguage, Record<string, string>> = {
     passed: '✓ ჩაბარებულია',
     failed: '✗ ვერ ჩაბარდა',
     exit_btn: 'გამოცდის დასრულება და გასვლა',
+
+    // Official Exam Briefing & Rules
+    official_exam_briefing: 'საგამოცდო ინსტრუქცია',
+    candidate_info: 'მონაწილის მონაცემები',
+    exam_rules: 'საგამოცდო წესები',
+    rule_1: 'თქვენი პასუხები სისტემაში ავტომატურად ინახება.',
+    rule_2: 'შეგიძლიათ თავისუფლად გადახვიდეთ კითხვებს შორის.',
+    rule_3: 'გამოცდის ჩაბარება შეგიძლიათ ნებისმიერ დროს ან დროის ამოწურვისას.',
+    exit_confirm_title: 'გსურთ გამოცდის დატოვება?',
+    exit_confirm_desc: 'გამოცდის დრო გაგრძელდება ფონურ რეჟიმში და შეგიძლიათ ხელახლა შეხვიდეთ დროის ამოწურვამდე.',
+    exit_confirm_stay: 'დარჩენა',
+    exit_confirm_leave: 'გამოსვლა',
+    online_resumed: 'ინტერნეტ კავშირი აღდგა, პასუხები სინქრონიზებულია.',
+    synced_status: 'შენახულია',
+    syncing_status: 'სინქრონიზაცია...',
+    offline_status: 'ოფლაინ (შენახულია)',
   }
 };
 

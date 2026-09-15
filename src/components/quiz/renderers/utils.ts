@@ -81,13 +81,43 @@ export function isAnswerCorrect(question: Question, value: string): boolean {
   if (qt === 'multiple_choice') {
     const ca = (question.correct_answer || '').trim();
     const val = value.trim();
+
+    // 1. Direct match
+    if (ca.toLowerCase() === val.toLowerCase()) return true;
+
+    // 2. Single letter match
     if (ca.length === 1 && /^[A-Z]$/i.test(ca) && question.options) {
       const idx = ca.toUpperCase().charCodeAt(0) - 65;
       if (question.options[idx] && question.options[idx].trim().toLowerCase() === val.toLowerCase()) {
         return true;
       }
     }
-    return ca.toLowerCase() === val.toLowerCase();
+
+    // 3. Cross-language index match
+    const getOptionIndex = (str: string): number => {
+      const clean = str.trim().toLowerCase();
+      if (question.options) {
+        const i = question.options.findIndex(o => o.trim().toLowerCase() === clean);
+        if (i !== -1) return i;
+      }
+      if (question.base_options) {
+        const i = question.base_options.findIndex(o => o.trim().toLowerCase() === clean);
+        if (i !== -1) return i;
+      }
+      if (question.translation_options) {
+        const i = question.translation_options.findIndex(o => o.trim().toLowerCase() === clean);
+        if (i !== -1) return i;
+      }
+      return -1;
+    };
+
+    const valIdx = getOptionIndex(val);
+    const caIdx = getOptionIndex(ca);
+    if (valIdx !== -1 && caIdx !== -1 && valIdx === caIdx) {
+      return true;
+    }
+
+    return false;
   }
 
   if (qt === 'numerical') {

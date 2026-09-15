@@ -11,6 +11,7 @@ import { Question } from "@/hooks/useQuestions";
 import { MathRenderer } from "@/components/common/MathRenderer";
 import { getQuizBackgroundStyle, isPatternBackground } from "@/lib/constants/quizBackground";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 
 interface QuizResultProps {
   score: number;
@@ -125,7 +126,10 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   // Minimal and clean layout for official exams
   if (isOfficialExam) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-8 flex flex-col items-center justify-center">
+        <div className="max-w-md w-full mb-3 flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-lg text-center space-y-5">
           <div className="mx-auto w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
             <CheckCircle2 className="w-7 h-7" />

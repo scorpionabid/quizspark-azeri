@@ -35,6 +35,10 @@ export interface Question {
   media_type?: string | null;
   media_url?: string | null;
   bank_question_id?: string | null;
+  base_options?: string[] | null;
+  base_correct_answer?: string | null;
+  translation_options?: string[] | null;
+  translation_correct_answer?: string | null;
 }
 
 export function computeWeightedScore(answers: QuestionAnswer[], questions: Question[]) {
@@ -77,25 +81,35 @@ export function useQuestions(quizId: string | undefined, options?: { enabled?: b
 
       if (!data) return [];
 
-      if (currentLang === 'ka') {
-        return (data as any[]).map((q) => {
-          const transList = Array.isArray(q.question_translations) ? q.question_translations : [];
-          const trans = transList.find((t: any) => t.language_code === 'ka');
-          if (trans) {
-            return {
-              ...q,
-              question_text: trans.question_text || q.question_text,
-              options: trans.options || q.options,
-              correct_answer: trans.correct_answer || q.correct_answer,
-              explanation: trans.explanation ?? q.explanation,
-              hint: trans.hint ?? q.hint,
-            } as Question;
-          }
-          return q as Question;
-        });
-      }
+      return (data as any[]).map((q) => {
+        const transList = Array.isArray(q.question_translations) ? q.question_translations : [];
+        const trans = transList.find((t: any) => t.language_code === 'ka');
+        const kaOptions = trans?.options || null;
+        const kaCorrectAnswer = trans?.correct_answer || null;
 
-      return data as unknown as Question[];
+        if (currentLang === 'ka' && trans) {
+          return {
+            ...q,
+            question_text: trans.question_text || q.question_text,
+            options: kaOptions || q.options,
+            correct_answer: kaCorrectAnswer || q.correct_answer,
+            explanation: trans.explanation ?? q.explanation,
+            hint: trans.hint ?? q.hint,
+            base_options: q.options,
+            base_correct_answer: q.correct_answer,
+            translation_options: kaOptions,
+            translation_correct_answer: kaCorrectAnswer,
+          } as Question;
+        }
+
+        return {
+          ...q,
+          base_options: q.options,
+          base_correct_answer: q.correct_answer,
+          translation_options: kaOptions,
+          translation_correct_answer: kaCorrectAnswer,
+        } as Question;
+      });
     },
     enabled: !!quizId && (options?.enabled ?? true),
     staleTime: 10 * 60 * 1000, // 10 minutes cache
