@@ -388,9 +388,10 @@ export default function QuizPage() {
     if (currentPage < totalPages - 1) {
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
+      const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
       const targetSlice = displayQuestions.slice(nextPage * questionsPerPage, (nextPage + 1) * questionsPerPage);
-      const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => latestAnswers.some(a => a.questionId === q.id));
-      setShowFeedback(isAlreadyAnswered && (quiz?.feedback_timing === 'instant' || quiz?.show_feedback));
+      const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => latestAnswers.some(a => a.questionId === q.id && a.textAnswer && a.textAnswer.trim().length > 0));
+      setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
       setShowHint({});
     } else {
       await completeQuizWithAnswers(latestAnswers);
@@ -401,16 +402,12 @@ export default function QuizPage() {
     if (showFeedback || pageQuestions.length === 0) return;
 
     const currentAnswersMap = overrideAnswers || localAnswers;
+    const pageQuestionIds = new Set(pageQuestions.map(q => q.id));
     const newAnswers: Answer[] = [];
     let anyIncorrect = false;
     let anyCorrect = false;
 
     pageQuestions.forEach(currentQ => {
-      // Avoid re-evaluating if already answered (e.g., backtracking or resuming)
-      if (answersRef.current.some(a => a.questionId === currentQ.id)) {
-        return; // Already submitted
-      }
-
       const finalVal = currentAnswersMap[currentQ.id] || '';
       const evalResult = evaluateAnswer(currentQ, finalVal);
 
@@ -429,7 +426,7 @@ export default function QuizPage() {
       else anyIncorrect = true;
     });
 
-    const isInstant = (quiz?.feedback_timing === 'instant');
+    const isInstant = (quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam');
 
     if (isInstant) {
       setShowFeedback(true);
@@ -443,10 +440,12 @@ export default function QuizPage() {
       }
     }
 
-    const updatedAnswers = [...answers, ...newAnswers];
+    // Upsert: replace any previous answers for questions on the current page
+    const existingOtherAnswers = answersRef.current.filter(a => !pageQuestionIds.has(a.questionId));
+    const updatedAnswers = [...existingOtherAnswers, ...newAnswers];
     setAnswers(updatedAnswers);
 
-    if (attemptId && !isPreview && newAnswers.length > 0) {
+    if (attemptId && !isPreview && updatedAnswers.length > 0) {
       // Real-time davamlı sinxronizasiya: Hər səhifə təsdiqində bazaya yazılır
       updateAttempt.mutate({
         attemptId,
@@ -466,7 +465,7 @@ export default function QuizPage() {
         }
       }, delay);
     }
-  }, [showFeedback, pageQuestions, localAnswers, answers, attemptId, quiz, isPreview, updateAttempt, handleNextPageInternal]);
+  }, [showFeedback, pageQuestions, localAnswers, attemptId, quiz, isPreview, updateAttempt, handleNextPageInternal]);
 
   const resumeQuiz = useCallback(async (attempt: import('@/hooks/useQuizAttempts').QuizAttempt) => {
     if (!quiz) return;
@@ -693,7 +692,7 @@ export default function QuizPage() {
   const score = maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 0;
   const correctCount = answers.filter(a => a.isCorrect).length;
   const pendingReviews = answers.filter(a => a.needsReview).length;
-  const feedbackEnabled = quiz?.show_feedback !== false && quiz?.feedback_timing !== 'never';
+  const feedbackEnabled = quiz?.exam_category !== 'official_exam' && quiz?.show_feedback !== false && quiz?.feedback_timing !== 'never';
 
   const toggleBookmark = (id: string) => {
     setBookmarkedQuestions(prev => {
@@ -711,22 +710,25 @@ export default function QuizPage() {
     const pageSlice = displayQuestions.slice(pageIdx * questionsPerPage, (pageIdx + 1) * questionsPerPage);
     if (pageSlice.length === 0) return 'pending';
 
-    const pageAnswers = pageSlice
-      .map(q => answers.find(a => a.questionId === q.id))
-      .filter((a): a is Answer => Boolean(a));
+    const isAllAnswered = pageSlice.every(q => {
+      const val = localAnswers[q.id];
+      return typeof val === 'string' && val.trim().length > 0;
+    });
 
-    const isAllAnswered = pageAnswers.length === pageSlice.length;
+    if (pageIdx === currentPage) return 'current';
 
     if (isAllAnswered) {
-      const showCorrectness = quiz?.feedback_timing === 'instant' || quiz?.show_feedback;
-      if (showCorrectness) {
-        const allCorrect = pageAnswers.every(a => a.isCorrect);
+      const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
+      if (isInstant) {
+        const pageAnswers = pageSlice
+          .map(q => answers.find(a => a.questionId === q.id))
+          .filter((a): a is Answer => Boolean(a));
+        const allCorrect = pageAnswers.length === pageSlice.length && pageAnswers.every(a => a.isCorrect);
         return allCorrect ? 'correct' : 'incorrect';
       }
       return 'completed';
     }
 
-    if (pageIdx === currentPage) return 'current';
     return 'pending';
   };
 
@@ -839,15 +841,17 @@ export default function QuizPage() {
         handlePrevPage={() => {
             const prevPage = Math.max(0, currentPage - 1);
             setCurrentPage(prevPage);
+            const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
             const targetSlice = displayQuestions.slice(prevPage * questionsPerPage, (prevPage + 1) * questionsPerPage);
-            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => answers.some(a => a.questionId === q.id));
-            setShowFeedback(isAlreadyAnswered && (quiz?.feedback_timing === 'instant' || quiz?.show_feedback));
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => answers.some(a => a.questionId === q.id && a.textAnswer && a.textAnswer.trim().length > 0));
+            setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
         }}
         jumpToPage={(idx) => {
             setCurrentPage(idx);
+            const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
             const targetSlice = displayQuestions.slice(idx * questionsPerPage, (idx + 1) * questionsPerPage);
-            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => answers.some(a => a.questionId === q.id));
-            setShowFeedback(isAlreadyAnswered && (quiz?.feedback_timing === 'instant' || quiz?.show_feedback));
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => answers.some(a => a.questionId === q.id && a.textAnswer && a.textAnswer.trim().length > 0));
+            setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
         }}
         onExit={() => navigate(quiz.exam_category === 'official_exam' ? '/imtahan' : '/')}
         feedbackEnabled={feedbackEnabled}

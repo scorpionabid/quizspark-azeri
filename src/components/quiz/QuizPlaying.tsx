@@ -95,7 +95,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [feedbackQuestion, setFeedbackQuestion] = React.useState<{ question: Question; index: number } | null>(null);
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const isInstantFeedback = quiz.feedback_timing === 'instant';
+  const isInstantFeedback = quiz.feedback_timing === 'instant' && quiz.exam_category !== 'official_exam';
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -128,7 +128,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   );
 
   const onCheckSubmitClick = React.useCallback(() => {
-    if (hasUnanswered) {
+    if (isInstantFeedback && hasUnanswered) {
       setAttemptedSubmit(true);
       setShowConfirm(true);
       // Auto-scroll to first unanswered question
@@ -142,7 +142,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
       setAttemptedSubmit(false);
       handlePageSubmit();
     }
-  }, [hasUnanswered, handlePageSubmit, pageQuestions, localAnswers]);
+  }, [isInstantFeedback, hasUnanswered, handlePageSubmit, pageQuestions, localAnswers]);
 
   const [showFinalSubmitModal, setShowFinalSubmitModal] = React.useState(false);
 
@@ -212,11 +212,26 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   const MapGrid = () => (
     <div className="grid grid-cols-5 gap-2 max-h-[60vh] overflow-y-auto pr-1">
       {Array.from({ length: totalPages }, (_, idx) => {
-          const status = getPageStatus(idx);
           const isCurrent = idx === currentPage;
           const targetSlice = allQuestions ? allQuestions.slice(idx * quiz.questions_per_page!, (idx + 1) * quiz.questions_per_page!) : [];
-          const hasAnswer = targetSlice.length > 0 && targetSlice.some(q => localAnswers[q.id] !== undefined && localAnswers[q.id] !== '');
+          const hasAnswer = targetSlice.length > 0 && targetSlice.some(q => {
+            const val = localAnswers[q.id];
+            return typeof val === 'string' && val.trim().length > 0;
+          });
           const isBookmarked = targetSlice.length > 0 && targetSlice.some(q => bookmarkedQuestions.has(q.id));
+          const status = getPageStatus(idx);
+
+          let colorClasses = "border-border/40 bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground";
+
+          if (isCurrent) {
+            colorClasses = "border-primary bg-primary/10 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background font-extrabold shadow-sm";
+          } else if (isInstantFeedback && status === 'correct') {
+            colorClasses = "border-green-500/60 bg-green-500/15 text-green-700 dark:text-green-400 hover:bg-green-500/25 font-bold";
+          } else if (isInstantFeedback && status === 'incorrect') {
+            colorClasses = "border-destructive/60 bg-destructive/15 text-destructive dark:text-red-400 hover:bg-destructive/25 font-bold";
+          } else if (hasAnswer) {
+            colorClasses = "border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 font-bold";
+          }
 
           return (
               <button
@@ -227,19 +242,14 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     setIsMobileMenuOpen(false);
                   }}
                   className={cn(
-                      "h-10 rounded-xl flex items-center justify-center font-bold text-xs sm:text-sm transition-all border-2 relative select-none",
-                      status === 'correct' && "border-green-500/60 bg-green-500/15 text-green-700 dark:text-green-400 hover:bg-green-500/25",
-                      status === 'incorrect' && "border-destructive/60 bg-destructive/15 text-destructive dark:text-red-400 hover:bg-destructive/25",
-                      (status === 'completed' || (!isInstantFeedback && hasAnswer)) && "border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25",
-                      status === 'current' && !hasAnswer && "border-primary bg-primary/10 text-primary shadow-sm",
-                      status === 'pending' && !hasAnswer && "border-transparent bg-muted/60 text-muted-foreground hover:bg-border/60 hover:text-foreground",
-                      isCurrent && "ring-2 ring-primary ring-offset-2 ring-offset-background font-extrabold shadow-md",
+                      "h-10 rounded-xl flex items-center justify-center text-xs sm:text-sm transition-all border-2 relative select-none",
+                      colorClasses,
                       (!quiz.allow_backtracking && idx < currentPage) && "opacity-50 cursor-not-allowed hover:bg-muted"
                   )}
               >
                   {idx + 1}
                   {isBookmarked && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-500 ring-2 ring-background flex items-center justify-center" title="Sancaqlandı" />
+                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-500 ring-2 ring-background flex items-center justify-center shadow-sm" title={language === 'ka' ? 'ნიშნული' : 'Sancaq'} />
                   )}
               </button>
           );
@@ -250,30 +260,36 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   const MapLegend = () => (
     <div className="mt-6 grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-4 border-t border-border/40">
       <div className="flex items-center gap-2">
-        <div className="w-3.5 h-3.5 rounded bg-primary/20 border-2 border-primary ring-1 ring-primary/40 shrink-0"></div>
-        <span>{t('current')}</span>
+        <div className="w-3.5 h-3.5 rounded-lg bg-primary/20 border-2 border-primary shrink-0"></div>
+        <span className="font-medium text-foreground">{t('current')}</span>
       </div>
-      {isInstantFeedback || quiz.show_feedback ? (
+      {isInstantFeedback ? (
         <>
           <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 rounded bg-green-500/20 border-2 border-green-500/60 shrink-0"></div>
+            <div className="w-3.5 h-3.5 rounded-lg bg-green-500/20 border-2 border-green-500/60 shrink-0"></div>
             <span className="text-green-700 dark:text-green-400 font-medium">{t('correct_count')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 rounded bg-destructive/20 border-2 border-destructive/60 shrink-0"></div>
+            <div className="w-3.5 h-3.5 rounded-lg bg-destructive/20 border-2 border-destructive/60 shrink-0"></div>
             <span className="text-destructive dark:text-red-400 font-medium">{language === 'ka' ? 'არასწორი' : 'Səhv'}</span>
           </div>
         </>
       ) : (
         <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-green-500/20 border-2 border-green-500/50 shrink-0"></div>
-          <span>{t('answered')}</span>
+          <div className="w-3.5 h-3.5 rounded-lg bg-emerald-500/20 border-2 border-emerald-500/60 shrink-0"></div>
+          <span className="text-emerald-700 dark:text-emerald-400 font-medium">{t('answered')}</span>
         </div>
       )}
       <div className="flex items-center gap-2">
-        <div className="w-3.5 h-3.5 rounded bg-muted border border-border shrink-0"></div>
+        <div className="w-3.5 h-3.5 rounded-lg bg-muted/60 border border-border/60 shrink-0"></div>
         <span>{t('unanswered')}</span>
       </div>
+      {quiz.allow_bookmarks && (
+        <div className="flex items-center gap-2">
+          <div className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0"></div>
+          <span>{language === 'ka' ? 'ნიშნული' : 'Sancaq'}</span>
+        </div>
+      )}
     </div>
   );
 
