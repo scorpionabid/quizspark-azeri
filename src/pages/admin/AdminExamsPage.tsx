@@ -12,6 +12,8 @@ import {
   Award,
   BookOpen,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Download,
   Lock,
   Unlock,
@@ -71,11 +73,40 @@ interface ExamAttemptRow {
   userAgent: string | null;
 }
 
+type SortField =
+  | 'fin'
+  | 'fullName'
+  | 'specialty'
+  | 'currentQuestionIndex'
+  | 'correctCount'
+  | 'score'
+  | 'isPassed'
+  | 'tabSwitchCount'
+  | 'timeSpent';
+
+type SortOrder = 'asc' | 'desc' | null;
+
 export default function AdminExamsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'passed' | 'failed' | 'in_progress'>('all');
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  const handleSort = (field: SortField) => {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortOrder('asc');
+    } else if (sortOrder === 'asc') {
+      setSortOrder('desc');
+    } else if (sortOrder === 'desc') {
+      setSortField(null);
+      setSortOrder(null);
+    } else {
+      setSortOrder('asc');
+    }
+  };
 
   // Security / Portal Lock state
   const [portalActive, setPortalActive] = useState(false);
@@ -268,9 +299,9 @@ export default function AdminExamsPage() {
     refetchInterval: 15000,
   });
 
-  // Filtered rows
+  // Filtered and Sorted rows
   const filteredRows = useMemo(() => {
-    return attemptsData.filter((row) => {
+    const list = attemptsData.filter((row) => {
       // Search by FIN or Name
       if (searchQuery.trim()) {
         const query = searchQuery.trim().toLowerCase();
@@ -295,7 +326,55 @@ export default function AdminExamsPage() {
 
       return true;
     });
-  }, [attemptsData, searchQuery, selectedSpecialty, selectedStatus]);
+
+    if (!sortField || !sortOrder) {
+      return list;
+    }
+
+    return [...list].sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case 'fullName':
+          comparison = a.fullName.localeCompare(b.fullName, 'az', { sensitivity: 'base' });
+          break;
+        case 'fin':
+          comparison = a.fin.localeCompare(b.fin, 'az', { sensitivity: 'base' });
+          break;
+        case 'specialty':
+          comparison = a.specialty.localeCompare(b.specialty, 'az', { sensitivity: 'base' });
+          break;
+        case 'currentQuestionIndex': {
+          const aVal = a.isCompleted ? 9999 : (a.currentQuestionIndex || 0);
+          const bVal = b.isCompleted ? 9999 : (b.currentQuestionIndex || 0);
+          comparison = aVal - bVal;
+          break;
+        }
+        case 'correctCount':
+          comparison = a.correctCount - b.correctCount;
+          break;
+        case 'score': {
+          const aScore = a.isCompleted ? a.score : -1;
+          const bScore = b.isCompleted ? b.score : -1;
+          comparison = aScore - bScore;
+          break;
+        }
+        case 'isPassed': {
+          const getStatusVal = (row: ExamAttemptRow) => (!row.isCompleted ? 0 : row.isPassed ? 2 : 1);
+          comparison = getStatusVal(a) - getStatusVal(b);
+          break;
+        }
+        case 'tabSwitchCount':
+          comparison = a.tabSwitchCount - b.tabSwitchCount;
+          break;
+        case 'timeSpent':
+          comparison = (a.timeSpent || 0) - (b.timeSpent || 0);
+          break;
+        default:
+          comparison = 0;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [attemptsData, searchQuery, selectedSpecialty, selectedStatus, sortField, sortOrder]);
 
   // Statistics Summary
   const stats = useMemo(() => {
@@ -612,23 +691,204 @@ export default function AdminExamsPage() {
             <CardTitle className="text-base font-bold">Nəticə Cədvəli</CardTitle>
             <CardDescription className="text-xs">
               Göstərilən namizəd sayı: {filteredRows.length} / {attemptsData.length}
+              {sortField && (
+                <span className="ml-2 font-medium text-blue-600 dark:text-blue-400">
+                  (Sıralama: {sortField === 'fullName' ? 'Ad, Soyad' : sortField === 'fin' ? 'FİN' : sortField === 'specialty' ? 'İxtisas' : sortField === 'score' ? 'Yekun Bal' : sortField === 'correctCount' ? 'Doğru Sayı' : sortField === 'timeSpent' ? 'Vaxt' : sortField === 'tabSwitchCount' ? 'Pəncərə' : sortField === 'currentQuestionIndex' ? 'Cari Sual' : 'Status'} {sortOrder === 'asc' ? '▲ Artan' : '▼ Azalan'})
+                </span>
+              )}
             </CardDescription>
           </div>
+          {sortField && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 px-2.5 flex items-center gap-1.5"
+              onClick={() => {
+                setSortField(null);
+                setSortOrder(null);
+              }}
+            >
+              <RefreshCw className="w-3 h-3" /> Sıralamanı Sıfırla
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader className="bg-slate-50 dark:bg-slate-800/60">
               <TableRow className="text-xs font-semibold">
                 <TableHead className="w-10 text-center">№</TableHead>
-                <TableHead>FİN Kod</TableHead>
-                <TableHead>Namizəd (Ad, Soyad)</TableHead>
-                <TableHead>İxtisas</TableHead>
-                <TableHead className="text-center">Cari Sual</TableHead>
-                <TableHead className="text-center">Doğru / Cəmi</TableHead>
-                <TableHead className="text-center">Yekun Bal</TableHead>
-                <TableHead className="text-center">Canlı Status</TableHead>
-                <TableHead className="text-center">Pəncərə</TableHead>
-                <TableHead className="text-center">Vaxt</TableHead>
+                
+                {/* FİN Kod */}
+                <TableHead
+                  className={cn(
+                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800",
+                    sortField === 'fin' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                  )}
+                  onClick={() => handleSort('fin')}
+                  title="FİN kod üzrə A-Z / Z-A sırala"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>FİN Kod</span>
+                    {sortField === 'fin' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                    )}
+                  </div>
+                </TableHead>
+
+                {/* Namizəd Ad Soyad */}
+                <TableHead
+                  className={cn(
+                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800",
+                    sortField === 'fullName' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                  )}
+                  onClick={() => handleSort('fullName')}
+                  title="Namizədin Adı və Soyadı üzrə A-Z / Z-A sırala"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Namizəd (Ad, Soyad)</span>
+                    {sortField === 'fullName' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                    )}
+                  </div>
+                </TableHead>
+
+                {/* İxtisas */}
+                <TableHead
+                  className={cn(
+                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800",
+                    sortField === 'specialty' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                  )}
+                  onClick={() => handleSort('specialty')}
+                  title="İxtisas üzrə A-Z / Z-A sırala"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>İxtisas</span>
+                    {sortField === 'specialty' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                    )}
+                  </div>
+                </TableHead>
+
+                {/* Cari Sual */}
+                <TableHead
+                  className={cn(
+                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800 text-center",
+                    sortField === 'currentQuestionIndex' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                  )}
+                  onClick={() => handleSort('currentQuestionIndex')}
+                  title="Cari sual və irəliləyişə görə sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Cari Sual</span>
+                    {sortField === 'currentQuestionIndex' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                    )}
+                  </div>
+                </TableHead>
+
+                {/* Doğru / Cəmi */}
+                <TableHead
+                  className={cn(
+                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800 text-center",
+                    sortField === 'correctCount' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                  )}
+                  onClick={() => handleSort('correctCount')}
+                  title="Doğru cavab sayına görə sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Doğru / Cəmi</span>
+                    {sortField === 'correctCount' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                    )}
+                  </div>
+                </TableHead>
+
+                {/* Yekun Bal */}
+                <TableHead
+                  className={cn(
+                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800 text-center",
+                    sortField === 'score' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                  )}
+                  onClick={() => handleSort('score')}
+                  title="Yekun bala görə (Artan / Azalan) sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Yekun Bal</span>
+                    {sortField === 'score' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                    )}
+                  </div>
+                </TableHead>
+
+                {/* Canlı Status */}
+                <TableHead
+                  className={cn(
+                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800 text-center",
+                    sortField === 'isPassed' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                  )}
+                  onClick={() => handleSort('isPassed')}
+                  title="Statusa görə sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Canlı Status</span>
+                    {sortField === 'isPassed' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                    )}
+                  </div>
+                </TableHead>
+
+                {/* Pəncərə */}
+                <TableHead
+                  className={cn(
+                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800 text-center",
+                    sortField === 'tabSwitchCount' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                  )}
+                  onClick={() => handleSort('tabSwitchCount')}
+                  title="Pəncərə dəyişmə sayına görə sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Pəncərə</span>
+                    {sortField === 'tabSwitchCount' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                    )}
+                  </div>
+                </TableHead>
+
+                {/* Vaxt */}
+                <TableHead
+                  className={cn(
+                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800 text-center",
+                    sortField === 'timeSpent' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                  )}
+                  onClick={() => handleSort('timeSpent')}
+                  title="Sərf olunan vaxta görə sırala"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Vaxt</span>
+                    {sortField === 'timeSpent' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                    )}
+                  </div>
+                </TableHead>
+
                 <TableHead className="text-center">Loglar</TableHead>
               </TableRow>
             </TableHeader>
