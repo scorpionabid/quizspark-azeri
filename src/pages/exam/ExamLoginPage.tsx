@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Shield,
@@ -44,6 +45,7 @@ interface ExamSettings {
 
 export default function ExamLoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { language, t } = useLanguage();
   const [fin, setFin] = useState('');
   const [fullName, setFullName] = useState('');
@@ -132,32 +134,28 @@ export default function ExamLoginPage() {
         throw new Error('Seçilmiş ixtisas tapılmadı');
       }
 
-      // 1. Fetch official quiz record
-      const { data: quizData, error: quizError } = await supabase
-        .from('quizzes')
-        .select('id, title, pass_percentage, duration, question_count')
-        .eq('specialty_key', selectedKey)
-        .eq('exam_category', 'official_exam')
-        .maybeSingle();
+      // 1. Fetch official quiz record and candidate existence in PARALLEL
+      const [quizResponse, existsResponse] = await Promise.all([
+        supabase
+          .from('quizzes')
+          .select('*')
+          .eq('specialty_key', selectedKey)
+          .eq('exam_category', 'official_exam')
+          .maybeSingle(),
+        supabase.rpc('check_candidate_exists', { p_fin: cleanFin }).catch(() => ({ data: false, error: null })),
+      ]);
 
-      if (quizError || !quizData) {
+      const quizData = quizResponse.data;
+      if (quizResponse.error || !quizData) {
         throw new Error('İxtisasa uyğun rəsmi test bazası tapılmadı. Zəhmət olmasa inzibatçıya müraciət edin.');
       }
+
+      const isExistingCandidate = Boolean(existsResponse.data);
 
       // 2. Deterministic candidate auth
       const email = `fin_${cleanFin.toLowerCase()}@imtahan.store`;
       const password = `Imtahan2026_${cleanFin}!`;
-
       let authUserId: string | null = null;
-
-      // Check if user already exists to eliminate console 400 Bad Request
-      let isExistingCandidate = false;
-      try {
-        const { data: exists } = await supabase.rpc('check_candidate_exists', { p_fin: cleanFin });
-        isExistingCandidate = Boolean(exists);
-      } catch {
-        isExistingCandidate = false;
-      }
 
       if (isExistingCandidate) {
         // Existing candidate -> direct signIn
@@ -208,30 +206,35 @@ export default function ExamLoginPage() {
         throw new Error('İstifadəçi sessiyası yaradıla bilmədi');
       }
 
-      // 3. Update profile with current full name and specialty
-      await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName.trim(),
-          fin: cleanFin,
-          specialty: selectedExam.title,
-          school: selectedExam.title,
-        })
-        .eq('user_id', authUserId);
+      // 3. Update profile and check attempts in PARALLEL
+      const [profileUpdate, attemptsResponse] = await Promise.all([
+        supabase
+          .from('profiles')
+          .update({
+            full_name: fullName.trim(),
+            fin: cleanFin,
+            specialty: selectedExam.title,
+            school: selectedExam.title,
+          })
+          .eq('user_id', authUserId),
+        supabase
+          .from('quiz_attempts')
+          .select('*')
+          .eq('quiz_id', quizData.id)
+          .eq('user_id', authUserId)
+          .order('started_at', { ascending: false }),
+      ]);
 
-      // 4. Check previous completed attempts
-      const { data: existingAttempts, error: attemptError } = await supabase
-        .from('quiz_attempts')
-        .select('*')
-        .eq('quiz_id', quizData.id)
-        .eq('user_id', authUserId)
-        .order('started_at', { ascending: false });
-
-      if (attemptError) {
-        console.warn('Attempt check warning:', attemptError);
+      if (profileUpdate.error) {
+        console.warn('Profile update warning:', profileUpdate.error);
+      }
+      if (attemptsResponse.error) {
+        console.warn('Attempt check warning:', attemptsResponse.error);
       }
 
-      const completed = existingAttempts?.find((att) => att.completed_at !== null);
+      const existingAttempts = attemptsResponse.data || [];
+      const completed = existingAttempts.find((att) => att.completed_at !== null);
+
       if (completed) {
         setCompletedInfo({
           quizId: quizData.id,
@@ -246,7 +249,25 @@ export default function ExamLoginPage() {
         return;
       }
 
-      // 5. Navigate to Quiz
+      // 4. Seed TanStack Query cache for INSTANT (0ms) QuizPage transition
+      queryClient.setQueryData(['quiz', quizData.id], quizData);
+      queryClient.setQueryData(['attempts', authUserId, quizData.id], existingAttempts);
+
+      // 5. Prefetch 60 questions with translations immediately in background
+      void queryClient.prefetchQuery({
+        queryKey: ['questions', quizData.id, language],
+        queryFn: async () => {
+          const { data } = await supabase
+            .from('questions')
+            .select('*, question_translations(*)')
+            .eq('quiz_id', quizData.id)
+            .order('order_index', { ascending: true });
+          return data || [];
+        },
+        staleTime: 60 * 1000,
+      });
+
+      // 6. Navigate to Quiz
       toast.success(t('welcome_exam'));
       navigate(`/quiz/${quizData.id}`);
     } catch (err: unknown) {
