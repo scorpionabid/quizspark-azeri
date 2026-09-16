@@ -29,6 +29,9 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
+import { CandidateReviewModal } from '@/components/exam/CandidateReviewModal';
+import { FileText, HelpCircle } from 'lucide-react';
+
 interface CompletedAttemptInfo {
   quizId: string;
   score: number;
@@ -36,11 +39,13 @@ interface CompletedAttemptInfo {
   percentage: number;
   completedAt: string;
   specialtyTitle: string;
+  answers: any[];
 }
 
 interface ExamSettings {
   is_active: boolean;
   access_code: string;
+  allow_candidate_review?: boolean;
 }
 
 export default function ExamLoginPage() {
@@ -53,6 +58,7 @@ export default function ExamLoginPage() {
   const [examCode, setExamCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [completedInfo, setCompletedInfo] = useState<CompletedAttemptInfo | null>(null);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
 
   const [settings, setSettings] = useState<ExamSettings | null>(null);
   const [isCheckingSettings, setIsCheckingSettings] = useState(true);
@@ -63,7 +69,7 @@ export default function ExamLoginPage() {
     try {
       const { data, error } = await supabase
         .from('official_exam_settings')
-        .select('is_active, access_code')
+        .select('is_active, access_code, allow_candidate_review')
         .eq('id', 'current')
         .maybeSingle();
 
@@ -74,13 +80,14 @@ export default function ExamLoginPage() {
         setSettings({
           is_active: data.is_active,
           access_code: data.access_code,
+          allow_candidate_review: Boolean(data.allow_candidate_review),
         });
       } else {
-        setSettings({ is_active: false, access_code: 'EXAM2026' });
+        setSettings({ is_active: false, access_code: 'EXAM2026', allow_candidate_review: false });
       }
     } catch (e) {
       console.error('Settings error:', e);
-      setSettings({ is_active: false, access_code: 'EXAM2026' });
+      setSettings({ is_active: false, access_code: 'EXAM2026', allow_candidate_review: false });
     } finally {
       setIsCheckingSettings(false);
     }
@@ -240,6 +247,7 @@ export default function ExamLoginPage() {
           percentage: completed.score ?? 0,
           completedAt: completed.completed_at,
           specialtyTitle: language === 'ka' ? selectedExam.title_ka : selectedExam.title,
+          answers: (completed.answers as any[]) || [],
         });
         toast.info(t('already_completed'));
         setIsLoading(false);
@@ -355,10 +363,29 @@ export default function ExamLoginPage() {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="px-6 pb-6 pt-0">
+            <CardFooter className="px-6 pb-6 pt-0 flex flex-col gap-2">
+              {settings?.allow_candidate_review ? (
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 rounded-xl shadow-md flex items-center justify-center gap-2"
+                  onClick={() => setIsReviewOpen(true)}
+                >
+                  <FileText className="w-4 h-4" />
+                  {language === 'ka' ? 'ჩემი პასუხების ნახვა (ანალიზი)' : '📝 Suallar və Verdiyim Cavablar'}
+                </Button>
+              ) : (
+                <div className="w-full p-2.5 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/40 rounded-xl text-center text-xs text-blue-800 dark:text-blue-300 flex items-center justify-center gap-1.5">
+                  <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {language === 'ka'
+                      ? 'პასუხების დეტალური ანალიზი ხელმისაწვდომი იქნება გამოცდის დასრულების შემდეგ.'
+                      : 'Sualların və cavabların detallı təhlili imtahan sessiyası tam başa çatdıqdan sonra aktivləşdiriləcək.'}
+                  </span>
+                </div>
+              )}
+
               <Button
                 variant="outline"
-                className="w-full"
+                className="w-full h-10 rounded-xl text-xs font-semibold"
                 onClick={() => {
                   setCompletedInfo(null);
                   setFin('');
@@ -506,6 +533,22 @@ export default function ExamLoginPage() {
           </Card>
         )}
       </motion.div>
+
+      {/* Candidate Level B Review Modal */}
+      {completedInfo && (
+        <CandidateReviewModal
+          open={isReviewOpen}
+          onOpenChange={setIsReviewOpen}
+          quizId={completedInfo.quizId}
+          answers={completedInfo.answers}
+          candidateName={fullName || (language === 'ka' ? 'მონაწილე' : 'Namizəd')}
+          fin={cleanFin}
+          specialtyTitle={completedInfo.specialtyTitle}
+          score={completedInfo.score}
+          completedAt={completedInfo.completedAt}
+        />
+      )}
     </div>
   );
 }
+

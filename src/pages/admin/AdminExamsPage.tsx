@@ -80,6 +80,7 @@ export default function AdminExamsPage() {
   // Security / Portal Lock state
   const [portalActive, setPortalActive] = useState(false);
   const [portalCode, setPortalCode] = useState('EXAM2026');
+  const [allowCandidateReview, setAllowCandidateReview] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Fetch security settings
@@ -92,7 +93,7 @@ export default function AdminExamsPage() {
         .eq('id', 'current')
         .maybeSingle();
       if (error) throw error;
-      return data || { is_active: false, access_code: 'EXAM2026' };
+      return data || { is_active: false, access_code: 'EXAM2026', allow_candidate_review: false };
     },
   });
 
@@ -100,6 +101,7 @@ export default function AdminExamsPage() {
     if (examSettings) {
       setPortalActive(examSettings.is_active);
       setPortalCode(examSettings.access_code);
+      setAllowCandidateReview(Boolean(examSettings.allow_candidate_review));
     }
   }, [examSettings]);
 
@@ -112,16 +114,13 @@ export default function AdminExamsPage() {
           id: 'current',
           is_active: portalActive,
           access_code: portalCode.trim(),
+          allow_candidate_review: allowCandidateReview,
           updated_at: new Date().toISOString(),
         });
 
       if (error) throw error;
 
-      toast.success(
-        portalActive
-          ? 'İmtahan portalı AKTİVLƏŞDİRİLDİ! Təyin olunmuş kodla daxil olmaq olar.'
-          : 'İmtahan portalı KİLİDLƏNDİ! İştirakçıların girişi tam dayandırıldı.'
-      );
+      toast.success('İmtahan ayarları uğurla yadda saxlanıldı!');
       void refetchSettings();
     } catch (err: unknown) {
       console.error('Settings save error:', err);
@@ -455,15 +454,28 @@ export default function AdminExamsPage() {
         <CardContent className="p-4 pt-2">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2 border-t border-slate-200/80 dark:border-slate-800">
             {/* Toggle Active Switch */}
-            <div className="flex items-center space-x-3">
-              <Switch
-                id="portal-active"
-                checked={portalActive}
-                onCheckedChange={setPortalActive}
-              />
-              <Label htmlFor="portal-active" className="text-xs sm:text-sm font-semibold cursor-pointer">
-                {portalActive ? 'İmtahana Girişi İcazəli Et (Aktiv)' : 'İmtahanı Tam Kilidlə (Qapalı)'}
-              </Label>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="portal-active"
+                  checked={portalActive}
+                  onCheckedChange={setPortalActive}
+                />
+                <Label htmlFor="portal-active" className="text-xs sm:text-sm font-semibold cursor-pointer">
+                  {portalActive ? 'Portal Girişi Açıqdır' : 'Portal Kilidlidir'}
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2 border-l-0 sm:border-l sm:pl-4 border-slate-200 dark:border-slate-700">
+                <Switch
+                  id="candidate-review-active"
+                  checked={allowCandidateReview}
+                  onCheckedChange={setAllowCandidateReview}
+                />
+                <Label htmlFor="candidate-review-active" className="text-xs sm:text-sm font-semibold cursor-pointer text-indigo-900 dark:text-indigo-300">
+                  {allowCandidateReview ? '📝 Cavab Baxışı AÇIQDIR (Level B)' : '📝 Cavab Baxışı BAĞLIDIR'}
+                </Label>
+              </div>
             </div>
 
             {/* Access Code Input */}
