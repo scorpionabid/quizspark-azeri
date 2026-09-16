@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { OFFICIAL_EXAMS } from '@/lib/constants/exams';
+import { fetchQuestionsWithTranslations } from '@/hooks/useQuestions';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
@@ -252,14 +253,7 @@ export default function ExamLoginPage() {
       // 5. Prefetch 60 questions with translations immediately in background
       void queryClient.prefetchQuery({
         queryKey: ['questions', quizData.id, language],
-        queryFn: async () => {
-          const { data } = await supabase
-            .from('questions')
-            .select('*, question_translations(*)')
-            .eq('quiz_id', quizData.id)
-            .order('order_index', { ascending: true });
-          return data || [];
-        },
+        queryFn: () => fetchQuestionsWithTranslations(quizData.id, language),
         staleTime: 60 * 1000,
       });
 

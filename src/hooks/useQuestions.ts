@@ -51,6 +51,59 @@ export function computeWeightedScore(answers: QuestionAnswer[], questions: Quest
   return { weightedScore, maxPossibleScore, percentage };
 }
 
+export async function fetchQuestionsWithTranslations(quizId: string, currentLang: string = 'az'): Promise<Question[]> {
+  if (!quizId) return [];
+
+  let { data, error } = await supabase
+    .from('questions')
+    .select('*, question_translations(*)')
+    .eq('quiz_id', quizId)
+    .order('order_index', { ascending: true });
+
+  if (error) {
+    console.warn('Could not join question_translations, falling back to base questions:', error);
+    const fallback = await supabase
+      .from('questions')
+      .select('*')
+      .eq('quiz_id', quizId)
+      .order('order_index', { ascending: true });
+    if (fallback.error) throw fallback.error;
+    data = fallback.data;
+  }
+
+  if (!data) return [];
+
+  return (data as any[]).map((q) => {
+    const transList = Array.isArray(q.question_translations) ? q.question_translations : [];
+    const trans = transList.find((t: any) => t.language_code === 'ka');
+    const kaOptions = trans?.options || null;
+    const kaCorrectAnswer = trans?.correct_answer || null;
+
+    if (currentLang === 'ka' && trans) {
+      return {
+        ...q,
+        question_text: trans.question_text || q.question_text,
+        options: kaOptions || q.options,
+        correct_answer: kaCorrectAnswer || q.correct_answer,
+        explanation: trans.explanation ?? q.explanation,
+        hint: trans.hint ?? q.hint,
+        base_options: q.options,
+        base_correct_answer: q.correct_answer,
+        translation_options: kaOptions,
+        translation_correct_answer: kaCorrectAnswer,
+      } as Question;
+    }
+
+    return {
+      ...q,
+      base_options: q.options,
+      base_correct_answer: q.correct_answer,
+      translation_options: kaOptions,
+      translation_correct_answer: kaCorrectAnswer,
+    } as Question;
+  });
+}
+
 export function useQuestions(quizId: string | undefined, options?: { enabled?: boolean; language?: string }) {
   const currentLang =
     options?.language ||
@@ -59,58 +112,7 @@ export function useQuestions(quizId: string | undefined, options?: { enabled?: b
 
   return useQuery({
     queryKey: ['questions', quizId, currentLang],
-    queryFn: async () => {
-      if (!quizId) return [];
-
-      let { data, error } = await supabase
-        .from('questions')
-        .select('*, question_translations(*)')
-        .eq('quiz_id', quizId)
-        .order('order_index', { ascending: true });
-
-      if (error) {
-        console.warn('Could not join question_translations, falling back to base questions:', error);
-        const fallback = await supabase
-          .from('questions')
-          .select('*')
-          .eq('quiz_id', quizId)
-          .order('order_index', { ascending: true });
-        if (fallback.error) throw fallback.error;
-        data = fallback.data;
-      }
-
-      if (!data) return [];
-
-      return (data as any[]).map((q) => {
-        const transList = Array.isArray(q.question_translations) ? q.question_translations : [];
-        const trans = transList.find((t: any) => t.language_code === 'ka');
-        const kaOptions = trans?.options || null;
-        const kaCorrectAnswer = trans?.correct_answer || null;
-
-        if (currentLang === 'ka' && trans) {
-          return {
-            ...q,
-            question_text: trans.question_text || q.question_text,
-            options: kaOptions || q.options,
-            correct_answer: kaCorrectAnswer || q.correct_answer,
-            explanation: trans.explanation ?? q.explanation,
-            hint: trans.hint ?? q.hint,
-            base_options: q.options,
-            base_correct_answer: q.correct_answer,
-            translation_options: kaOptions,
-            translation_correct_answer: kaCorrectAnswer,
-          } as Question;
-        }
-
-        return {
-          ...q,
-          base_options: q.options,
-          base_correct_answer: q.correct_answer,
-          translation_options: kaOptions,
-          translation_correct_answer: kaCorrectAnswer,
-        } as Question;
-      });
-    },
+    queryFn: () => fetchQuestionsWithTranslations(quizId!, currentLang),
     enabled: !!quizId && (options?.enabled ?? true),
     staleTime: 10 * 60 * 1000, // 10 minutes cache
   });
