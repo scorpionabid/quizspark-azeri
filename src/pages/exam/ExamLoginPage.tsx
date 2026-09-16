@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -51,7 +50,6 @@ export default function ExamLoginPage() {
   const [fullName, setFullName] = useState('');
   const [selectedKey, setSelectedKey] = useState('');
   const [examCode, setExamCode] = useState('');
-  const [agreed, setAgreed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [completedInfo, setCompletedInfo] = useState<CompletedAttemptInfo | null>(null);
 
@@ -96,7 +94,7 @@ export default function ExamLoginPage() {
   const isFinValid = /^[0-9A-Z]{7}$/.test(cleanFin);
   const isNameValid = fullName.trim().length >= 3;
   const isCodeValid = cleanExamCode.length >= 4;
-  const isFormValid = isFinValid && isNameValid && !!selectedKey && isCodeValid && agreed;
+  const isFormValid = isFinValid && isNameValid && !!selectedKey && isCodeValid;
 
   const handleStartExam = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,8 +113,6 @@ export default function ExamLoginPage() {
         toast.error(t('err_specialty_req'));
       } else if (!isCodeValid) {
         toast.error(t('err_code_req'));
-      } else if (!agreed) {
-        toast.error(t('err_agree_req'));
       }
       return;
     }
@@ -488,21 +484,6 @@ export default function ExamLoginPage() {
                     autoComplete="off"
                     required
                   />
-                </div>
-
-                {/* Agreement */}
-                <div className="flex items-center space-x-2 pt-1">
-                  <Checkbox
-                    id="agreed"
-                    checked={agreed}
-                    onCheckedChange={(checked) => setAgreed(!!checked)}
-                  />
-                  <Label
-                    htmlFor="agreed"
-                    className="text-xs cursor-pointer text-slate-600 dark:text-slate-400 select-none"
-                  >
-                    {t('agree_terms')}
-                  </Label>
                 </div>
 
                 {/* Submit */}
