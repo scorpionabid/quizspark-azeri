@@ -130,44 +130,33 @@ export default function ExamLoginPage() {
         throw new Error('Seçilmiş ixtisas tapılmadı');
       }
 
-      // 1. Fetch official quiz record and candidate existence in PARALLEL
-      const [quizResponse, existsResponse] = await Promise.all([
-        supabase
-          .from('quizzes')
-          .select('*')
-          .eq('specialty_key', selectedKey)
-          .eq('exam_category', 'official_exam')
-          .maybeSingle(),
-        supabase.rpc('check_candidate_exists', { p_fin: cleanFin }).catch(() => ({ data: false, error: null })),
-      ]);
+      // 1. Fetch official quiz record
+      const { data: quizData, error: quizError } = await supabase
+        .from('quizzes')
+        .select('*')
+        .eq('specialty_key', selectedKey)
+        .eq('exam_category', 'official_exam')
+        .maybeSingle();
 
-      const quizData = quizResponse.data;
-      if (quizResponse.error || !quizData) {
+      if (quizError || !quizData) {
         throw new Error('İxtisasa uyğun rəsmi test bazası tapılmadı. Zəhmət olmasa inzibatçıya müraciət edin.');
       }
-
-      const isExistingCandidate = Boolean(existsResponse.data);
 
       // 2. Deterministic candidate auth
       const email = `fin_${cleanFin.toLowerCase()}@imtahan.store`;
       const password = `Imtahan2026_${cleanFin}!`;
       let authUserId: string | null = null;
 
-      if (isExistingCandidate) {
-        // Existing candidate -> direct signIn
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      // Try signIn first (if candidate previously started or registered)
+      const { data: signInData } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (signInError) {
-          throw new Error(`Daxilolma xətası: ${signInError.message}`);
-        }
-        if (signInData?.user) {
-          authUserId = signInData.user.id;
-        }
+      if (signInData?.user) {
+        authUserId = signInData.user.id;
       } else {
-        // New candidate -> direct signUp (no 400 Bad Request in console!)
+        // If not found, register new candidate account
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -182,17 +171,15 @@ export default function ExamLoginPage() {
         });
 
         if (signUpError) {
-          // If already registered in an edge case, fallback to signIn
-          if (signUpError.message?.toLowerCase().includes('already') || signUpError.message?.toLowerCase().includes('registered')) {
-            const { data: fallbackSignIn, error: fallbackError } = await supabase.auth.signInWithPassword({
-              email,
-              password,
-            });
-            if (fallbackError) throw new Error(`Daxilolma xətası: ${fallbackError.message}`);
-            authUserId = fallbackSignIn?.user?.id ?? null;
-          } else {
-            throw new Error(`Qeydiyyat xətası: ${signUpError.message}`);
+          // Fallback signIn in case of network race
+          const { data: retrySignIn, error: retryError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (retryError || !retrySignIn?.user) {
+            throw new Error(`Daxilolma xətası: ${signUpError.message || retryError?.message}`);
           }
+          authUserId = retrySignIn.user.id;
         } else if (signUpData?.user) {
           authUserId = signUpData.user.id;
         }
