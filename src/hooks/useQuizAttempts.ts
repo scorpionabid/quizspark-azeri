@@ -192,71 +192,72 @@ export function useCompleteAttempt() {
     }) => {
       if (!user) throw new Error('İstifadəçi daxil olmayıb');
 
-      // Update attempt
-      const { error: attemptError } = await supabase
-        .from('quiz_attempts')
-        .update({
-          completed_at: new Date().toISOString(),
-          score,
-          time_spent: timeSpent,
-          answers,
-        })
-        .eq('id', attemptId);
-
-      if (attemptError) throw attemptError;
-
-      // Create result for leaderboard
-      // score is already a percentage (0-100), not a raw count
+      // Update attempt and insert leaderboard result in parallel
       const percentage = score;
-      const { data: resultData, error: resultError } = await supabase
-        .from('quiz_results')
-        .insert({
-          quiz_id: quizId,
-          user_id: user.id,
-          score,
-          total_questions: totalQuestions,
-          percentage,
-          time_spent: timeSpent,
-        })
-        .select()
-        .single();
+      const [attemptRes, resultRes] = await Promise.all([
+        supabase
+          .from('quiz_attempts')
+          .update({
+            completed_at: new Date().toISOString(),
+            score,
+            time_spent: timeSpent,
+            answers,
+          })
+          .eq('id', attemptId),
+        supabase
+          .from('quiz_results')
+          .insert({
+            quiz_id: quizId,
+            user_id: user.id,
+            score,
+            total_questions: totalQuestions,
+            percentage,
+            time_spent: timeSpent,
+          })
+          .select()
+          .single(),
+      ]);
 
-      if (resultError) throw resultError;
+      if (attemptRes.error) throw attemptRes.error;
+      if (resultRes.error) throw resultRes.error;
 
-      // Increment play count
-      try {
-        const { data: quizData } = await supabase
-          .from('quizzes')
-          .select('play_count')
-          .eq('id', quizId)
-          .single();
-
-        if (quizData) {
-          await supabase
+      // Non-blocking background tasks
+      (async () => {
+        // Increment play count
+        try {
+          const { data: quizData } = await supabase
             .from('quizzes')
-            .update({ play_count: (quizData.play_count || 0) + 1 })
-            .eq('id', quizId);
+            .select('play_count')
+            .eq('id', quizId)
+            .single();
+
+          if (quizData) {
+            await supabase
+              .from('quizzes')
+              .update({ play_count: (quizData.play_count || 0) + 1 })
+              .eq('id', quizId);
+          }
+        } catch {
+          // Ignore errors
         }
-      } catch {
-        // Ignore errors
-      }
 
-      // Update Student Mastery in the background
-      try {
-        await syncStudentMasteryAfterQuiz({
-          userId: user.id,
-          quizId,
-          answers: answers as unknown as Array<{
-            questionId: string;
-            isCorrect?: boolean;
-            pointsEarned?: number;
-          }>,
-        });
-      } catch (masteryErr) {
-        console.error('Mənimsəmə yenilənməsində xəta:', masteryErr);
-      }
+        // Update Student Mastery in the background
+        try {
+          await syncStudentMasteryAfterQuiz({
+            userId: user.id,
+            quizId,
+            answers: answers as unknown as Array<{
+              questionId: string;
+              isCorrect?: boolean;
+              pointsEarned?: number;
+            }>,
+          });
+        } catch (masteryErr) {
+          console.error('Mənimsəmə yenilənməsində xəta:', masteryErr);
+        }
+      })();
 
-      return resultData as QuizResult;
+      return resultRes.data as QuizResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attempts'] });

@@ -263,7 +263,7 @@ export default function QuizPage() {
     answersRef.current = answers;
   }, [answers]);
 
-  const completeQuizWithAnswers = useCallback(async (overrideAnswers?: Answer[]) => {
+  const completeQuizWithAnswers = useCallback((overrideAnswers?: Answer[]) => {
     if (isCompletingRef.current) return;
     isCompletingRef.current = true;
 
@@ -277,64 +277,71 @@ export default function QuizPage() {
       const maxPoints = displayQuestions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
       const weightedScore = maxPoints > 0 ? Math.round((earnedPoints / maxPoints) * 100) : 0;
 
-      try {
-        await completeAttempt.mutateAsync({
-          attemptId,
-          quizId: quiz.id,
-          score: weightedScore,
-          totalQuestions: displayQuestions.length,
-          timeSpent,
-          answers: latestAnswers as unknown as Record<string, string>[],
-        });
-        localStorage.removeItem(`quiz_start_${quiz.id}`);
-        localStorage.removeItem(`quiz_draft_${attemptId}`);
+      // Instant UI transition to result screen (0ms latency for candidate)
+      setQuizState('result');
 
-        // Insert pending reviews for open-ended / essay questions
-        const essayAnswers = latestAnswers.filter(a => a.needsReview && a.textAnswer);
-        if (essayAnswers.length > 0) {
-          const reviewsToInsert = essayAnswers.map(ea => ({
-            attempt_id: attemptId,
-            question_id: ea.questionId,
-            student_answer: ea.textAnswer || '',
-            max_score: (displayQuestions.find(q => q.id === ea.questionId)?.weight) ?? 1,
-            status: 'pending',
-          }));
-          try {
-            await supabase.from('answer_reviews').insert(reviewsToInsert);
-          } catch (reviewErr) {
-            console.warn("Could not insert answer_reviews:", reviewErr);
-          }
-        }
-
-        // Audit log for quiz completion
+      // Execute background database persistence asynchronously
+      (async () => {
         try {
-          await supabase.from('audit_logs').insert({
-            user_id: user.id,
-            action: 'quiz_completed',
-            entity_type: 'quiz_attempt',
-            entity_id: attemptId,
-            description: `İmtahan tamamlandı. Nəticə: ${weightedScore}%`,
-            new_values: {
-              score: weightedScore,
-              total_questions: displayQuestions.length,
-              time_spent: timeSpent,
-              completed_at: new Date().toISOString(),
-            },
+          await completeAttempt.mutateAsync({
+            attemptId,
+            quizId: quiz.id,
+            score: weightedScore,
+            totalQuestions: displayQuestions.length,
+            timeSpent,
+            answers: latestAnswers as unknown as Record<string, string>[],
           });
-        } catch (logErr) {
-          console.warn("Could not insert completion audit log:", logErr);
-        }
+          localStorage.removeItem(`quiz_start_${quiz.id}`);
+          localStorage.removeItem(`quiz_draft_${attemptId}`);
 
-        const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
-        setEarnedXP(prev => prev + xpGain);
-        if (xpGain > 0) {
-          await updateXPAsync(xpGain);
+          // Insert pending reviews for open-ended / essay questions
+          const essayAnswers = latestAnswers.filter(a => a.needsReview && a.textAnswer);
+          if (essayAnswers.length > 0) {
+            const reviewsToInsert = essayAnswers.map(ea => ({
+              attempt_id: attemptId,
+              question_id: ea.questionId,
+              student_answer: ea.textAnswer || '',
+              max_score: (displayQuestions.find(q => q.id === ea.questionId)?.weight) ?? 1,
+              status: 'pending',
+            }));
+            try {
+              await supabase.from('answer_reviews').insert(reviewsToInsert);
+            } catch (reviewErr) {
+              console.warn("Could not insert answer_reviews:", reviewErr);
+            }
+          }
+
+          // Audit log for quiz completion
+          try {
+            await supabase.from('audit_logs').insert({
+              user_id: user.id,
+              action: 'quiz_completed',
+              entity_type: 'quiz_attempt',
+              entity_id: attemptId,
+              description: `İmtahan tamamlandı. Nəticə: ${weightedScore}%`,
+              new_values: {
+                score: weightedScore,
+                total_questions: displayQuestions.length,
+                time_spent: timeSpent,
+                completed_at: new Date().toISOString(),
+              },
+            });
+          } catch (logErr) {
+            console.warn("Could not insert completion audit log:", logErr);
+          }
+
+          const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
+          setEarnedXP(prev => prev + xpGain);
+          if (xpGain > 0) {
+            await updateXPAsync(xpGain);
+          }
+        } catch (error) {
+          console.error("Error completing quiz in background:", error);
         }
-      } catch (error) {
-        console.error("Error completing quiz:", error);
-      }
+      })();
+    } else {
+      setQuizState('result');
     }
-    setQuizState('result');
   }, [isPreview, attemptId, startTime, user, quiz, displayQuestions, completeAttempt, updateXPAsync]);
 
   // Soft Strict Mode & Anti-cheat logging (Does NOT cut candidate exam short)
