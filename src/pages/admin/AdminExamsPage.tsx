@@ -184,17 +184,17 @@ export default function AdminExamsPage() {
         .from('quiz_attempts')
         .select('id, quiz_id, user_id, started_at, completed_at, score, total_questions, time_spent, answers, last_heartbeat_at, current_question_index, tab_switch_count, ip_address, user_agent')
         .in('quiz_id', officialQuizIds)
-        .order('started_at', { ascending: false });
+        .order('started_at', { ascending: false })
+        .limit(5000);
 
       if (attError) throw attError;
       if (!attempts || attempts.length === 0) return [];
 
-      // 2. Fetch profiles of these users
-      const userIds = Array.from(new Set(attempts.map((a) => a.user_id)));
+      // 2. Fetch profiles for lookup (fetch full list to avoid HTTP 414 URI Too Long with hundreds of UUIDs)
       const { data: profiles, error: profError } = await supabase
         .from('profiles')
         .select('user_id, full_name, fin, specialty')
-        .in('user_id', userIds);
+        .limit(10000);
 
       if (profError) {
         console.warn('Profiles fetch warning:', profError);
