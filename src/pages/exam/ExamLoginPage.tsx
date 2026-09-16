@@ -475,11 +475,11 @@ export default function ExamLoginPage() {
                   </Label>
                   <Input
                     id="examCode"
-                    type="password"
+                    type="text"
                     value={examCode}
                     onChange={(e) => setExamCode(e.target.value)}
                     placeholder={t('exam_code_placeholder')}
-                    className="h-10 text-sm"
+                    className="h-10 text-sm font-medium uppercase tracking-wider"
                     autoComplete="off"
                     required
                   />
