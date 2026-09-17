@@ -125,9 +125,9 @@ export default function ExamLoginPage() {
       return;
     }
 
-    // Verify access code (case-insensitive, whitespace-trimmed, fallback to EXAM2026)
+    // Verify access code (case-insensitive, whitespace-trimmed)
     const expectedCode = (settings?.access_code || 'EXAM2026').trim().toUpperCase().replace(/\s+/g, '');
-    if (cleanExamCode !== expectedCode && cleanExamCode !== 'EXAM2026') {
+    if (cleanExamCode !== expectedCode) {
       toast.error(t('err_wrong_code'));
       return;
     }
