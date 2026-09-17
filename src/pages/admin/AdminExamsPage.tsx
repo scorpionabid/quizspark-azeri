@@ -200,44 +200,52 @@ export default function AdminExamsPage() {
     },
   });
 
-  // Fetch attempts & results for official quizzes
+  // Fetch attempts & results for official quizzes (parallel fetch with zero waterfall)
   const {
     data: attemptsData = [],
     isLoading,
     refetch,
     isRefetching,
   } = useQuery({
-    queryKey: ['official_exam_attempts', officialQuizIds],
-    enabled: officialQuizIds.length > 0,
+    queryKey: ['official_exam_attempts'],
     queryFn: async () => {
-      // 1. Fetch attempts
-      const { data: attempts, error: attError } = await supabase
-        .from('quiz_attempts')
-        .select('id, quiz_id, user_id, started_at, completed_at, score, total_questions, time_spent, answers, last_heartbeat_at, current_question_index, tab_switch_count, ip_address, user_agent')
-        .in('quiz_id', officialQuizIds)
-        .order('started_at', { ascending: false })
-        .limit(5000);
+      // 1. Fetch official quizzes, attempts, and profiles in PARALLEL
+      const [quizzesRes, attemptsRes, profilesRes] = await Promise.all([
+        supabase
+          .from('quizzes')
+          .select('id, title, subject, pass_percentage, specialty_key, question_count')
+          .eq('exam_category', 'official_exam'),
+        supabase
+          .from('quiz_attempts')
+          .select('id, quiz_id, user_id, started_at, completed_at, score, total_questions, time_spent, answers, last_heartbeat_at, current_question_index, tab_switch_count, ip_address, user_agent')
+          .order('started_at', { ascending: false })
+          .limit(5000),
+        supabase
+          .from('profiles')
+          .select('user_id, full_name, fin, specialty')
+          .limit(10000),
+      ]);
 
-      if (attError) throw attError;
-      if (!attempts || attempts.length === 0) return [];
-
-      // 2. Fetch profiles for lookup (fetch full list to avoid HTTP 414 URI Too Long with hundreds of UUIDs)
-      const { data: profiles, error: profError } = await supabase
-        .from('profiles')
-        .select('user_id, full_name, fin, specialty')
-        .limit(10000);
-
-      if (profError) {
-        console.warn('Profiles fetch warning:', profError);
+      if (quizzesRes.error) throw quizzesRes.error;
+      if (attemptsRes.error) throw attemptsRes.error;
+      if (profilesRes.error) {
+        console.warn('Profiles fetch warning:', profilesRes.error);
       }
 
+      const officialQuizzesList = quizzesRes.data || [];
+      const officialQuizIdsSet = new Set(officialQuizzesList.map((q) => q.id));
+      const attempts = (attemptsRes.data || []).filter((a) => officialQuizIdsSet.has(a.quiz_id));
+      const profiles = profilesRes.data || [];
+
+      if (!attempts || attempts.length === 0) return [];
+
       const profileMap = new Map<string, { full_name: string | null; fin: string | null; specialty: string | null }>();
-      (profiles || []).forEach((p) => {
+      profiles.forEach((p) => {
         profileMap.set(p.user_id, p);
       });
 
       const quizMap = new Map<string, { title: string; pass_percentage: number | null; question_count: number | null }>();
-      officialQuizzes.forEach((q) => {
+      officialQuizzesList.forEach((q) => {
         quizMap.set(q.id, q);
       });
 
