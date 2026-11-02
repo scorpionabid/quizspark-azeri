@@ -426,6 +426,8 @@ export function useUpdateQuestionBank() {
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-stats'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['quizzes'] });
       toast.success('Sual yeniləndi');
     },
     onError: (error: Error) => {
