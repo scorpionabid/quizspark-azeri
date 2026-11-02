@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface QuickJoinPinCardProps {
   className?: string;
@@ -17,6 +18,7 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
   variant = 'card',
 }) => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [pinCode, setPinCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
     const cleanPin = pinCode.trim().replace(/\s+/g, '');
 
     if (!cleanPin) {
-      setErrorMsg('Zəhmət olmasa PIN kodu və ya linki daxil edin');
+      setErrorMsg(t('quick_join_empty_err', 'Zəhmət olmasa PIN kodu və ya linki daxil edin'));
       return;
     }
 
@@ -46,7 +48,7 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
 
       if (!error && data && data.length > 0) {
         const quiz = data[0];
-        toast.success(`"${quiz.title}" imtahanına qoşulursunuz!`);
+        toast.success(`"${quiz.title}"`);
         const isPasswordMatch = cleanPin !== quiz.share_code && quiz.has_password;
         const queryParams = extraParams || (isPasswordMatch ? `?pwd=${encodeURIComponent(cleanPin)}` : '');
         navigate(`/quiz/${quiz.share_code || quiz.id}${queryParams}`);
@@ -64,18 +66,18 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
 
       const { data: directQuiz } = await query.maybeSingle();
       if (directQuiz && (directQuiz.is_published || directQuiz.is_published === null)) {
-        toast.success(`"${directQuiz.title}" imtahanına qoşulursunuz!`);
+        toast.success(`"${directQuiz.title}"`);
         const isPwd = cleanPin === directQuiz.access_password;
         const queryParams = extraParams || (isPwd ? `?pwd=${encodeURIComponent(cleanPin)}` : '');
         navigate(`/quiz/${directQuiz.share_code || directQuiz.id}${queryParams}`);
         return;
       }
 
-      setErrorMsg('Bu kod ilə aktiv quiz tapılmadı. 6 rəqəmli PIN kodu və ya təyin olunmuş şifrəni düzgün daxil etdiyinizdən əmin olun.');
-      toast.error('Quiz tapılmadı');
+      setErrorMsg(t('quick_join_not_found', 'Bu kod ilə aktiv quiz tapılmadı.'));
+      toast.error(t('no_quizzes_found', 'Quiz tapılmadı'));
     } catch (err) {
       console.error('Join quiz error:', err);
-      setErrorMsg('Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.');
+      setErrorMsg(t('error_title', 'Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.'));
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +94,7 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
               setPinCode(e.target.value.toUpperCase());
               if (errorMsg) setErrorMsg(null);
             }}
-            placeholder="PIN KOD VƏ YA ŞİFRƏ"
+            placeholder={t('quick_join_placeholder', 'PIN KOD VƏ YA ŞİFRƏ')}
             autoCapitalize="characters"
             autoCorrect="off"
             spellCheck={false}
@@ -102,7 +104,7 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
         </div>
         <Button type="submit" disabled={isLoading} className="h-11 px-4 sm:px-5 rounded-xl font-bold gap-1.5 shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground">
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}
-          <span>Qoşul</span>
+          <span>{t('quick_join_btn', 'Qoşul')}</span>
         </Button>
       </form>
     );
@@ -119,13 +121,17 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
         <div className="space-y-1.5 text-center md:text-left flex-1 min-w-0">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] sm:text-xs font-black uppercase tracking-wider">
             <Sparkles className="h-3 w-3 shrink-0" />
-            <span>Sürətli İmtahana Giriş</span>
+            <span>{t('quick_join_badge', 'Sürətli İmtahana Giriş')}</span>
           </div>
           <h3 className="text-lg sm:text-xl lg:text-2xl font-black text-foreground break-words leading-tight">
-            İmtahan <span className="text-primary italic">PIN Kodu</span> və ya <span className="text-primary italic">Şifrəniz</span> var?
+            {t('quick_join_title_1', 'İmtahan')}{' '}
+            <span className="text-primary italic">{t('quick_join_title_pin', 'PIN Kodu')}</span>{' '}
+            {t('quick_join_title_or', 'və ya')}{' '}
+            <span className="text-primary italic">{t('quick_join_title_pwd', 'Şifrəniz')}</span>{' '}
+            {t('quick_join_title_has', 'var?')}
           </h3>
           <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
-            PIN kod və ya imtahan şifrəsini daxil edərək birbaşa sınağa qoşulun.
+            {t('quick_join_desc', 'PIN kod və ya imtahan şifrəsini daxil edərək birbaşa sınağa qoşulun.')}
           </p>
         </div>
 
@@ -139,7 +145,7 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
                   setPinCode(e.target.value.toUpperCase());
                   if (errorMsg) setErrorMsg(null);
                 }}
-                placeholder="PIN KOD VƏ YA ŞİFRƏ"
+                placeholder={t('quick_join_placeholder', 'PIN KOD VƏ YA ŞİFRƏ')}
                 autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck={false}
@@ -157,7 +163,7 @@ export const QuickJoinPinCard: React.FC<QuickJoinPinCardProps> = ({
               ) : (
                 <>
                   <Play className="h-4 w-4 fill-current shrink-0" />
-                  <span>Başla</span>
+                  <span>{t('btn_start', 'Başla')}</span>
                 </>
               )}
             </Button>

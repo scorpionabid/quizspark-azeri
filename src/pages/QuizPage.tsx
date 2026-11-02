@@ -34,7 +34,12 @@ export default function QuizPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isPreview = searchParams.get('preview') === 'true';
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isUnlimitedUser =
+    user?.email === 'boyukemilli1972@gmail.com' ||
+    user?.email === 'scorpionabid82@gmail.com' ||
+    role === 'teacher' ||
+    role === 'admin';
   const { language, t } = useLanguage();
 
   const { data: quiz, isLoading: quizLoading } = useQuiz(id);
@@ -569,7 +574,7 @@ export default function QuizPage() {
       return;
     }
 
-    const attemptsLimit = quiz.attempts_limit ?? 0;
+    const attemptsLimit = isUnlimitedUser ? 0 : (quiz.attempts_limit ?? 0);
     if (attemptsLimit > 0) {
       const completedCount = (myAttempts || []).filter(a => a.completed_at !== null).length;
       if (completedCount >= attemptsLimit) {
@@ -786,9 +791,7 @@ export default function QuizPage() {
           </div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t('already_completed')}</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {language === 'ka'
-              ? 'ამ პირადი ნომრით გამოცდა უკვე ჩაბარებულია.'
-              : 'Bu FİN kod ilə imtahan artıq təhvil verilib.'}
+            {t('exam_already_submitted_by_fin')}
           </p>
           <Button
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 rounded-xl"
@@ -872,7 +875,7 @@ export default function QuizPage() {
     );
   }
 
-  const attemptsLimit = quiz?.attempts_limit ?? 0;
+  const attemptsLimit = isUnlimitedUser ? 0 : (quiz?.attempts_limit ?? 0);
   const completedCount = (myAttempts || []).filter(a => a.completed_at !== null).length;
   const canRetry = attemptsLimit === 0 || completedCount < attemptsLimit;
 

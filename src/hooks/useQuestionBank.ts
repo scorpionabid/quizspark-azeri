@@ -597,7 +597,7 @@ export function useBulkCreateQuestionBank() {
       const UPDATE_CHUNK = 20;
       for (let i = 0; i < toUpdate.length; i += UPDATE_CHUNK) {
         const chunk = toUpdate.slice(i, i + UPDATE_CHUNK);
-        await Promise.all(
+        const results = await Promise.all(
           chunk.map(({ id, item }) =>
             supabase
               .from('question_bank')
@@ -608,10 +608,14 @@ export function useBulkCreateQuestionBank() {
               .eq('id', id)
           )
         );
+        const firstErr = results.find((r) => r.error);
+        if (firstErr?.error) {
+          throw new Error(`Sual yenilənərkən xəta: ${firstErr.error.message}`);
+        }
       }
 
       // 3. Yeni sualları əlavə edirik (INSERT)
-      const CHUNK_SIZE = 50;
+      const CHUNK_SIZE = 25;
       for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
         const chunk = toInsert.slice(i, i + CHUNK_SIZE);
         const { error } = await supabase
@@ -619,7 +623,7 @@ export function useBulkCreateQuestionBank() {
           .insert(chunk);
 
         if (error) {
-          throw error;
+          throw new Error(`Suallar əlavə edilərkən xəta (${i + 1}-${Math.min(i + CHUNK_SIZE, toInsert.length)}): ${error.message}`);
         }
       }
 

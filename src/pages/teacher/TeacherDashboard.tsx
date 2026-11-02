@@ -216,7 +216,7 @@ export default function TeacherDashboard() {
                         key={quiz.id}
                         className="flex items-center gap-4 rounded-xl bg-muted/30 p-4 transition-colors hover:bg-muted/50 cursor-pointer"
                         onClick={() =>
-                          navigate(`/teacher/create?edit=${quiz.id}`)
+                          navigate(`/teacher/edit/${quiz.id}`)
                         }
                       >
                         <div className="flex-1">

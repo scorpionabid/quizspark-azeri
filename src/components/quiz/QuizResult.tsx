@@ -166,11 +166,11 @@ export const QuizResult: React.FC<QuizResultProps> = ({
             </div>
           </div>
 
-          {/* Pass status */}
-          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs flex justify-between items-center">
-            <span className="text-slate-500">{t('pass_score')} ({passThreshold}%):</span>
-            <span className={cn("font-bold", hasPassed ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
-              {hasPassed ? t('passed') : t('failed')}
+          {/* Total score / Points gathered */}
+          <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 text-xs flex justify-between items-center">
+            <span className="text-slate-600 dark:text-slate-400 font-medium">Topladığınız ümumi bal:</span>
+            <span className="font-bold text-blue-700 dark:text-blue-300 text-sm">
+              {earnedPoints !== undefined && maxPoints !== undefined && maxPoints > 0 ? earnedPoints : correctAnswers} / {maxPoints || totalQuestions} bal
             </span>
           </div>
 
@@ -210,7 +210,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
       {backgroundImageUrl && !isPattern && (
         <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] pointer-events-none" />
       )}
-      {hasPassed && <ConfettiCanvas />}
+      {score >= 50 && <ConfettiCanvas />}
 
       <div className="mx-auto max-w-2xl relative z-10">
         <div className={cn(
@@ -224,32 +224,28 @@ export const QuizResult: React.FC<QuizResultProps> = ({
           <div className="relative mx-auto mb-6 inline-block">
             <div className={cn(
               "flex h-24 w-24 items-center justify-center rounded-full",
-              hasPassed ? "bg-success/20" : score >= 40 ? "bg-warning/20" : "bg-destructive/20"
+              score >= 70 ? "bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" :
+              score >= 40 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
             )}>
-              <Trophy className={cn(
-                "h-12 w-12",
-                hasPassed ? "text-success" : score >= 40 ? "text-warning" : "text-destructive"
-              )} />
+              <Trophy className="h-12 w-12" />
             </div>
-            {hasPassed && (
+            {score >= 50 && (
               <div className="absolute -right-2 -top-2 text-3xl animate-float">🎉</div>
             )}
           </div>
 
-          <h1 className="mb-1 font-display text-3xl font-bold text-foreground">
-            {hasPassed ? 'Əla Nəticə!' : score >= 40 ? 'Yaxşı Cəhd!' : 'Davam Et!'}
+          <h1 className="mb-2 font-display text-3xl font-bold text-foreground">
+            Sınaq Tamamlandı!
           </h1>
 
-          <div className="mb-4 flex justify-center">
-            <Badge variant={hasPassed ? 'success' : 'destructive'} className="text-sm px-4 py-1">
-              {hasPassed ? '✓ Keçdiniz' : `✗ Keçid balı: ${passThreshold}%`}
+          <div className="mb-3 flex justify-center">
+            <Badge variant="outline" className="text-sm px-4 py-1.5 font-bold bg-primary/10 border-primary/30 text-primary">
+              Topladığınız bal: {earnedPoints !== undefined && maxPoints !== undefined && maxPoints > 0 ? earnedPoints : correctAnswers} / {maxPoints || totalQuestions} bal
             </Badge>
           </div>
 
-          <p className="mb-8 text-muted-foreground">
-            {hasPassed ? 'Möhtəşəm! Sən bu mövzunu çox yaxşı bilirsən.' :
-              score >= 40 ? 'Yaxşı iş! Bir az daha təcrübə ilə daha yaxşı olacaq.' :
-                'Narahat olma, hər uğursuzluq öyrənmək üçün bir şansdır.'}
+          <p className="mb-8 text-muted-foreground text-sm sm:text-base">
+            Siz bu sınaq üzrə mümkün {maxPoints || totalQuestions} baldan <span className="font-bold text-foreground">{earnedPoints !== undefined && maxPoints !== undefined && maxPoints > 0 ? earnedPoints : correctAnswers} bal</span> ({score}%) topladınız.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-6 mb-8">
@@ -257,12 +253,10 @@ export const QuizResult: React.FC<QuizResultProps> = ({
               <div className="text-5xl font-black text-primary">{score}%</div>
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nəticə</div>
             </div>
-            {showWeighted && (
-              <div className="text-xs text-muted-foreground font-medium">
-                <span className="text-foreground font-bold">{earnedPoints}</span>
-                <span> / {maxPoints} bal (ağırlıqlı)</span>
-              </div>
-            )}
+            <div className="text-xs text-muted-foreground font-medium">
+              <span className="text-foreground font-bold">{earnedPoints !== undefined && maxPoints !== undefined && maxPoints > 0 ? earnedPoints : correctAnswers}</span>
+              <span> / {maxPoints || totalQuestions} bal</span>
+            </div>
 
             {earnedXP > 0 && (
               <motion.div

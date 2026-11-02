@@ -25,6 +25,7 @@ import { Sparkles } from 'lucide-react';
 import { QUESTION_TYPES } from '@/types/question';
 import { cn } from '@/lib/utils';
 import { MathRenderer } from '@/components/common/MathRenderer';
+import { ImageViewerDialog } from '@/components/common/ImageViewerDialog';
 
 interface QuestionTableProps {
   questions: QuestionBankItem[];
@@ -85,6 +86,7 @@ export function QuestionTable({
 }: QuestionTableProps) {
   const allSelected = questions.length > 0 && questions.every((q) => selectedIds.has(q.id));
   const someSelected = questions.some((q) => selectedIds.has(q.id)) && !allSelected;
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const SortButton = ({ column, label }: { column: string; label: string }) => {
     const isActive = sort?.column === column;
@@ -222,7 +224,11 @@ export function QuestionTable({
 
               {/* Media Thumbnail if any */}
               {question.question_image_url && (
-                <div className="rounded-lg overflow-hidden border border-border/40 max-h-32 bg-muted">
+                <div
+                  className="rounded-lg overflow-hidden border border-border/40 max-h-32 bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => setPreviewImage(question.question_image_url)}
+                  title="Şəklə böyük ölçüdə bax"
+                >
                   <img
                     src={question.question_image_url}
                     alt=""
@@ -342,7 +348,9 @@ export function QuestionTable({
                         <img
                           src={question.question_image_url}
                           alt=""
-                          className="h-10 w-10 rounded border object-cover flex-shrink-0 mt-0.5"
+                          className="h-10 w-10 rounded border object-cover flex-shrink-0 mt-0.5 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+                          onClick={() => setPreviewImage(question.question_image_url)}
+                          title="Şəklə böyük ölçüdə bax"
                         />
                       )}
                       <div>
@@ -497,6 +505,14 @@ export function QuestionTable({
           </TableBody>
         </Table>
       </div>
+
+      {previewImage && (
+        <ImageViewerDialog
+          open={!!previewImage}
+          onOpenChange={(open) => !open && setPreviewImage(null)}
+          imageUrl={previewImage}
+        />
+      )}
     </div>
   );
 }

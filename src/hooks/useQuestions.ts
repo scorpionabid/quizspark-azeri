@@ -51,10 +51,24 @@ export function computeWeightedScore(answers: QuestionAnswer[], questions: Quest
   return { weightedScore, maxPossibleScore, percentage };
 }
 
+interface QuestionTranslationItem {
+  language_code?: string;
+  question_text?: string;
+  options?: string[];
+  correct_answer?: string;
+  explanation?: string | null;
+  hint?: string | null;
+}
+
+interface QuestionDbRow extends Question {
+  question_translations?: QuestionTranslationItem[];
+}
+
 export async function fetchQuestionsWithTranslations(quizId: string, currentLang: string = 'az'): Promise<Question[]> {
   if (!quizId) return [];
 
-  let { data, error } = await supabase
+  let queryData: QuestionDbRow[] | null = null;
+  const { data, error } = await supabase
     .from('questions')
     .select('*, question_translations(*)')
     .eq('quiz_id', quizId)
@@ -68,39 +82,41 @@ export async function fetchQuestionsWithTranslations(quizId: string, currentLang
       .eq('quiz_id', quizId)
       .order('order_index', { ascending: true });
     if (fallback.error) throw fallback.error;
-    data = fallback.data;
+    queryData = fallback.data as QuestionDbRow[];
+  } else {
+    queryData = data as QuestionDbRow[];
   }
 
-  if (!data) return [];
+  if (!queryData) return [];
 
-  return (data as any[]).map((q) => {
+  return queryData.map((q) => {
     const transList = Array.isArray(q.question_translations) ? q.question_translations : [];
-    const trans = transList.find((t: any) => t.language_code === 'ka');
-    const kaOptions = trans?.options || null;
-    const kaCorrectAnswer = trans?.correct_answer || null;
+    const trans = transList.find((t) => t.language_code === currentLang);
+    const transOptions = trans?.options || null;
+    const transCorrectAnswer = trans?.correct_answer || null;
 
-    if (currentLang === 'ka' && trans) {
+    if (currentLang !== 'az' && trans) {
       return {
         ...q,
         question_text: trans.question_text || q.question_text,
-        options: kaOptions || q.options,
-        correct_answer: kaCorrectAnswer || q.correct_answer,
+        options: transOptions || q.options,
+        correct_answer: transCorrectAnswer || q.correct_answer,
         explanation: trans.explanation ?? q.explanation,
         hint: trans.hint ?? q.hint,
         base_options: q.options,
         base_correct_answer: q.correct_answer,
-        translation_options: kaOptions,
-        translation_correct_answer: kaCorrectAnswer,
-      } as Question;
+        translation_options: transOptions,
+        translation_correct_answer: transCorrectAnswer,
+      };
     }
 
     return {
       ...q,
       base_options: q.options,
       base_correct_answer: q.correct_answer,
-      translation_options: kaOptions,
-      translation_correct_answer: kaCorrectAnswer,
-    } as Question;
+      translation_options: transOptions,
+      translation_correct_answer: transCorrectAnswer,
+    };
   });
 }
 
@@ -114,7 +130,8 @@ export function useQuestions(quizId: string | undefined, options?: { enabled?: b
     queryKey: ['questions', quizId, currentLang],
     queryFn: () => fetchQuestionsWithTranslations(quizId!, currentLang),
     enabled: !!quizId && (options?.enabled ?? true),
-    staleTime: 10 * 60 * 1000, // 10 minutes cache
+    staleTime: 30 * 1000, // 30 saniyə (redaktələr dərhal əks olunsun)
+    refetchOnMount: 'always',
   });
 }
 

@@ -10,6 +10,7 @@ import { FavoriteButton } from "./FavoriteButton";
 
 import { Quiz, useVerifyQuizPassword } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
+import { useAuth } from "@/contexts/AuthContext";
 
 import { User } from "@supabase/supabase-js";
 import { QuizAttempt } from "@/hooks/useQuizAttempts";
@@ -38,7 +39,23 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
   isPending,
   isPreview,
 }) => {
+  const { role } = useAuth();
+  const isUnlimitedUser =
+    user?.email === 'boyukemilli1972@gmail.com' ||
+    user?.email === 'scorpionabid82@gmail.com' ||
+    role === 'teacher' ||
+    role === 'admin';
+
+  const isOlympiadQuiz = Boolean(
+    quiz.title?.includes('Zəfər') ||
+    (quiz as { exam_category?: string | null }).exam_category === 'Olimpiada'
+  );
+
   const [passwordInput, setPasswordInput] = useState(() => {
+    // Olimpiada və Zəfər imtahanlarında hamı eyni vaxtda başlamalıdır, URL-dən şifrə götürülmür
+    if (isOlympiadQuiz) {
+      return '';
+    }
     if (typeof window !== 'undefined') {
       const sp = new URLSearchParams(window.location.search);
       return sp.get('pwd') || '';
@@ -87,13 +104,6 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
   };
 
   const handleResume = async (attempt: QuizAttempt) => {
-    if (requiresPassword) {
-      const isValid = await checkPassword();
-      if (!isValid) {
-        setPasswordError(true);
-        return;
-      }
-    }
     setPasswordError(false);
     onResume?.(attempt);
   };
@@ -177,10 +187,12 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
               {quiz.pass_percentage && (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-sm font-semibold text-primary">
                   <Trophy className="h-4 w-4" />
-                  Keçid balı: {quiz.pass_percentage}%
+                  {quiz.exam_category === 'Olimpiada'
+                    ? `Maksimal bal: ${questions.length} bal`
+                    : `Keçid balı: ${quiz.pass_percentage}%`}
                 </div>
               )}
-              {quiz.attempts_limit && quiz.attempts_limit > 0 && user && (
+              {!isUnlimitedUser && quiz.attempts_limit && quiz.attempts_limit > 0 && user && (
                 <div className={cn(
                   "flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold",
                   (() => {
@@ -199,6 +211,12 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                       ? `Qalan cəhd: ${remaining}/${quiz.attempts_limit}`
                       : 'Cəhd limiti dolub';
                   })()}
+                </div>
+              )}
+              {isUnlimitedUser && (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/20 bg-primary/10 text-sm font-semibold text-primary">
+                  <RotateCcw className="h-4 w-4" />
+                  Limitsiz sınaq cəhdi (Müəllim / Admin)
                 </div>
               )}
             </div>
@@ -263,7 +281,7 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                   </label>
                   <Input
                     type="password"
-                    placeholder="Şifrəni daxil edin..."
+                    placeholder={isOlympiadQuiz ? "Nəzarətçinin təqdim etdiyi şifrəni yazın..." : "Şifrəni daxil edin..."}
                     value={passwordInput}
                     onChange={e => { setPasswordInput(e.target.value); setPasswordError(false); }}
                     className={cn(
@@ -273,6 +291,11 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                     onKeyDown={e => { if (e.key === 'Enter') handleStart(); }}
                     disabled={isVerifying}
                   />
+                  {isOlympiadQuiz && !passwordError && (
+                    <p className="text-xs text-muted-foreground">
+                      Hamının eyni anda başlaması üçün otaqda elan edilən şifrəni daxil edin.
+                    </p>
+                  )}
                   {passwordError && (
                     <p className="text-xs text-destructive font-medium">Şifrə yanlışdır. Yenidən cəhd edin.</p>
                   )}

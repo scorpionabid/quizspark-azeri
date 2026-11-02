@@ -8,6 +8,7 @@ import { QuizCard } from "@/components/quiz/QuizCard";
 import { CategoryFilter, Category } from "@/components/quiz/CategoryFilter";
 import { QuizFilters, QuizFilterValues } from "@/components/quiz/QuizFilters";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { usePublicQuizzes, useQuizzesMeta } from "@/hooks/useQuizzes";
 import { getSubjectIcon } from "@/lib/constants/subjects";
 import { PageLoader } from "@/components/ui/loading-spinner";
@@ -23,6 +24,7 @@ const defaultFilters: QuizFilterValues = {
 export default function Index() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [filters, setFilters] = useState<QuizFilterValues>(defaultFilters);
@@ -212,16 +214,17 @@ export default function Index() {
           <div className="relative mx-auto max-w-4xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm text-primary">
               <Sparkles className="h-4 w-4" />
-              <span>Yeni quizlər əlavə edildi!</span>
+              <span>{t('hero_badge')}</span>
             </div>
 
             <h1 className="mb-4 font-display text-3xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl px-2">
-              Öyrənmək <span className="text-gradient-primary">Əyləncəli</span> Ola Bilər
+              {t('hero_title_1')}{' '}
+              <span className="text-gradient-primary">{t('hero_title_2')}</span>{' '}
+              {t('hero_title_3')}
             </h1>
 
             <p className="mx-auto mb-6 max-w-2xl text-base text-muted-foreground sm:text-lg">
-              Müxtəlif fənlər üzrə interaktiv quizlərlə biliklərini test et,
-              yeni şeylər öyrən və liderlik lövhəsində yarış!
+              {t('hero_subtitle')}
             </p>
 
             {/* Quick PIN Join Card for Guests */}
@@ -237,7 +240,7 @@ export default function Index() {
                   onClick={() => document.getElementById('all-quizzes')?.scrollIntoView({ behavior: 'smooth' })}
               >
                 <PlayCircle className="mr-2 h-5 w-5" />
-                Bütün Quizlər
+                {t('all_quizzes_btn')}
               </Button>
               <Button 
                   variant="outline"
@@ -246,7 +249,7 @@ export default function Index() {
                   onClick={() => navigate('/leaderboard')}
               >
                 <Trophy className="mr-2 h-5 w-5" />
-                Liderlər Lövhəsi
+                {t('leaderboard_btn')}
               </Button>
             </div>
 
@@ -256,7 +259,7 @@ export default function Index() {
                 <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Quiz axtar..."
+                  placeholder={t('search_placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-14 rounded-2xl border-border/50 bg-card/50 pl-12 pr-4 text-base backdrop-blur-sm focus:border-primary focus:ring-primary"
@@ -271,26 +274,61 @@ export default function Index() {
                   <BookOpen className="h-5 w-5" />
                 </div>
                 <div className="text-2xl font-bold text-foreground sm:text-3xl">{stats.quizzes}</div>
-                <div className="text-xs text-muted-foreground sm:text-sm">Quizlər</div>
+                <div className="text-xs text-muted-foreground sm:text-sm">{t('total_quizzes_stat')}</div>
               </div>
               <div className="rounded-2xl bg-card/50 p-4 backdrop-blur-sm border border-border/30">
                 <div className="mb-1 flex items-center justify-center gap-2 text-secondary">
                   <Target className="h-5 w-5" />
                 </div>
                 <div className="text-2xl font-bold text-foreground sm:text-3xl">{stats.participants}</div>
-                <div className="text-xs text-muted-foreground sm:text-sm">İştirakçı</div>
+                <div className="text-xs text-muted-foreground sm:text-sm">{t('total_participants_stat')}</div>
               </div>
               <div className="rounded-2xl bg-card/50 p-4 backdrop-blur-sm border border-border/30">
                 <div className="mb-1 flex items-center justify-center gap-2 text-accent">
                   <Trophy className="h-5 w-5" />
                 </div>
                 <div className="text-2xl font-bold text-foreground sm:text-3xl">{stats.subjects}</div>
-                <div className="text-xs text-muted-foreground sm:text-sm">Fənn</div>
+                <div className="text-xs text-muted-foreground sm:text-sm">{t('total_subjects_stat')}</div>
               </div>
             </div>
           </div>
         </section>
       )}
+
+      {/* Zəfər Olimpiadası Banner */}
+      <section className="px-3 sm:px-6 lg:px-8 pb-4 w-full min-w-0">
+        <div className="mx-auto max-w-7xl w-full min-w-0">
+          <div className="rounded-3xl border border-amber-300 dark:border-amber-800/60 bg-gradient-to-r from-amber-500/10 via-amber-50 to-amber-500/5 dark:from-amber-950/30 dark:via-slate-900 dark:to-amber-950/10 p-5 sm:p-7 shadow-sm flex flex-col md:flex-row items-center justify-between gap-5">
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+                <Trophy className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    Zəfər Olimpiadası
+                  </span>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">VIII, IX, X, XI siniflər</span>
+                </div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100">
+                  Zəfər Olimpiadası Portalı
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
+                  Şagirdlər üçün 8 fənn üzrə sınaq imtahanı. UTİS kodunuzu yazıb, sinif və fənni seçərək daxil olun.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => navigate('/olimpiada')}
+              className="h-11 px-6 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-md shadow-amber-600/20 shrink-0 w-full md:w-auto gap-2"
+            >
+              <Trophy className="w-4 h-4" />
+              Olimpiadaya Daxil Ol
+            </Button>
+          </div>
+        </div>
+      </section>
 
       {/* Official Exam Portal Banner */}
       <section className="px-3 sm:px-6 lg:px-8 pb-6 w-full min-w-0">
@@ -303,16 +341,16 @@ export default function Index() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                    Məktəbəqədər və Ümumi Təhsil üzrə Dövlət Agentliyi
+                    {t('exam_portal')}
                   </span>
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">9 İxtisas Üzrə Rəsmi İmtahan</span>
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{t('specialties_count', '9 İxtisas')}</span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100">
-                  Ümumi Təhsil Müəssisələrində Vakant Vəzifələr Üzrə İmtahan Portalı
+                  {t('exam_portal')}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
-                  Namizədlər üçün FİN kod və nəzarətçi kodu ilə təhlükəsiz imtahan mühiti (120 dəqiqə, 60 sual).
+                  {t('exam_portal_desc')}
                 </p>
               </div>
             </div>
@@ -320,7 +358,7 @@ export default function Index() {
               onClick={() => navigate('/imtahan')}
               className="h-11 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-600/20 shrink-0 w-full md:w-auto"
             >
-              Rəsmi İmtahan Portalı
+              {t('exam_portal')}
             </Button>
           </div>
         </div>
@@ -358,7 +396,7 @@ export default function Index() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/20">
                 <TrendingUp className="h-5 w-5 text-secondary" />
               </div>
-              <h2 className="font-display text-2xl font-bold text-foreground">Populyar Quizlər</h2>
+              <h2 className="font-display text-2xl font-bold text-foreground">{t('popular_quizzes')}</h2>
             </div>
             <div className="grid gap-3.5 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full min-w-0">
               {popularQuizzes.map((quiz) => (
@@ -384,7 +422,7 @@ export default function Index() {
               <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-accent/20">
                 <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
               </div>
-              <h2 className="font-display text-xl sm:text-2xl font-bold text-foreground">Yeni Əlavə Edilən</h2>
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-foreground">{t('new_quizzes')}</h2>
             </div>
             <div className="grid gap-3.5 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full min-w-0">
               {newQuizzes.map((quiz) => (
@@ -410,10 +448,10 @@ export default function Index() {
               <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             </div>
             <h2 className="font-display text-xl sm:text-2xl font-bold text-foreground">
-              {searchQuery || selectedCategory ? 'Axtarış Nəticələri' : 'Bütün Quizlər'}
+              {searchQuery || selectedCategory ? t('search_placeholder') : t('all_quizzes_btn')}
             </h2>
             <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs sm:text-sm text-muted-foreground">
-              {filteredQuizzes.length} quiz
+              {filteredQuizzes.length} {t('quiz_unit', 'quiz')}
             </span>
           </div>
 
@@ -450,7 +488,7 @@ export default function Index() {
                     onClick={() => setVisibleCount(prev => prev + 8)}
                     className="rounded-full px-8 h-12 shadow-sm"
                   >
-                    Daha Çox Göstər
+                    {t('view_all', 'Daha Çox Göstər')}
                   </Button>
                 </div>
               )}
@@ -458,11 +496,11 @@ export default function Index() {
           ) : (
             <div className="flex flex-col items-center justify-center rounded-2xl bg-card/50 py-16 text-center border border-dashed border-border/50">
               <div className="mb-4 text-6xl opacity-50">🔍</div>
-              <h3 className="mb-2 text-xl font-semibold text-foreground">Quiz tapılmadı</h3>
-              <p className="text-muted-foreground">Seçdiyiniz meyarlara uyğun heç bir quiz yoxdur.</p>
+              <h3 className="mb-2 text-xl font-semibold text-foreground">{t('no_quizzes_found')}</h3>
+              <p className="text-muted-foreground">{t('no_quizzes_match_criteria', 'Seçdiyiniz meyarlara uyğun heç bir quiz yoxdur.')}</p>
               {(searchQuery || selectedCategory) && (
                 <Button variant="link" onClick={handleClearFilters} className="mt-4 text-primary">
-                  Filtrləri təmizlə
+                  {t('clear_filters')}
                 </Button>
               )}
             </div>

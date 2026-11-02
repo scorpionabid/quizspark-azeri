@@ -114,9 +114,63 @@ export function usePublicQuizzes(filters?: Omit<QuizFilters, 'isPublic' | 'isPub
 }
 
 export function useMyQuizzes(filters?: Omit<QuizFilters, 'creatorId'>) {
-  const { user } = useAuth();
-  // Default: hide archived quizzes; pass isArchived: true to show only archived
-  return useQuizzes({ isArchived: false, ...filters, creatorId: user?.id });
+  const { user, role } = useAuth();
+  const isOlympiadEditor =
+    user?.email === 'boyukemilli1972@gmail.com' ||
+    user?.email === 'scorpionabid82@gmail.com' ||
+    role === 'admin';
+
+  return useQuery({
+    queryKey: ['quizzes', 'my-quizzes', user?.id, isOlympiadEditor, filters],
+    queryFn: async () => {
+      if (!user) return [];
+      let query = supabase
+        .from('quizzes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (filters?.subject) {
+        query = query.eq('subject', filters.subject);
+      }
+      if (filters?.grade) {
+        query = query.eq('grade', filters.grade);
+      }
+      if (filters?.difficulty) {
+        query = query.eq('difficulty', filters.difficulty);
+      }
+      if (filters?.isPublic !== undefined) {
+        query = query.eq('is_public', filters.isPublic);
+      }
+      if (filters?.isPublished !== undefined) {
+        query = query.eq('is_published', filters.isPublished);
+      }
+      if (filters?.isArchived !== undefined) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        query = (query as any).eq('is_archived', filters.isArchived);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        query = (query as any).eq('is_archived', false);
+      }
+      if (filters?.search) {
+        query = query.ilike('title', `%${filters.search}%`);
+      }
+      if (filters?.limit) {
+        query = query.limit(filters.limit);
+      }
+
+      if (isOlympiadEditor) {
+        query = query.or(`creator_id.eq.${user.id},exam_category.eq.Olimpiada`);
+      } else {
+        query = query.eq('creator_id', user.id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as Quiz[];
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 }
 
 export function useQuiz(quizIdOrCode: string | undefined) {
@@ -146,7 +200,8 @@ export function useQuiz(quizIdOrCode: string | undefined) {
       return quiz;
     },
     enabled: !!quizIdOrCode,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    staleTime: 30 * 1000, // 30 saniyə (redaktələr dərhal əks olunsun)
+    refetchOnMount: 'always',
   });
 }
 
@@ -277,16 +332,29 @@ export function useQuizzesMeta(quizIds: string[]) {
     queryFn: async (): Promise<Record<string, QuizMeta>> => {
       if (!quizIds.length) return {};
 
-      const { data: resultData, error: rError } = await supabase
-        .from('quiz_results')
-        .select('quiz_id, percentage, completed_at')
-        .in('quiz_id', quizIds);
+      const [rRes, qRes] = await Promise.all([
+        supabase
+          .from('quiz_results')
+          .select('quiz_id, percentage, completed_at')
+          .in('quiz_id', quizIds),
+        supabase
+          .from('questions')
+          .select('quiz_id')
+          .in('quiz_id', quizIds),
+      ]);
 
-      if (rError) throw rError;
+      const resultData = rRes.data;
+      const questionsData = qRes.data;
 
       const meta: Record<string, QuizMeta> = {};
       quizIds.forEach(id => {
         meta[id] = { question_count: 0, attempt_count: 0, avg_score: null, last_played: null };
+      });
+
+      (questionsData ?? []).forEach(q => {
+        if (meta[q.quiz_id]) {
+          meta[q.quiz_id].question_count++;
+        }
       });
 
       const scoreMap: Record<string, number[]> = {};

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { FavoriteButton } from "./FavoriteButton";
 import { Quiz } from "@/hooks/useQuizzes";
 import { getSubjectIcon } from "@/lib/constants/subjects";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface QuizCardProps {
   quiz: Quiz;
@@ -14,14 +15,22 @@ interface QuizCardProps {
   isGuest?: boolean;
 }
 
-const difficultyLabels = {
-  easy: 'Asan',
-  medium: 'Orta',
-  hard: 'Çətin',
-};
-
 export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: QuizCardProps) {
+  const { t, language } = useLanguage();
   const subjectIcon = getSubjectIcon(quiz.subject);
+
+  const getDifficultyLabel = (diff?: string) => {
+    switch (diff) {
+      case 'easy':
+        return t('diff_easy', 'Asan');
+      case 'medium':
+        return t('diff_medium', 'Orta');
+      case 'hard':
+        return t('diff_hard', 'Çətin');
+      default:
+        return diff || '';
+    }
+  };
 
   const getStatus = () => {
     if (!quiz.available_from && !quiz.available_to) return null;
@@ -29,9 +38,9 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
     const from = quiz.available_from ? new Date(quiz.available_from) : null;
     const to = quiz.available_to ? new Date(quiz.available_to) : null;
 
-    if (from && now < from) return { label: 'Tezliklə', variant: 'warning' as const, date: from };
-    if (to && now > to) return { label: 'Bitib', variant: 'destructive' as const, date: to };
-    if (from || to) return { label: 'Canlı', variant: 'success' as const };
+    if (from && now < from) return { label: t('status_soon', 'Tezliklə'), variant: 'warning' as const, date: from };
+    if (to && now > to) return { label: t('status_ended', 'Bitib'), variant: 'destructive' as const, date: to };
+    if (from || to) return { label: t('status_live', 'Canlı'), variant: 'success' as const };
     return null;
   };
 
@@ -58,19 +67,19 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
             {quiz.is_new && (
               <Badge variant="accent" className="flex items-center gap-1 text-[9px] sm:text-[10px] px-1.5 py-0.5 shrink-0">
                 <Zap className="h-2.5 w-2.5" />
-                Yeni
+                {t('badge_new', 'Yeni')}
               </Badge>
             )}
             {quiz.is_popular && (
               <Badge variant="secondary" className="flex items-center gap-1 text-[9px] sm:text-[10px] px-1.5 py-0.5 shrink-0">
                 <Trophy className="h-2.5 w-2.5" />
-                Populyar
+                {t('badge_popular', 'Populyar')}
               </Badge>
             )}
             {quiz.exam_category === 'official_exam' && (
               <Badge className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 text-[9px] sm:text-[10px] px-1.5 py-0.5 shadow-sm shrink-0">
                 <Lock className="h-2.5 w-2.5" />
-                Rəsmi İmtahan
+                {t('badge_official_exam', 'Rəsmi İmtahan')}
               </Badge>
             )}
             {status && (
@@ -93,7 +102,7 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
           {quiz.title}
         </h3>
         <p className="mb-3 text-xs text-muted-foreground line-clamp-2 flex-1 break-words leading-relaxed">
-          {quiz.description || 'Bu quiz üçün təsvir əlavə edilməyib.'}
+          {quiz.description || t('no_desc', 'Bu quiz üçün təsvir əlavə edilməyib.')}
         </p>
 
         {status && status.date && (
@@ -103,8 +112,8 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
           )}>
             <Clock className="h-3 w-3 shrink-0" />
             <span className="truncate">
-              {status.variant === 'warning' ? 'Başlayır: ' : 'Bitib: '}
-              {status.date.toLocaleString('az-AZ', {
+              {status.variant === 'warning' ? t('starts_at', 'Başlayır: ') : t('ended_at', 'Bitib: ')}
+              {status.date.toLocaleString(language === 'ka' ? 'ka-GE' : language === 'ru' ? 'ru-RU' : language === 'tr' ? 'tr-TR' : language === 'en' ? 'en-US' : 'az-AZ', {
                 day: 'numeric',
                 month: 'short',
                 hour: '2-digit',
@@ -128,7 +137,7 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
           )}
           {quiz.difficulty && (
             <Badge variant={quiz.difficulty} className="text-[10px] py-0 px-1.5">
-              {difficultyLabels[quiz.difficulty]}
+              {getDifficultyLabel(quiz.difficulty)}
             </Badge>
           )}
         </div>
@@ -137,11 +146,11 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
         <div className="mb-4 flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground border-t border-border/30 pt-3">
           <div className="flex items-center gap-1">
             <BookOpen className="h-3 w-3 shrink-0" />
-            <span>{quiz.question_count ?? questionCount ?? 0} sual</span>
+            <span>{quiz.question_count ?? questionCount ?? 0} {t('stat_questions', 'sual')}</span>
           </div>
           <div className="flex items-center gap-1">
             <Clock className="h-3 w-3 shrink-0" />
-            <span>{quiz.duration} dəq</span>
+            <span>{quiz.duration} {t('stat_mins', 'dəq')}</span>
           </div>
           <div className="flex items-center gap-1">
             <Users className="h-3 w-3 shrink-0" />
@@ -158,7 +167,7 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
               className="flex-1 rounded-xl h-9 sm:h-10 text-xs sm:text-sm font-semibold"
               onClick={() => onPreview(quiz)}
             >
-              Baxış
+              {t('btn_preview', 'Baxış')}
             </Button>
           )}
           <Button
@@ -172,9 +181,9 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
           >
             {quiz.exam_category === 'official_exam' ? (
               <span className="flex items-center justify-center gap-1.5">
-                <Lock className="h-3.5 w-3.5" /> İmtahan Portalı
+                <Lock className="h-3.5 w-3.5" /> {t('btn_exam_portal', 'İmtahan Portalı')}
               </span>
-            ) : isGuest ? 'Başla' : 'Quizə Başla'}
+            ) : isGuest ? t('btn_start', 'Başla') : t('btn_start_quiz', 'Quizə Başla')}
           </Button>
         </div>
       </div>

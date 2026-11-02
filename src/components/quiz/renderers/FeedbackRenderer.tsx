@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Question } from '@/hooks/useQuestions';
-import { isAnswerCorrect, normalizePairs } from './utils';
+import { isAnswerCorrect, normalizePairs, parseNumberedItems, isSequenceQuestion } from './utils';
 import { MathRenderer } from '@/components/common/MathRenderer';
 
 interface FeedbackRendererProps {
@@ -101,9 +101,18 @@ export const FeedbackRenderer: React.FC<FeedbackRendererProps> = ({
             <div className="flex items-center gap-2 flex-wrap bg-background/60 dark:bg-background/30 p-2.5 rounded-xl border border-border/30">
               <span className="font-bold text-foreground">Düzgün cavab:</span>
               <span className="font-mono font-semibold text-primary">
-                <MathRenderer text={String(question.numerical_answer ?? question.correct_answer)} />
-                {(question.numerical_tolerance ?? 0) > 0 &&
-                  ` (±${question.numerical_tolerance})`}
+                {parseNumberedItems(question.question_text) ? (
+                  String(question.numerical_answer ?? question.correct_answer)
+                    .replace(/\D/g, '')
+                    .split('')
+                    .join(isSequenceQuestion(question.question_text) ? ' ➔ ' : ', ')
+                ) : (
+                  <>
+                    <MathRenderer text={String(question.numerical_answer ?? question.correct_answer)} />
+                    {(question.numerical_tolerance ?? 0) > 0 &&
+                      ` (±${question.numerical_tolerance})`}
+                  </>
+                )}
               </span>
             </div>
           )}

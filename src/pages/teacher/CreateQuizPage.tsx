@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DragEndEvent } from '@dnd-kit/core';
@@ -173,7 +173,9 @@ const DRAFT_KEY = 'quiz_draft__new';
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function CreateQuizPage() {
-  const { id } = useParams();
+  const { id: paramId } = useParams();
+  const [searchParams] = useSearchParams();
+  const id = paramId || searchParams.get('edit') || searchParams.get('id') || undefined;
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();

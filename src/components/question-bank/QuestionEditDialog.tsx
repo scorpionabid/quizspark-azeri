@@ -22,7 +22,12 @@ import {
   Star,
   MessageSquare,
   Flag,
+  Crop,
+  Eye,
+  RefreshCw,
 } from 'lucide-react';
+import { ImageEditorDialog } from '@/components/common/ImageEditorDialog';
+import { ImageViewerDialog } from '@/components/common/ImageViewerDialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { QuestionBankItem, useCreateQuestionBank } from '@/hooks/useQuestionBank';
@@ -76,6 +81,8 @@ export function QuestionEditDialog({
   const [newCategory, setNewCategory] = useState('');
   const [pasteMode, setPasteMode] = useState(false);
   const [saveToBank, setSaveToBank] = useState(false);
+  const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 
   const {
     formData,
@@ -316,15 +323,89 @@ export function QuestionEditDialog({
                 </div>
 
                 {formData.question_image_url && (
-                  <div className="relative w-full max-w-md aspect-video rounded-lg overflow-hidden border bg-muted/30 group">
-                    <img src={formData.question_image_url} alt="Sual şəkli" className="w-full h-full object-contain" />
-                    <Button
-                      type="button" variant="destructive" size="icon"
-                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => setFormData({ ...formData, question_image_url: '' })}
+                  <div className="relative w-full max-w-lg rounded-xl overflow-hidden border bg-muted/20 p-2 space-y-2 shadow-xs">
+                    {/* Image Preview Box with Hover Hint */}
+                    <div
+                      className="relative w-full aspect-video rounded-lg overflow-hidden border bg-background flex items-center justify-center cursor-pointer group"
+                      onClick={() => setIsImageViewerOpen(true)}
                     >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                      <img
+                        src={formData.question_image_url}
+                        alt="Sual şəkli"
+                        className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-medium">
+                        <Eye className="h-4 w-4" /> Tam ekranda bax
+                      </div>
+                    </div>
+
+                    {/* Image Action Controls */}
+                    <div className="flex items-center justify-between gap-2 pt-1 px-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5 font-medium shadow-xs"
+                          onClick={() => setIsImageEditorOpen(true)}
+                        >
+                          <Crop className="h-3.5 w-3.5 text-primary" />
+                          Şəkli Redaktə Et (Kəs / Döndər)
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={() => setIsImageViewerOpen(true)}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Böyüt
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5 cursor-pointer"
+                          asChild
+                        >
+                          <label htmlFor="q-img-replace">
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Dəyişdir
+                          </label>
+                        </Button>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          id="q-img-replace"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const url = await uploadImage(file);
+                              if (url) {
+                                setFormData((prev) => ({ ...prev, question_image_url: url }));
+                                toast.success('Şəkil dəyişdirildi!');
+                              }
+                            }
+                          }}
+                          disabled={isUploading}
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive gap-1 px-2"
+                        onClick={() => setFormData({ ...formData, question_image_url: '' })}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Sil
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -432,6 +513,27 @@ export function QuestionEditDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Question Image Editor Modal */}
+      {formData.question_image_url && (
+        <ImageEditorDialog
+          open={isImageEditorOpen}
+          onOpenChange={setIsImageEditorOpen}
+          imageUrl={formData.question_image_url}
+          onSave={(newUrl) => {
+            setFormData((prev) => ({ ...prev, question_image_url: newUrl }));
+          }}
+        />
+      )}
+
+      {/* Question Image Fullscreen Lightbox */}
+      {formData.question_image_url && (
+        <ImageViewerDialog
+          open={isImageViewerOpen}
+          onOpenChange={setIsImageViewerOpen}
+          imageUrl={formData.question_image_url}
+        />
+      )}
     </Dialog>
   );
 }

@@ -35,29 +35,27 @@ export function parseMatchingValue(
     if (Object.keys(result).length > 0) return result;
   }
 
-  // Case 2: Shorthand notation like "1-c; 2-a; 3-b" or "1:c; 2:a" or "1-c, 2-a"
-  if (matchingPairs) {
-    const pairsRecord = normalizePairs(matchingPairs);
-    const leftKeys = Object.keys(pairsRecord);
-    const segments = value.split(/[;,]/).map(s => s.trim()).filter(Boolean);
-    let matchedAny = false;
-    for (const seg of segments) {
-      const m = seg.match(/^(\d+|[a-zA-Z\s]+)\s*[-:]\s*(.+)$/);
-      if (m) {
-        let leftKey = m[1].trim();
-        const rightVal = m[2].trim();
-        if (/^\d+$/.test(leftKey)) {
-          const idx = parseInt(leftKey, 10) - 1;
-          if (leftKeys[idx]) {
-            leftKey = leftKeys[idx];
-          }
+  // Case 2: Shorthand notation like "1-c; 2-a; 3-b" or "1:c; 2:a" or "1-a,c; 2-b,d,e" or "1-a,b, 2-c"
+  const pairsRecord = matchingPairs ? normalizePairs(matchingPairs) : {};
+  const leftKeys = Object.keys(pairsRecord);
+  const segments = value.split(/;\s*|,\s*(?=\d+\s*[-–:])/).map(s => s.trim()).filter(Boolean);
+  let matchedAny = false;
+  for (const seg of segments) {
+    const m = seg.match(/^(\d+|[^\-–:;]+)\s*[-–:]\s*(.+)$/);
+    if (m) {
+      let leftKey = m[1].trim();
+      const rightVal = m[2].trim();
+      if (/^\d+$/.test(leftKey) && leftKeys.length > 0) {
+        const idx = parseInt(leftKey, 10) - 1;
+        if (leftKeys[idx]) {
+          leftKey = leftKeys[idx];
         }
-        result[leftKey] = rightVal.split(',').map(r => r.trim()).filter(Boolean);
-        matchedAny = true;
       }
+      result[leftKey] = rightVal.split(',').map(r => r.trim()).filter(Boolean);
+      matchedAny = true;
     }
-    if (matchedAny) return result;
   }
+  if (matchedAny) return result;
 
   // Case 3: If matchingPairs itself is provided and has { left: right }
   if (matchingPairs && Object.keys(result).length === 0) {
@@ -68,6 +66,66 @@ export function parseMatchingValue(
   }
 
   return result;
+}
+
+export interface NumberedItem {
+  num: number;
+  text: string;
+}
+
+export interface ParsedNumberedQuestion {
+  header: string;
+  items: NumberedItem[];
+}
+
+export function parseNumberedItems(text?: string | null): ParsedNumberedQuestion | null {
+  if (!text) return null;
+  // If text contains markdown table syntax, do not split as numbered items
+  if (text.includes('| :---') || text.includes('|:---') || text.includes('| --- |')) {
+    return null;
+  }
+
+  const lines = text.split('\n');
+  const headerLines: string[] = [];
+  const items: NumberedItem[] = [];
+
+  const itemRe = /^\s*([1-9]\d?)\s*[.)]\s*(.+)$/;
+  let inItems = false;
+
+  for (const line of lines) {
+    const stripped = line.trim();
+    const match = stripped.match(itemRe);
+    if (match) {
+      inItems = true;
+      items.push({
+        num: parseInt(match[1], 10),
+        text: match[2].trim(),
+      });
+    } else {
+      if (inItems && stripped) {
+        if (items.length > 0) {
+          items[items.length - 1].text += '\n' + stripped;
+        }
+      } else if (!inItems) {
+        headerLines.push(line);
+      }
+    }
+  }
+
+  if (items.length >= 2) {
+    return {
+      header: headerLines.join('\n').trim(),
+      items,
+    };
+  }
+
+  return null;
+}
+
+export function isSequenceQuestion(text?: string | null): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return (t.includes('ardıcıl') || t.includes('xronoloji')) && !t.includes('sxemi tamamlayın');
 }
 
 export function isAnswerCorrect(question: Question, value: string): boolean {
@@ -121,8 +179,31 @@ export function isAnswerCorrect(question: Question, value: string): boolean {
   }
 
   if (qt === 'numerical') {
-    const numAnswer = parseFloat(value);
-    const correctNum = question.numerical_answer ?? parseFloat(question.correct_answer);
+    const rawVal = String(value || '').trim();
+    const rawCorrect = String(question.correct_answer || question.numerical_answer || '').trim();
+    if (!rawVal || !rawCorrect) return false;
+
+    // Check if this numerical question has multi-item numbered choices
+    const parsedNumbered = parseNumberedItems(question.question_text);
+    if (parsedNumbered && parsedNumbered.items.length >= 2) {
+      const cleanVal = rawVal.replace(/\D/g, '');
+      const cleanCorrect = rawCorrect.replace(/\D/g, '');
+      const isSeq = isSequenceQuestion(question.question_text);
+
+      if (isSeq) {
+        if (cleanVal === cleanCorrect) return true;
+      } else {
+        if (cleanCorrect.length >= 1 && cleanVal.length === cleanCorrect.length) {
+          const sortedVal = cleanVal.split('').sort().join('');
+          const sortedCorrect = cleanCorrect.split('').sort().join('');
+          if (sortedVal === sortedCorrect) return true;
+        }
+      }
+    }
+
+    // Standard floating-point numeric comparison for math/calculation questions
+    const numAnswer = parseFloat(rawVal.replace(',', '.'));
+    const correctNum = question.numerical_answer ?? parseFloat(rawCorrect.replace(',', '.'));
     const tolerance = question.numerical_tolerance ?? 0;
     if (isNaN(numAnswer) || isNaN(correctNum)) return false;
     return Math.abs(numAnswer - correctNum) <= tolerance;

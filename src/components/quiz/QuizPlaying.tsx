@@ -21,6 +21,7 @@ import { QuestionRenderer } from "./QuestionRenderer";
 import { VisualTimer } from "./VisualTimer";
 import { QuestionFeedbackDialog } from "./QuestionFeedbackDialog";
 import { QuestionTimerBar } from "./QuestionTimerBar";
+import { parseNumberedItems, isSequenceQuestion } from "./renderers/utils";
 
 import { Quiz } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
@@ -241,7 +242,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                   className="text-muted-foreground hover:text-foreground -ml-2"
               >
                   <ArrowLeft className="mr-1 h-4 w-4" />
-                  <span className="hidden sm:inline">{language === 'ka' ? 'გასვლა' : 'Çıx'}</span>
+                  <span className="hidden sm:inline">{t('exit')}</span>
               </Button>
 
               {/* Network & Sync Status */}
@@ -273,7 +274,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                       <SheetTrigger asChild>
                         <Button variant="outline" size="sm" className="lg:hidden h-10 px-3 rounded-xl border-dashed">
                            <Menu className="h-4 w-4 mr-2" />
-                           {language === 'ka' ? 'რუკა' : 'Xəritə'}
+                           {t('map')}
                         </Button>
                       </SheetTrigger>
                       <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] p-5 flex flex-col">
@@ -310,7 +311,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                      size="icon"
                      onClick={toggleFullscreen}
                      className="hidden sm:flex h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground rounded-xl border-dashed bg-background/50 backdrop-blur-md"
-                     title={isFullscreen ? (language === 'ka' ? "შემცირება" : "Kiçilt") : (language === 'ka' ? "სრული ეკრანი" : "Tam Ekran")}
+                     title={isFullscreen ? t('minimize') : t('fullscreen')}
                    >
                      {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
                    </Button>
@@ -320,7 +321,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     isTimerDanger ? "bg-destructive/10 border-destructive/30 animate-pulse ring-1 ring-destructive/20" : "bg-background/80 backdrop-blur-md"
                   )}>
                     <span className={cn("text-[10px] uppercase font-bold tracking-tighter", isTimerDanger ? "text-destructive" : "text-muted-foreground")}>
-                        {isTimeless ? (language === 'ka' ? 'რეჟიმი' : 'Rejim') : t('time_left')}
+                        {isTimeless ? t('mode_label') : t('time_left')}
                     </span>
                     {isTimeless ? (
                       <span className="text-xs font-semibold text-primary flex items-center gap-1 py-1">
@@ -341,7 +342,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
             <div className="mb-6 sm:mb-8 bg-background/50 p-4 rounded-2xl border shadow-sm backdrop-blur-sm">
             <div className="mb-2 flex items-center justify-between text-xs sm:text-sm text-foreground">
                 <span className="font-medium">
-                  {language === 'ka' ? `გვერდი ${currentPage + 1} / ${totalPages}` : `Səhifə ${currentPage + 1} / ${totalPages}`}
+                  {`${t('page_indicator')} ${currentPage + 1} / ${totalPages}`}
                   {pageQuestions.length > 0 && (
                     <span className="text-muted-foreground ml-1.5">
                       · {t('question_count')} {quiz.questions_per_page! * currentPage + 1}–{Math.min((currentPage + 1) * quiz.questions_per_page!, totalQuestions)}
@@ -393,50 +394,67 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                       </div>
                     )}
 
-                    <div className="flex justify-between items-start mb-6 gap-4">
-                    <h2 className="font-display text-base sm:text-xl md:text-2xl font-bold text-foreground whitespace-pre-line leading-relaxed">
-                        {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest"><MathRenderer text={question.title} /></span>}
-                        <span className="mr-2 text-muted-foreground">{quiz.questions_per_page! * currentPage + idx + 1}.</span>
-                        <MathRenderer text={question.question_text} />
-                    </h2>
-                    
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                        {quiz.allow_bookmarks && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleBookmark(question.id)}
-                            className={cn("h-8 w-8 rounded-full", bookmarkedQuestions.has(question.id) ? "text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20" : "text-muted-foreground")}
-                            title="Sualı Sancaqla"
-                        >
-                            <Bookmark className={cn("h-4 w-4", bookmarkedQuestions.has(question.id) && "fill-current")} />
-                        </Button>
-                        )}
-                        <Badge variant="outline" className="whitespace-nowrap font-mono text-[10px] sm:text-xs">
-                        {question.weight ?? 1.0} Xal
-                        </Badge>
-                    </div>
-                    </div>
+                    {(() => {
+                      const parsedNumbered = question.question_type === 'numerical' ? parseNumberedItems(question.question_text) : null;
+                      const isSeq = parsedNumbered ? isSequenceQuestion(question.question_text) : false;
+                      const displayText = parsedNumbered ? parsedNumbered.header : question.question_text;
 
-                    {showHint[question.id] && question.hint && (
-                    <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl text-sm text-muted-foreground flex items-start gap-3 animate-slide-in">
-                        <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <div><MathRenderer text={question.hint} /></div>
-                    </div>
-                    )}
+                      return (
+                        <>
+                          <div className="flex justify-between items-start mb-6 gap-4">
+                            <div className="font-display text-base sm:text-xl md:text-2xl font-medium text-foreground whitespace-pre-line leading-relaxed flex-1">
+                              {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest"><MathRenderer text={question.title} /></span>}
+                              <span className="mr-2 text-muted-foreground">{quiz.questions_per_page! * currentPage + idx + 1}.</span>
+                              <MathRenderer text={displayText} />
+                            </div>
+                            
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                              {quiz.allow_bookmarks && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => toggleBookmark(question.id)}
+                                  className={cn("h-8 w-8 rounded-full", bookmarkedQuestions.has(question.id) ? "text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20" : "text-muted-foreground")}
+                                  title="Sualı Sancaqla"
+                                >
+                                  <Bookmark className={cn("h-4 w-4", bookmarkedQuestions.has(question.id) && "fill-current")} />
+                                </Button>
+                              )}
+                              <Badge variant="outline" className="whitespace-nowrap font-mono text-[10px] sm:text-xs">
+                                {question.weight ?? 1.0} Xal
+                              </Badge>
+                            </div>
+                          </div>
 
-                    <div className="flex flex-wrap items-center gap-2 mb-6">
-                      <Badge variant="secondary" className="bg-muted/50 text-muted-foreground font-medium border-none px-2.5 py-0.5 text-[10px] sm:text-xs">
-                        {QUESTION_TYPES.find(t => t.value === question.question_type)?.label || question.question_type}
-                      </Badge>
-                      
-                      {question.question_type === 'multiple_select' && (
-                        <div className="flex items-center gap-1.5 text-primary/80 font-bold text-[10px] sm:text-xs animate-pulse bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
-                          <Info className="w-3.5 h-3.5" />
-                          <span>Bir və ya bir neçə cavab seçə bilərsiniz</span>
-                        </div>
-                      )}
-                    </div>
+                          {showHint[question.id] && question.hint && (
+                            <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl text-sm text-muted-foreground flex items-start gap-3 animate-slide-in">
+                              <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                              <div><MathRenderer text={question.hint} /></div>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-2 mb-6">
+                            <Badge variant="secondary" className="bg-muted/50 text-muted-foreground font-medium border-none px-2.5 py-0.5 text-[10px] sm:text-xs">
+                              {parsedNumbered ? (isSeq ? 'Ardıcıllıq' : 'Çoxbəndli seçim') : (QUESTION_TYPES.find(t => t.value === question.question_type)?.label || question.question_type)}
+                            </Badge>
+                            
+                            {question.question_type === 'multiple_select' && (
+                              <div className="flex items-center gap-1.5 text-primary/80 font-bold text-[10px] sm:text-xs animate-pulse bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
+                                <Info className="w-3.5 h-3.5" />
+                                <span>Bir və ya bir neçə cavab seçə bilərsiniz</span>
+                              </div>
+                            )}
+
+                            {parsedNumbered && (
+                              <div className="flex items-center gap-1.5 text-primary/90 font-bold text-[10px] sm:text-xs bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                                <Info className="w-3.5 h-3.5 text-primary" />
+                                <span>{isSeq ? 'Bəndləri düzgün ardıcıllıqla klikləyin' : 'Doğru olan bütün bəndləri işarələyin'}</span>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
 
                     <QuestionRenderer
                       question={question}
@@ -535,7 +553,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     className="flex-1 sm:flex-none sm:min-w-[200px] h-12 shadow-game active:translate-y-1 transition-all rounded-xl"
                     onClick={onCheckSubmitClick}
                 >
-                    {language === 'ka' ? 'შემოწმება' : 'Səhifəni Yoxla'}
+                    {t('check_page')}
                 </Button>
                 ) : (
                 <Button
@@ -544,7 +562,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                     className="flex-1 sm:flex-none sm:min-w-[200px] h-12 shadow-game active:translate-y-1 transition-all rounded-xl bg-green-600 hover:bg-green-700 text-white border-green-700"
                     onClick={handleNextPage}
                 >
-                    <span className="hidden sm:inline">{currentPage === totalPages - 1 ? (language === 'ka' ? 'შედეგის ნახვა' : 'Nəticəyə Bax') : t('next_question')}</span>
+                    <span className="hidden sm:inline">{currentPage === totalPages - 1 ? t('view_result') : t('next_question')}</span>
                     <span className="sm:hidden">{currentPage === totalPages - 1 ? t('finish_short') : t('next_short')}</span>
                     <ChevronRight className="h-5 w-5 ml-1 sm:ml-2" />
                 </Button>
@@ -672,7 +690,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                   <div className="space-y-2">
                     <span className="text-xs font-semibold text-destructive flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5" />
-                      {language === 'ka' ? 'უპასუხო კითხვები:' : 'Cavablandırılmayan suallar:'}
+                      {t('unanswered_questions_warning')}
                     </span>
                     <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 rounded-xl bg-destructive/5 border border-destructive/20">
                       {unansweredIndices.map(idx => (
@@ -695,9 +713,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                   <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-medium flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                     <span>
-                      {language === 'ka'
-                        ? `გილოცავთ! ყველა (${totalQuestions}) კითხვაზე გაცემულია პასუხი.`
-                        : `Təbriklər! Bütün ${totalQuestions} sual cavablandırılıb.`}
+                      {t('all_answered_msg')}
                     </span>
                   </div>
                 )}
@@ -706,7 +722,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4 gap-2">
             <AlertDialogCancel className="rounded-xl h-11">
-              {language === 'ka' ? 'გამოცდაზე დაბრუნება' : 'İmtahana Qayıt'}
+              {t('return_to_exam')}
             </AlertDialogCancel>
             <AlertDialogAction
               className="rounded-xl h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-md shadow-emerald-600/20"

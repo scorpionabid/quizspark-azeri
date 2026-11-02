@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { User, Settings, LogOut, Shield, GraduationCap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,12 +16,13 @@ import { Badge } from "@/components/ui/badge";
 
 export function UserMenu() {
   const { user, profile, role, signOut, isAuthenticated } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   if (!isAuthenticated) {
     return (
       <Button variant="default" size="sm" asChild>
-        <Link to="/auth">Daxil Ol</Link>
+        <Link to="/auth">{t('menu_login', 'Daxil Ol')}</Link>
       </Button>
     );
   }
@@ -51,20 +53,20 @@ export function UserMenu() {
         return (
           <Badge variant="destructive" className="ml-2 text-xs">
             <Shield className="mr-1 h-3 w-3" />
-            Admin
+            {t('role_admin', 'Admin')}
           </Badge>
         );
       case "teacher":
         return (
           <Badge variant="secondary" className="ml-2 text-xs">
             <GraduationCap className="mr-1 h-3 w-3" />
-            Müəllim
+            {t('role_teacher', 'Müəllim')}
           </Badge>
         );
       default:
         return (
           <Badge variant="outline" className="ml-2 text-xs">
-            Şagird
+            {t('role_student', 'Şagird')}
           </Badge>
         );
     }
@@ -98,7 +100,7 @@ export function UserMenu() {
           <div className="flex flex-col space-y-1">
             <div className="flex items-center">
               <p className="text-sm font-medium leading-none">
-                {profile?.full_name || "İstifadəçi"}
+                {profile?.full_name || t('user_default', 'İstifadəçi')}
               </p>
               {getRoleBadge()}
             </div>
@@ -111,13 +113,13 @@ export function UserMenu() {
         <DropdownMenuItem asChild>
           <Link to="/profile" className="flex w-full items-center cursor-pointer">
             <User className="mr-2 h-4 w-4" />
-            <span>Profil</span>
+            <span>{t('menu_profile', 'Profil')}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="cursor-pointer">
           <Link to="/settings" className="flex items-center">
             <Settings className="mr-2 h-4 w-4" />
-            Ayarlar
+            {t('menu_settings', 'Ayarlar')}
           </Link>
         </DropdownMenuItem>
         {role === "admin" && (
@@ -126,7 +128,7 @@ export function UserMenu() {
             <DropdownMenuItem asChild className="cursor-pointer">
               <Link to="/admin/dashboard" className="flex items-center">
                 {getRoleIcon()}
-                <span className="ml-2">Admin Paneli</span>
+                <span className="ml-2">{t('menu_admin_panel', 'Admin Paneli')}</span>
               </Link>
             </DropdownMenuItem>
           </>
@@ -137,7 +139,7 @@ export function UserMenu() {
             <DropdownMenuItem asChild className="cursor-pointer">
               <Link to="/teacher/dashboard" className="flex items-center">
                 {getRoleIcon()}
-                <span className="ml-2">Müəllim Paneli</span>
+                <span className="ml-2">{t('menu_teacher_panel', 'Müəllim Paneli')}</span>
               </Link>
             </DropdownMenuItem>
           </>
@@ -148,7 +150,7 @@ export function UserMenu() {
           className="cursor-pointer text-destructive focus:text-destructive"
         >
           <LogOut className="mr-2 h-4 w-4" />
-          Çıxış
+          {t('menu_logout', 'Çıxış')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
-import { OFFICIAL_EXAMS } from '@/lib/constants/exams';
+import { OFFICIAL_EXAMS, getExamTitle } from '@/lib/constants/exams';
 import { Quiz } from '@/hooks/useQuizzes';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -28,7 +28,7 @@ export const OfficialExamIntro: React.FC<OfficialExamIntroProps> = ({
   const fin = (user?.user_metadata?.fin || '').toUpperCase();
 
   const examMeta = OFFICIAL_EXAMS.find((e) => e.key === quiz.specialty_key);
-  const displayTitle = language === 'ka' && examMeta?.title_ka ? examMeta.title_ka : quiz.title;
+  const displayTitle = examMeta ? getExamTitle(examMeta, language) : quiz.title;
 
   const duration = quiz.duration || 90;
   const questionCount = quiz.question_count || 60;

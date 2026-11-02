@@ -6,11 +6,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
-import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box, ListChecks, GitMerge, ListOrdered, Underline, Hash, Star, Flag, MessageSquare, BookOpen } from 'lucide-react';
+import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box, ListChecks, GitMerge, ListOrdered, Underline, Hash, Star, Flag, MessageSquare, BookOpen, Eye } from 'lucide-react';
+import { ImageViewerDialog } from '@/components/common/ImageViewerDialog';
 import { QUESTION_TYPES } from '@/types/question';
 import { QuestionVideoPlayer } from './QuestionVideoPlayer';
 import { Question3DViewer } from './Question3DViewer';
@@ -57,6 +59,7 @@ export function QuestionViewDialog({
   question,
 }: QuestionViewDialogProps) {
   const { data: feedbacks = [] } = useQuestionFeedbacks(question?.id, true);
+  const [isViewerOpen, setIsViewerOpen] = React.useState(false);
 
   if (!question) return null;
 
@@ -141,15 +144,32 @@ export function QuestionViewDialog({
           {/* Question Image */}
           {question.question_image_url && (
             <div>
-              <h4 className="font-medium mb-2 flex items-center gap-2">
-                <Image className="h-4 w-4" />
-                Sual Şəkili
-              </h4>
-              <img
-                src={question.question_image_url}
-                alt="Sual şəkili"
-                className="max-h-64 rounded-lg border object-contain"
-              />
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Image className="h-4 w-4" />
+                  Sual Şəkli
+                </h4>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => setIsViewerOpen(true)}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Böyüt
+                </Button>
+              </div>
+              <div
+                className="max-w-md rounded-lg border overflow-hidden cursor-pointer hover:opacity-95 transition-opacity bg-muted/20 p-1"
+                onClick={() => setIsViewerOpen(true)}
+              >
+                <img
+                  src={question.question_image_url}
+                  alt="Sual şəkili"
+                  className="max-h-64 w-full rounded object-contain"
+                />
+              </div>
             </div>
           )}
 
@@ -423,6 +443,15 @@ export function QuestionViewDialog({
           </div>
         </div>
       </DialogContent>
+
+      {/* Fullscreen Image Lightbox */}
+      {question.question_image_url && (
+        <ImageViewerDialog
+          open={isViewerOpen}
+          onOpenChange={setIsViewerOpen}
+          imageUrl={question.question_image_url}
+        />
+      )}
     </Dialog>
   );
 }

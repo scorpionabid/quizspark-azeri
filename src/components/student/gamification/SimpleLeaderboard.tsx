@@ -5,9 +5,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Trophy, Medal, Award } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export const SimpleLeaderboard: React.FC = () => {
     const { data: leaders, isLoading } = useLeaderboard();
+    const { t } = useLanguage();
 
     if (isLoading) {
         return (
@@ -33,10 +35,10 @@ export const SimpleLeaderboard: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
                 <h3 className="font-black text-xl flex items-center gap-2">
                     <Trophy className="h-5 w-5 text-yellow-500" />
-                    Liderlər
+                    {t('leaderboard_leaders', 'Liderlər')}
                 </h3>
                 <span className="text-[9px] font-black text-muted-foreground uppercase bg-muted/50 px-3 py-1 rounded-full tracking-widest">
-                    TOP 10
+                    {t('leaderboard_top10', 'TOP 10')}
                 </span>
             </div>
 
@@ -64,10 +66,10 @@ export const SimpleLeaderboard: React.FC = () => {
                             </Avatar>
                             <div className="flex flex-col overflow-hidden">
                                 <span className="text-sm font-bold truncate max-w-[140px] group-hover:text-primary transition-colors">
-                                    {user.full_name || 'Gizli Şagird'}
+                                    {user.full_name || t('leaderboard_hidden_student', 'Gizli Şagird')}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground font-black uppercase tracking-tighter opacity-70">
-                                    Level {user.level || 1}
+                                    {t('level_prefix', 'Level')} {user.level || 1}
                                 </span>
                             </div>
                         </div>
@@ -84,7 +86,7 @@ export const SimpleLeaderboard: React.FC = () => {
                 {(!leaders || leaders.length === 0) && (
                     <div className="text-center py-12 opacity-30 flex flex-col items-center">
                         <Award className="h-12 w-12 mb-3" />
-                        <p className="text-sm font-black uppercase tracking-widest">Hələ rəqabət başlamayıb</p>
+                        <p className="text-sm font-black uppercase tracking-widest">{t('leaderboard_no_data', 'Hələ rəqabət başlamayıb')}</p>
                     </div>
                 )}
             </div>

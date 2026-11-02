@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface Category {
   id: string;
@@ -14,6 +15,8 @@ interface CategoryFilterProps {
 }
 
 export function CategoryFilter({ categories, selected, onSelect }: CategoryFilterProps) {
+  const { t } = useLanguage();
+
   return (
     <div className="flex flex-wrap gap-2">
       <button
@@ -26,14 +29,14 @@ export function CategoryFilter({ categories, selected, onSelect }: CategoryFilte
         )}
       >
         <span>📚</span>
-        <span>Hamısı</span>
+        <span>{t('category_all', 'Hamısı')}</span>
       </button>
       {categories.map((category) => (
         <button
           key={category.id}
           onClick={() => onSelect(category.id)}
           className={cn(
-            "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
+          "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
             selected === category.id
               ? "bg-primary text-primary-foreground shadow-glow"
               : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"

@@ -63,3 +63,8 @@ supabase-docker/volumes/snippets/
 
 # Müvəqqəti analiz və audit skriptləri
 /scratch/
+
+# Böyük sınaq məlumatları və verilənlər bazası təhlükəsizlik nüsxələri
+/data/
+/scripts/backups/
+/scripts/archive/

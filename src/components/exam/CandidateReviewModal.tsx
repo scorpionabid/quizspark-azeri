@@ -9,14 +9,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { MathRenderer } from '@/components/common/MathRenderer';
 import { useQuestions } from '@/hooks/useQuestions';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Check, X, FileText, CheckCircle2, XCircle, HelpCircle } from 'lucide-react';
+import { Check, X, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface AnswerRecord {
+export interface AnswerRecord {
   questionId: string;
   textAnswer?: string;
   isCorrect?: boolean;
@@ -44,7 +43,6 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
   fin,
   specialtyTitle,
   score,
-  completedAt,
 }) => {
   const { language, t } = useLanguage();
   const { data: questions = [], isLoading } = useQuestions(quizId, { language, enabled: open });
@@ -91,14 +89,14 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
             <div>
               <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                 <FileText className="w-5 h-5 text-blue-600" />
-                {language === 'ka' ? 'ჩემი პასუხების ანალიზი' : 'İmtahan Sualları və Verdiyim Cavablar'}
+                {t('candidate_review_title')}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {candidateName} ({fin}) — {specialtyTitle}
               </DialogDescription>
             </div>
             <Badge className="bg-blue-600 text-white font-bold text-sm px-3 py-1 shrink-0 self-start sm:self-auto">
-              {score}% ({correctCount} / {questions.length} Düzgün)
+              {score}% ({correctCount} / {questions.length} {t('correct_count')})
             </Badge>
           </div>
 
@@ -110,7 +108,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
               className="h-7 text-xs font-semibold rounded-lg px-2.5"
               onClick={() => setFilter('all')}
             >
-              {language === 'ka' ? 'ყველა' : 'Hamısı'} ({questions.length})
+              {t('all_filter')} ({questions.length})
             </Button>
             <Button
               size="sm"
@@ -122,7 +120,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
               onClick={() => setFilter('correct')}
             >
               <Check className="w-3.5 h-3.5 mr-1" />
-              {language === 'ka' ? 'სწორი' : 'Düzgün'} ({correctCount})
+              {t('correct_filter')} ({correctCount})
             </Button>
             <Button
               size="sm"
@@ -134,7 +132,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
               onClick={() => setFilter('wrong')}
             >
               <X className="w-3.5 h-3.5 mr-1" />
-              {language === 'ka' ? 'არასწორი' : 'Səhv'} ({wrongCount})
+              {t('wrong_filter')} ({wrongCount})
             </Button>
             {unansweredCount > 0 && (
               <Button
@@ -143,7 +141,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
                 className="h-7 text-xs font-semibold rounded-lg px-2.5 text-slate-500"
                 onClick={() => setFilter('unanswered')}
               >
-                {language === 'ka' ? 'უპასუხო' : 'Boş'} ({unansweredCount})
+                {t('unanswered_filter')} ({unansweredCount})
               </Button>
             )}
           </div>
@@ -158,10 +156,10 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
             </div>
           ) : filteredQuestions.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-500">
-              {language === 'ka' ? 'შერჩეულ კატეგორიაში კითხვა არ არის' : 'Seçilmiş kateqoriyada sual tapılmadı.'}
+              {t('no_questions_in_category')}
             </div>
           ) : (
-            filteredQuestions.map((q, idx) => {
+            filteredQuestions.map((q) => {
               const originalIdx = questions.findIndex((item) => item.id === q.id);
               const ans = answersMap.get(q.id);
               const isCorrect = ans?.isCorrect === true;
@@ -202,7 +200,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-slate-800 dark:text-slate-200">
-                          {language === 'ka' ? 'კითხვა' : 'Sual'} {originalIdx + 1}
+                          {t('question_count')} {originalIdx + 1}
                         </span>
                         <Badge
                           variant="outline"
@@ -213,7 +211,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
                               : "text-rose-700 border-rose-300 dark:text-rose-400 dark:border-rose-800"
                           )}
                         >
-                          {isCorrect ? '+1 Xal' : '0 Xal'}
+                          {isCorrect ? '+1' : '0'}
                         </Badge>
                       </div>
 
@@ -225,7 +223,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
                       <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 space-y-1.5">
                         <div className="flex items-start gap-1.5">
                           <span className="text-slate-500 font-semibold shrink-0">
-                            {language === 'ka' ? 'თქვენი პასუხი:' : 'Sizin Cavabınız:'}
+                            {t('your_answer')}
                           </span>
                           <span
                             className={cn(
@@ -240,7 +238,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
                             {hasAnswered ? (
                               <MathRenderer text={ans?.textAnswer || ''} />
                             ) : (
-                              (language === 'ka' ? 'პასუხგაუცემელი' : 'Cavablandırılmayıb')
+                              t('not_answered_label')
                             )}
                           </span>
                         </div>
@@ -255,7 +253,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
 
         <DialogFooter className="p-3 px-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex justify-between items-center sm:justify-between">
           <span className="text-[11px] text-slate-400">
-            {language === 'ka' ? 'ოფიციალური გამოცდა 2026' : 'Rəsmi İmtahan 2026 — Şəxsi Nəticə Vərəqəsi'}
+            {t('official_exam_result_sheet')}
           </span>
           <Button
             size="sm"
@@ -263,7 +261,7 @@ export const CandidateReviewModal: React.FC<CandidateReviewModalProps> = ({
             className="rounded-xl h-8 px-4 text-xs font-semibold"
             onClick={() => onOpenChange(false)}
           >
-            {language === 'ka' ? 'დახურვა' : 'Bağla'}
+            {t('close_btn')}
           </Button>
         </DialogFooter>
       </DialogContent>

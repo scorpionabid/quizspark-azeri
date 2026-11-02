@@ -5,10 +5,12 @@ import { motion } from 'framer-motion';
 import {
   Shield,
   Award,
+  Trophy,
   Clock,
   FileCheck,
   AlertCircle,
   ArrowRight,
+  ArrowLeft,
   CheckCircle2,
   Lock,
   User,
@@ -23,13 +25,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { OFFICIAL_EXAMS } from '@/lib/constants/exams';
+import { OFFICIAL_EXAMS, getExamTitle } from '@/lib/constants/exams';
 import { fetchQuestionsWithTranslations } from '@/hooks/useQuestions';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
-import { CandidateReviewModal } from '@/components/exam/CandidateReviewModal';
+import { CandidateReviewModal, type AnswerRecord } from '@/components/exam/CandidateReviewModal';
 import { FileText, HelpCircle } from 'lucide-react';
 
 interface CompletedAttemptInfo {
@@ -39,7 +41,7 @@ interface CompletedAttemptInfo {
   percentage: number;
   completedAt: string;
   specialtyTitle: string;
-  answers: any[];
+  answers: AnswerRecord[];
 }
 
 interface ExamSettings {
@@ -246,8 +248,8 @@ export default function ExamLoginPage() {
           totalQuestions: completed.total_questions ?? 60,
           percentage: completed.score ?? 0,
           completedAt: completed.completed_at,
-          specialtyTitle: language === 'ka' ? selectedExam.title_ka : selectedExam.title,
-          answers: (completed.answers as any[]) || [],
+          specialtyTitle: getExamTitle(selectedExam, language),
+          answers: (completed.answers as unknown as AnswerRecord[]) || [],
         });
         toast.info(t('already_completed'));
         setIsLoading(false);
@@ -286,22 +288,48 @@ export default function ExamLoginPage() {
         className="max-w-md w-full mb-6"
       >
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-              QS
-            </div>
-            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">QuizSpark Exam</span>
-          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="text-xs font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white -ml-2 h-8 px-2.5 rounded-lg flex items-center gap-1.5"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{t('back_to_home', 'Geri qayıt')}</span>
+          </Button>
           <LanguageSwitcher />
         </div>
 
         <div className="text-center">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 text-white font-bold text-sm shadow-sm mb-2">
+            QS
+          </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             {t('exam_portal')}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             {t('exam_portal_desc')}
           </p>
+        </div>
+
+        {/* Portal Switcher Tabs */}
+        <div className="bg-slate-200/80 dark:bg-slate-800/80 p-1 rounded-2xl flex items-center text-xs font-bold mt-5">
+          <button
+            type="button"
+            onClick={() => navigate('/olimpiada')}
+            className="flex-1 py-2 px-3 rounded-xl text-muted-foreground hover:text-foreground flex items-center justify-center gap-2 transition-all"
+          >
+            <Trophy className="w-4 h-4 text-amber-500" />
+            Zəfər Olimpiadası (Şagirdlər)
+          </button>
+          <button
+            type="button"
+            className="flex-1 py-2 px-3 rounded-xl bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm flex items-center justify-center gap-2 transition-all"
+          >
+            <Award className="w-4 h-4 text-blue-600" />
+            Rəsmi İxtisas İmtahanları
+          </button>
         </div>
       </motion.div>
 
@@ -330,9 +358,7 @@ export default function ExamLoginPage() {
                 {t('already_completed')}
               </CardTitle>
               <CardDescription className="text-xs">
-                {language === 'ka' 
-                  ? 'ამ პირადი ნომრით გამოცდა უკვე ჩაბარებულია.'
-                  : 'Bu FİN kod ilə imtahan artıq təhvil verilib.'}
+                {t('exam_already_submitted_by_fin')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 px-6 py-4">
@@ -356,9 +382,9 @@ export default function ExamLoginPage() {
                   </span>
                 </div>
                 <div className="flex justify-between py-0.5">
-                  <span className="text-slate-500">{language === 'ka' ? 'თარიღი' : 'Tarix'}:</span>
+                  <span className="text-slate-500">{t('date_label')}:</span>
                   <span className="text-slate-600 dark:text-slate-400">
-                    {new Date(completedInfo.completedAt).toLocaleString(language === 'ka' ? 'ka-GE' : 'az-AZ')}
+                    {new Date(completedInfo.completedAt).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -370,15 +396,13 @@ export default function ExamLoginPage() {
                   onClick={() => setIsReviewOpen(true)}
                 >
                   <FileText className="w-4 h-4" />
-                  {language === 'ka' ? 'ჩემი პასუხების ნახვა (ანალიზი)' : '📝 Suallar və Verdiyim Cavablar'}
+                  {t('candidate_review_btn')}
                 </Button>
               ) : (
                 <div className="w-full p-2.5 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/40 rounded-xl text-center text-xs text-blue-800 dark:text-blue-300 flex items-center justify-center gap-1.5">
                   <HelpCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>
-                    {language === 'ka'
-                      ? 'პასუხების დეტალური ანალიზი ხელმისაწვდომი იქნება გამოცდის დასრულების შემდეგ.'
-                      : 'Sualların və cavabların detallı təhlili imtahan sessiyası tam başa çatdıqdan sonra aktivləşdiriləcək.'}
+                    {t('analysis_after_exam_notice')}
                   </span>
                 </div>
               )}
@@ -393,7 +417,7 @@ export default function ExamLoginPage() {
                   setExamCode('');
                 }}
               >
-                {language === 'ka' ? 'სხვა FIN-ით შესვლა' : 'Digər FİN ilə Giriş'}
+                {t('login_with_other_fin')}
               </Button>
             </CardFooter>
           </Card>
@@ -403,7 +427,7 @@ export default function ExamLoginPage() {
             <CardHeader className="pb-3 pt-6 px-6">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
-                  {language === 'ka' ? 'მონაწილის შესვლა' : 'İştirakçı Girişi'}
+                  {t('participant_login')}
                 </CardTitle>
                 <Badge
                   variant="outline"
@@ -414,9 +438,7 @@ export default function ExamLoginPage() {
                       : "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/40"
                   )}
                 >
-                  {settings?.is_active 
-                    ? (language === 'ka' ? 'აქტიურია' : 'Aktivdir') 
-                    : (language === 'ka' ? 'მოლოდინის რეჟიმი' : 'Gözləmə Rejimi')}
+                  {settings?.is_active ? t('active_status') : t('waiting_status')}
                 </Badge>
               </div>
               {!settings?.is_active && (
@@ -482,7 +504,7 @@ export default function ExamLoginPage() {
                       {OFFICIAL_EXAMS.map((exam) => (
                         <SelectItem key={exam.key} value={exam.key} className="py-2">
                           <span className="font-medium">
-                            {language === 'ka' ? exam.title_ka : exam.title}
+                            {getExamTitle(exam, language)}
                           </span>
                         </SelectItem>
                       ))}
@@ -520,7 +542,7 @@ export default function ExamLoginPage() {
                     </span>
                   ) : !settings?.is_active ? (
                     <span className="flex items-center gap-2">
-                      <Lock className="w-4 h-4" /> {language === 'ka' ? 'დაწყების მოლოდინში' : 'Başlaması Gözlənilir'}
+                      <Lock className="w-4 h-4" /> {t('exam_pending_start')}
                     </span>
                   ) : (
                     <span className="flex items-center justify-center gap-2">
@@ -541,7 +563,7 @@ export default function ExamLoginPage() {
           onOpenChange={setIsReviewOpen}
           quizId={completedInfo.quizId}
           answers={completedInfo.answers}
-          candidateName={fullName || (language === 'ka' ? 'მონაწილე' : 'Namizəd')}
+          candidateName={fullName || t('candidate_default')}
           fin={cleanFin}
           specialtyTitle={completedInfo.specialtyTitle}
           score={completedInfo.score}

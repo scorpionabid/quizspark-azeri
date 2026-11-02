@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { FontProvider } from "@/contexts/FontContext";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OAuthRoleDialog } from "@/components/auth/OAuthRoleDialog";
@@ -28,6 +29,7 @@ const ResetPasswordPage = lazy(() => import("./pages/auth/ResetPasswordPage"));
 const PendingApprovalPage = lazy(() => import("./pages/auth/PendingApprovalPage"));
 const SupportChatPage = lazy(() => import("./pages/chat/SupportChatPage"));
 const ExamLoginPage = lazy(() => import("./pages/exam/ExamLoginPage"));
+const OlimpiadaLoginPage = lazy(() => import("./pages/exam/OlimpiadaLoginPage"));
 
 // Teacher Pages — lazy
 const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));
@@ -123,6 +125,11 @@ function AppRoutes() {
         <Route path="/imtahan" element={
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>
             <ExamLoginPage />
+          </Suspense>
+        } />
+        <Route path="/olimpiada" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <OlimpiadaLoginPage />
           </Suspense>
         } />
 
@@ -238,17 +245,19 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <LanguageProvider>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-              <AppRoutes />
-            </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
-      </LanguageProvider>
+      <FontProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <AppRoutes />
+              </BrowserRouter>
+            </TooltipProvider>
+          </AuthProvider>
+        </LanguageProvider>
+      </FontProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

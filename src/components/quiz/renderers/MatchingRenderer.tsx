@@ -24,8 +24,8 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
   const [shuffledRightItems, setShuffledRightItems] = useState<string[]>([]);
   const pairsRecord = normalizePairs(question.matching_pairs ?? null);
   const leftItems = Object.keys(pairsRecord);
-  const currentMatches = parseMatchingValue(value);
-  const correctMatches = parseMatchingValue(question.correct_answer);
+  const currentMatches = parseMatchingValue(value, pairsRecord);
+  const correctMatches = parseMatchingValue(question.correct_answer, pairsRecord);
 
   // Detect 1:1 vs N:M based on correct answer pairs
   const isNtoM = Object.values(pairsRecord).some(v => v.includes(','));
