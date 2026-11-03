@@ -116,7 +116,6 @@ export function usePublicQuizzes(filters?: Omit<QuizFilters, 'isPublic' | 'isPub
 export function useMyQuizzes(filters?: Omit<QuizFilters, 'creatorId'>) {
   const { user, role } = useAuth();
   const isOlympiadEditor =
-    user?.email === 'boyukemilli1972@gmail.com' ||
     user?.email === 'scorpionabid82@gmail.com' ||
     role === 'admin';
 

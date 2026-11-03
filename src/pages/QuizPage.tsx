@@ -36,7 +36,6 @@ export default function QuizPage() {
   const isPreview = searchParams.get('preview') === 'true';
   const { user, role } = useAuth();
   const isUnlimitedUser =
-    user?.email === 'boyukemilli1972@gmail.com' ||
     user?.email === 'scorpionabid82@gmail.com' ||
     role === 'teacher' ||
     role === 'admin';
