@@ -56,8 +56,9 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { AdminAttemptReviewModal } from '@/components/exam/AdminAttemptReviewModal';
+import { ExamExportModal } from '@/components/exam/ExamExportModal';
 
-interface ExamAttemptRow {
+export interface ExamAttemptRow {
   id: string;
   quizId: string;
   userId: string;
@@ -117,6 +118,7 @@ export default function AdminExamsPage() {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [pageSize, setPageSize] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -735,15 +737,26 @@ export default function AdminExamsPage() {
             Yenilə
           </Button>
           <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportToExcel}
             disabled={isExporting || filteredRows.length === 0}
+            className="flex items-center gap-1.5 border-slate-300 dark:border-slate-700 text-xs font-semibold"
+            title="Hazırda cədvəldə filtrasiya olunmuş nəticələri birbaşa endir"
+          >
+            <Download className="w-4 h-4 text-emerald-600" />
+            <span>Cari Cədvəl İxracı</span>
+          </Button>
+          <Button
+            onClick={() => setExportModalOpen(true)}
             className={cn(
-              "text-white flex items-center gap-1.5 shadow-sm font-semibold",
+              "text-white flex items-center gap-1.5 shadow-sm font-semibold text-xs",
               isOlympiad ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"
             )}
+            title="Quizləri tək-tək və ya qrup halında seçərək xüsusi Excel ixracı"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            {isOlympiad ? 'Olimpiada Excel İxracı (.xlsx)' : 'Excel İxracı (.xlsx)'}
+            <span>{isOlympiad ? 'Olimpiada İxrac Mərkəzi (Seçimlə)' : 'Excel İxracı (Seçimlə)'}</span>
           </Button>
         </div>
       </div>
@@ -844,12 +857,11 @@ export default function AdminExamsPage() {
               </Badge>
               <Button
                 size="sm"
-                onClick={handleExportToExcel}
-                disabled={isExporting || filteredRows.length === 0}
+                onClick={() => setExportModalOpen(true)}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 h-8"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Excel-ə İxrac Et (.xlsx)</span>
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Quizləri Seç və İxrac Et (.xlsx)</span>
               </Button>
             </div>
           </CardHeader>
@@ -1091,19 +1103,30 @@ export default function AdminExamsPage() {
               )}
             </CardDescription>
           </div>
-          {sortField && (
+          <div className="flex items-center gap-2">
+            {sortField && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 px-2.5 flex items-center gap-1.5"
+                onClick={() => {
+                  setSortField(null);
+                  setSortOrder(null);
+                }}
+              >
+                <RefreshCw className="w-3 h-3" /> Sıralamanı Sıfırla
+              </Button>
+            )}
             <Button
-              variant="outline"
               size="sm"
-              className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 px-2.5 flex items-center gap-1.5"
-              onClick={() => {
-                setSortField(null);
-                setSortOrder(null);
-              }}
+              onClick={() => setExportModalOpen(true)}
+              className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2.5 flex items-center gap-1.5 shadow-sm"
+              title="Quizləri tək-tək və ya qrup halında seçərək xüsusi Excel ixracı"
             >
-              <RefreshCw className="w-3 h-3" /> Sıralamanı Sıfırla
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Quiz Seçimi ilə İxrac</span>
             </Button>
-          )}
+          </div>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
@@ -1688,6 +1711,16 @@ export default function AdminExamsPage() {
         open={!!selectedAttemptForReview}
         onOpenChange={(open) => !open && setSelectedAttemptForReview(null)}
         attempt={selectedAttemptForReview}
+      />
+
+      {/* QUIZ SELECTION EXPORT MODAL */}
+      <ExamExportModal
+        open={exportModalOpen}
+        onOpenChange={setExportModalOpen}
+        quizzes={availableQuizzes.length > 0 ? availableQuizzes : officialQuizzes}
+        attemptsData={attemptsData}
+        isOlympiad={isOlympiad}
+        preSelectedQuizId={selectedSpecialty}
       />
     </div>
   );
