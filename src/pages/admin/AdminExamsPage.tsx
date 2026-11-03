@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   FileSpreadsheet,
@@ -32,6 +33,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  GraduationCap,
+  Building2,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -61,6 +64,7 @@ interface ExamAttemptRow {
   fin: string;
   fullName: string;
   specialty: string;
+  subject?: string;
   grade?: string;
   school?: string;
   examCategory: string;
@@ -87,6 +91,7 @@ interface ExamAttemptRow {
 type SortField =
   | 'fin'
   | 'fullName'
+  | 'school'
   | 'specialty'
   | 'currentQuestionIndex'
   | 'correctCount'
@@ -98,10 +103,16 @@ type SortField =
 type SortOrder = 'asc' | 'desc' | null;
 
 export default function AdminExamsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const initialCategory: 'all' | 'official_exam' | 'Olimpiada' =
+    tabParam === 'official' ? 'official_exam' : tabParam === 'all' ? 'all' : 'Olimpiada';
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'official_exam' | 'Olimpiada'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'official_exam' | 'Olimpiada'>(initialCategory);
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
+  const [selectedSchool, setSelectedSchool] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'passed' | 'failed' | 'in_progress'>('all');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>(null);
@@ -109,6 +120,17 @@ export default function AdminExamsPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [pageSize, setPageSize] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const handleCategoryChange = (cat: 'all' | 'official_exam' | 'Olimpiada') => {
+    setSelectedCategory(cat);
+    setSelectedGrade('all');
+    setSelectedSpecialty('all');
+    setSelectedSchool('all');
+    setSelectedStatus('all');
+    setSearchParams(
+      cat === 'Olimpiada' ? { tab: 'olimpiada' } : cat === 'official_exam' ? { tab: 'official' } : { tab: 'all' }
+    );
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField !== field) {
@@ -281,7 +303,17 @@ export default function AdminExamsPage() {
         profileMap.set(p.user_id, p);
       });
 
-      const quizMap = new Map<string, { title: string; grade?: string | null; exam_category?: string | null; pass_percentage: number | null; question_count: number | null }>();
+      const quizMap = new Map<
+        string,
+        {
+          title: string;
+          subject?: string | null;
+          grade?: string | null;
+          exam_category?: string | null;
+          pass_percentage: number | null;
+          question_count: number | null;
+        }
+      >();
       officialQuizzesList.forEach((q) => {
         quizMap.set(q.id, q);
       });
@@ -309,7 +341,8 @@ export default function AdminExamsPage() {
           fin: prof?.utis_code || prof?.fin || '—',
           fullName: prof?.full_name || 'Naməlum',
           specialty: prof?.specialty || qInfo?.title || '—',
-          grade: prof?.grade || qInfo?.grade || undefined,
+          subject: qInfo?.subject || undefined,
+          grade: qInfo?.grade || prof?.grade || undefined,
           school: prof?.school || undefined,
           examCategory: qInfo?.exam_category || 'official_exam',
           score: earnedScore,
@@ -338,15 +371,42 @@ export default function AdminExamsPage() {
     refetchInterval: autoRefresh ? 30000 : false,
   });
 
+  // Unique school list across attempts for active category
+  const availableSchools = useMemo(() => {
+    const set = new Set<string>();
+    attemptsData.forEach((row) => {
+      if (
+        (selectedCategory === 'all' || row.examCategory === selectedCategory) &&
+        row.school &&
+        row.school.trim() &&
+        row.school.trim() !== 'Məktəb'
+      ) {
+        set.add(row.school.trim());
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'az'));
+  }, [attemptsData, selectedCategory]);
+
+  // Tab counts for quick overview badges
+  const categoryCounts = useMemo(() => {
+    const olimpiada = attemptsData.filter((r) => r.examCategory === 'Olimpiada').length;
+    const official = attemptsData.filter((r) => r.examCategory === 'official_exam').length;
+    const all = attemptsData.length;
+    return { olimpiada, official, all };
+  }, [attemptsData]);
+
   // Filtered and Sorted rows
   const filteredRows = useMemo(() => {
     const list = attemptsData.filter((row) => {
-      // Search by FIN or Name
+      // Search by FIN / UTIS, Name, School, Subject, Specialty
       if (searchQuery.trim()) {
         const query = searchQuery.trim().toLowerCase();
         const matchesFin = row.fin.toLowerCase().includes(query);
         const matchesName = row.fullName.toLowerCase().includes(query);
-        if (!matchesFin && !matchesName) return false;
+        const matchesSchool = (row.school || '').toLowerCase().includes(query);
+        const matchesSubject = (row.subject || '').toLowerCase().includes(query);
+        const matchesSpecialty = row.specialty.toLowerCase().includes(query);
+        if (!matchesFin && !matchesName && !matchesSchool && !matchesSubject && !matchesSpecialty) return false;
       }
 
       // Filter by Exam Category (Rəsmi vs Olimpiada)
@@ -356,10 +416,15 @@ export default function AdminExamsPage() {
 
       // Filter by Grade
       if (selectedGrade !== 'all') {
-        if (row.grade !== selectedGrade) return false;
+        if (row.grade !== selectedGrade && !row.grade?.includes(selectedGrade)) return false;
       }
 
-      // Filter by Specialty
+      // Filter by School
+      if (selectedSchool !== 'all') {
+        if ((row.school || '').trim() !== selectedSchool) return false;
+      }
+
+      // Filter by Specialty / Quiz
       if (selectedSpecialty !== 'all') {
         if (row.quizId !== selectedSpecialty) return false;
       }
@@ -388,6 +453,9 @@ export default function AdminExamsPage() {
           break;
         case 'fin':
           comparison = a.fin.localeCompare(b.fin, 'az', { sensitivity: 'base' });
+          break;
+        case 'school':
+          comparison = (a.school || '').localeCompare(b.school || '', 'az', { sensitivity: 'base' });
           break;
         case 'specialty':
           comparison = a.specialty.localeCompare(b.specialty, 'az', { sensitivity: 'base' });
@@ -423,12 +491,12 @@ export default function AdminExamsPage() {
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [attemptsData, searchQuery, selectedCategory, selectedGrade, selectedSpecialty, selectedStatus, sortField, sortOrder]);
+  }, [attemptsData, searchQuery, selectedCategory, selectedGrade, selectedSchool, selectedSpecialty, selectedStatus, sortField, sortOrder]);
 
   // Reset pagination on filter or search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedGrade, selectedSpecialty, selectedStatus, sortField, sortOrder, pageSize]);
+  }, [searchQuery, selectedCategory, selectedGrade, selectedSchool, selectedSpecialty, selectedStatus, sortField, sortOrder, pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const startIndex = (currentPage - 1) * pageSize;
@@ -437,18 +505,24 @@ export default function AdminExamsPage() {
     [filteredRows, startIndex, pageSize]
   );
 
-  // Statistics Summary
+  // Statistics Summary (dynamically scoped to current selectedCategory)
   const stats = useMemo(() => {
-    const total = attemptsData.length;
-    const completed = attemptsData.filter((r) => r.isCompleted).length;
+    const dataset = attemptsData.filter((r) => {
+      if (selectedCategory === 'all') return true;
+      return r.examCategory === selectedCategory;
+    });
+
+    const total = dataset.length;
+    const completed = dataset.filter((r) => r.isCompleted).length;
     const inProgress = total - completed;
-    const passed = attemptsData.filter((r) => r.isCompleted && r.isPassed).length;
+    const passed = dataset.filter((r) => r.isCompleted && r.isPassed).length;
+    const highScorers = dataset.filter((r) => r.isCompleted && r.score >= 90).length;
     const passRate = completed > 0 ? Math.round((passed / completed) * 100) : 0;
     const avgScore =
-      completed > 0 ? Math.round(attemptsData.filter((r) => r.isCompleted).reduce((acc, r) => acc + r.score, 0) / completed) : 0;
+      completed > 0 ? Math.round(dataset.filter((r) => r.isCompleted).reduce((acc, r) => acc + r.score, 0) / completed) : 0;
 
-    return { total, completed, inProgress, passed, passRate, avgScore };
-  }, [attemptsData]);
+    return { total, completed, inProgress, passed, highScorers, passRate, avgScore };
+  }, [attemptsData, selectedCategory]);
 
   // Export to Excel
   const handleExportToExcel = () => {
@@ -459,15 +533,79 @@ export default function AdminExamsPage() {
 
     setIsExporting(true);
     try {
-      const exportData = filteredRows.map((row, index) => {
-        const formatTime = (seconds: number | null) => {
-          if (!seconds) return '—';
-          const mins = Math.floor(seconds / 60);
-          const secs = seconds % 60;
-          return `${mins} dəq ${secs} san`;
-        };
+      const isOlympiad = selectedCategory === 'Olimpiada';
+      const dateStr = new Date().toISOString().slice(0, 10);
 
-        return {
+      const formatTime = (seconds: number | null) => {
+        if (!seconds) return '—';
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins} dəq ${secs} san`;
+      };
+
+      let exportData: Record<string, string | number>[];
+      let worksheetCols: Array<{ wch: number }>;
+      let sheetName: string;
+      let fileName: string;
+
+      if (isOlympiad) {
+        sheetName = 'Zəfər Olimpiadası Nəticələri';
+        fileName = `Zefer_Olimpiadasi_Qebele_Netice_${dateStr}.xlsx`;
+
+        exportData = filteredRows.map((row, index) => {
+          let degree = 'Davam edir';
+          if (row.isCompleted) {
+            if (row.score >= 90) degree = 'Əla (90%+)';
+            else if (row.score >= 70) degree = 'Yaxşı (70-89%)';
+            else if (row.score >= 50) degree = 'Kafi (50-69%)';
+            else degree = 'Qeyri-kafi (<50%)';
+          }
+
+          return {
+            'S/S': index + 1,
+            'UTİS Kodu': row.fin,
+            'Şagirdin Adı, Soyadı': row.fullName,
+            'Məktəb': row.school || '—',
+            'Sinif': row.grade ? `${row.grade}-ci sinif` : '—',
+            'Olimpiada Fənni': row.subject || row.specialty,
+            'Doğru Cavab Sayı': row.correctCount,
+            'Səhv Cavab Sayı': row.incorrectCount,
+            'Boş Cavab Sayı': row.unansweredCount,
+            'Cəmi Sual': row.totalQuestions,
+            'Yekun Bal (%)': row.isCompleted ? row.score : 'Davam edir',
+            'Nəticə Dərəcəsi': degree,
+            'Status': !row.isCompleted ? 'Davam edir' : row.isPassed ? 'Keçdi' : 'Keçmədi',
+            'Pəncərə Dəyişmə Sayı': row.tabSwitchCount,
+            'Sərf Olunan Vaxt': formatTime(row.timeSpent),
+            'İmtahana Başlama Vaxtı': new Date(row.startedAt).toLocaleString('az-AZ'),
+            'İmtahanı Bitirmə Vaxtı': row.completedAt ? new Date(row.completedAt).toLocaleString('az-AZ') : '—',
+          };
+        });
+
+        worksheetCols = [
+          { wch: 6 },
+          { wch: 14 },
+          { wch: 28 },
+          { wch: 35 },
+          { wch: 12 },
+          { wch: 22 },
+          { wch: 16 },
+          { wch: 16 },
+          { wch: 16 },
+          { wch: 12 },
+          { wch: 14 },
+          { wch: 18 },
+          { wch: 14 },
+          { wch: 20 },
+          { wch: 16 },
+          { wch: 22 },
+          { wch: 22 },
+        ];
+      } else {
+        sheetName = 'İmtahan Nəticələri';
+        fileName = `Imtahan_Netice_${dateStr}.xlsx`;
+
+        exportData = filteredRows.map((row, index) => ({
           'S/S': index + 1,
           'UTİS / FİN Kodu': row.fin,
           'Ad, Soyad': row.fullName,
@@ -488,40 +626,40 @@ export default function AdminExamsPage() {
           'Son Əlaqə': row.lastHeartbeatAt ? new Date(row.lastHeartbeatAt).toLocaleTimeString('az-AZ') : '—',
           'Başlama Tarixi': new Date(row.startedAt).toLocaleString('az-AZ'),
           'Bitirmə Tarixi': row.completedAt ? new Date(row.completedAt).toLocaleString('az-AZ') : '—',
-        };
-      });
+        }));
+
+        worksheetCols = [
+          { wch: 6 },
+          { wch: 14 },
+          { wch: 28 },
+          { wch: 20 },
+          { wch: 12 },
+          { wch: 25 },
+          { wch: 38 },
+          { wch: 14 },
+          { wch: 12 },
+          { wch: 12 },
+          { wch: 12 },
+          { wch: 15 },
+          { wch: 15 },
+          { wch: 15 },
+          { wch: 20 },
+          { wch: 16 },
+          { wch: 18 },
+          { wch: 14 },
+          { wch: 22 },
+          { wch: 22 },
+        ];
+      }
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
-
-      worksheet['!cols'] = [
-        { wch: 6 },
-        { wch: 14 },
-        { wch: 28 },
-        { wch: 20 },
-        { wch: 12 },
-        { wch: 25 },
-        { wch: 38 },
-        { wch: 14 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 16 },
-        { wch: 18 },
-        { wch: 14 },
-        { wch: 22 },
-        { wch: 22 },
-      ];
+      worksheet['!cols'] = worksheetCols;
 
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'İmtahan Nəticələri');
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
-      const dateStr = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(workbook, selectedCategory === 'Olimpiada' ? `Zefer_Olimpiadasi_Netice_${dateStr}.xlsx` : `Imtahan_Netice_${dateStr}.xlsx`);
-      toast.success('Excel faylı uğurla generasiya edildi və endirildi!');
+      XLSX.writeFile(workbook, fileName);
+      toast.success(`${fileName} uğurla generasiya edildi və endirildi!`);
     } catch (err: unknown) {
       console.error('Export error:', err);
       toast.error('Excel ixracında xəta baş verdi');
@@ -537,22 +675,35 @@ export default function AdminExamsPage() {
     return `${m} dəq ${s} san`;
   };
 
+  const isOlympiad = selectedCategory === 'Olimpiada';
+
   return (
     <div className="space-y-6 p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Badge variant="outline" className="text-blue-600 border-blue-500 bg-blue-50 dark:bg-blue-950/40">
-              Rəsmi Dövlət İmtahanı
+            <Badge
+              variant="outline"
+              className={cn(
+                isOlympiad
+                  ? 'text-amber-700 border-amber-500 bg-amber-50 dark:bg-amber-950/40'
+                  : 'text-blue-600 border-blue-500 bg-blue-50 dark:bg-blue-950/40'
+              )}
+            >
+              {isOlympiad ? 'Zəfər Olimpiadası' : 'Rəsmi Dövlət İmtahanı'}
             </Badge>
-            <span className="text-xs text-muted-foreground">Vakant Vəzifələr 2026</span>
+            <span className="text-xs text-muted-foreground">
+              {isOlympiad ? 'Qəbələ Rayon Mərhələsi • 03 Noyabr 2026' : 'Vakant Vəzifələr 2026'}
+            </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-            İmtahan Nəticələri və Canlı İzləmə
+            {isOlympiad ? 'Zəfər Olimpiadası Nəticələri və İxrac' : 'İmtahan Nəticələri və Canlı İzləmə'}
           </h1>
           <p className="text-sm text-slate-500">
-            500+ iştirakçının canlı imtahan gedişatı, bal statistikası və rəsmi protokollar
+            {isOlympiad
+              ? 'VIII, IX, X və XI sinif şagirdlərinin 8 fənn üzrə olimpiada nəticələri, məktəb reytinqi və rəsmi protokolları'
+              : '500+ iştirakçının canlı imtahan gedişatı, bal statistikası və rəsmi protokollar'}
           </p>
         </div>
 
@@ -586,129 +737,250 @@ export default function AdminExamsPage() {
           <Button
             onClick={handleExportToExcel}
             disabled={isExporting || filteredRows.length === 0}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm"
+            className={cn(
+              "text-white flex items-center gap-1.5 shadow-sm font-semibold",
+              isOlympiad ? "bg-amber-600 hover:bg-amber-700" : "bg-emerald-600 hover:bg-emerald-700"
+            )}
           >
-            <Download className="w-4 h-4" />
-            Excel İxracı (.xlsx)
+            <FileSpreadsheet className="w-4 h-4" />
+            {isOlympiad ? 'Olimpiada Excel İxracı (.xlsx)' : 'Excel İxracı (.xlsx)'}
           </Button>
         </div>
       </div>
 
-      {/* SECURITY / PORTAL LOCK CONTROL CARD */}
-      <Card className="border-blue-200 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/50 via-white to-indigo-50/50 dark:from-slate-900 dark:to-slate-900 shadow-sm">
-        <CardHeader className="p-4 pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-              <ShieldCheck className="w-5 h-5 text-blue-600" /> İmtahan Nəzarət Mərkəzi (Təhlükəsizlik və Giriş Qıfılı)
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500">
-              İmtahanı vaxtından əvvəl heç kimin görməməsi üçün qapalı saxlayın, yalnız zalda imtahan başladıqda aktiv edin.
-            </CardDescription>
-          </div>
+      {/* TOP-LEVEL CATEGORY NAVIGATION TABS */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <button
+          type="button"
+          onClick={() => handleCategoryChange('Olimpiada')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm',
+            selectedCategory === 'Olimpiada'
+              ? 'bg-amber-600 text-white shadow-amber-600/20 shadow-md ring-2 ring-amber-600/30'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800'
+          )}
+        >
+          <Trophy className={cn('w-4 h-4', selectedCategory === 'Olimpiada' ? 'text-amber-200' : 'text-amber-500')} />
+          <span>Zəfər Olimpiadası (Qəbələ turu)</span>
           <Badge
-            variant={portalActive ? 'default' : 'destructive'}
-            className="text-xs px-3 py-1 font-semibold flex items-center gap-1.5"
+            variant="secondary"
+            className={cn(
+              'ml-1 text-[11px] font-extrabold px-2 py-0',
+              selectedCategory === 'Olimpiada'
+                ? 'bg-white/20 text-white border-0'
+                : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+            )}
           >
-            {portalActive ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-            {portalActive ? 'PORTAL AKTİVDİR (GİRİŞ AÇIQDIR)' : 'PORTAL KİLİDLİDİR (GİRİŞ QADAĞANDIR)'}
+            {categoryCounts.olimpiada}
           </Badge>
-        </CardHeader>
-        <CardContent className="p-4 pt-2">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2 border-t border-slate-200/80 dark:border-slate-800">
-            {/* Toggle Active Switch */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="portal-active"
-                  checked={portalActive}
-                  onCheckedChange={setPortalActive}
-                />
-                <Label htmlFor="portal-active" className="text-xs sm:text-sm font-semibold cursor-pointer">
-                  {portalActive ? 'Portal Girişi Açıqdır' : 'Portal Kilidlidir'}
-                </Label>
-              </div>
+        </button>
 
-              <div className="flex items-center space-x-2 border-l-0 sm:border-l sm:pl-4 border-slate-200 dark:border-slate-700">
-                <Switch
-                  id="candidate-review-active"
-                  checked={allowCandidateReview}
-                  onCheckedChange={setAllowCandidateReview}
-                />
-                <Label htmlFor="candidate-review-active" className="text-xs sm:text-sm font-semibold cursor-pointer text-indigo-900 dark:text-indigo-300">
-                  {allowCandidateReview ? '📝 Cavab Baxışı AÇIQDIR (Level B)' : '📝 Cavab Baxışı BAĞLIDIR'}
-                </Label>
-              </div>
+        <button
+          type="button"
+          onClick={() => handleCategoryChange('official_exam')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm',
+            selectedCategory === 'official_exam'
+              ? 'bg-blue-600 text-white shadow-blue-600/20 shadow-md ring-2 ring-blue-600/30'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800'
+          )}
+        >
+          <Award className={cn('w-4 h-4', selectedCategory === 'official_exam' ? 'text-blue-200' : 'text-blue-500')} />
+          <span>Rəsmi İxtisas İmtahanları</span>
+          <Badge
+            variant="secondary"
+            className={cn(
+              'ml-1 text-[11px] font-extrabold px-2 py-0',
+              selectedCategory === 'official_exam'
+                ? 'bg-white/20 text-white border-0'
+                : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+            )}
+          >
+            {categoryCounts.official}
+          </Badge>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleCategoryChange('all')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm',
+            selectedCategory === 'all'
+              ? 'bg-slate-800 text-white shadow-md ring-2 ring-slate-800/30 dark:bg-slate-700'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800'
+          )}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>Bütün Nəticələr</span>
+          <Badge
+            variant="secondary"
+            className={cn(
+              'ml-1 text-[11px] font-extrabold px-2 py-0',
+              selectedCategory === 'all'
+                ? 'bg-white/20 text-white border-0'
+                : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+            )}
+          >
+            {categoryCounts.all}
+          </Badge>
+        </button>
+      </div>
+
+      {/* OLIMPIADA HIGHLIGHT CARD */}
+      {isOlympiad && (
+        <Card className="border-amber-200 dark:border-amber-900/60 bg-gradient-to-r from-amber-50/70 via-white to-orange-50/50 dark:from-slate-900 dark:to-slate-900 shadow-sm">
+          <CardHeader className="p-4 pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                <Trophy className="w-5 h-5 text-amber-600" /> Zəfər Olimpiadası — Qəbələ Rayon Mərhələsi (03 Noyabr 2026)
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                Qəbələ rayon ümumtəhsil məktəblərinin VIII-XI sinif şagirdlərinin 8 fənn üzrə rəsmi imtahan nəticələri və məktəb protokolları
+              </CardDescription>
             </div>
-
-            {/* Access Code Input */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                <KeyRound className="w-4 h-4 text-blue-600" />
-                <span className="text-xs text-slate-500">Zal Parolu:</span>
-                <Input
-                  value={portalCode}
-                  onChange={(e) => setPortalCode(e.target.value)}
-                  className="h-7 w-32 font-mono text-xs font-bold uppercase tracking-wider"
-                  placeholder="Məs: EXAM2026"
-                />
-              </div>
-
+              <Badge variant="outline" className="text-amber-800 border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-xs font-bold">
+                8 Fənn • 4 Sinif (VIII-XI)
+              </Badge>
               <Button
                 size="sm"
-                onClick={handleSaveSettings}
-                disabled={isSavingSettings}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 h-8 text-xs font-semibold"
+                onClick={handleExportToExcel}
+                disabled={isExporting || filteredRows.length === 0}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 h-8"
               >
-                <Save className="w-3.5 h-3.5" />
-                {isSavingSettings ? 'Yadda saxlanılır...' : 'Yadda Saxla'}
+                <Download className="w-3.5 h-3.5" />
+                <span>Excel-ə İxrac Et (.xlsx)</span>
               </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* SECURITY / PORTAL LOCK CONTROL CARD (Official exam only) */}
+      {!isOlympiad && (
+        <Card className="border-blue-200 dark:border-blue-900/60 bg-gradient-to-r from-blue-50/50 via-white to-indigo-50/50 dark:from-slate-900 dark:to-slate-900 shadow-sm">
+          <CardHeader className="p-4 pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                <ShieldCheck className="w-5 h-5 text-blue-600" /> İmtahan Nəzarət Mərkəzi (Təhlükəsizlik və Giriş Qıfılı)
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                İmtahanı vaxtından əvvəl heç kimin görməməsi üçün qapalı saxlayın, yalnız zalda imtahan başladıqda aktiv edin.
+              </CardDescription>
+            </div>
+            <Badge
+              variant={portalActive ? 'default' : 'destructive'}
+              className="text-xs px-3 py-1 font-semibold flex items-center gap-1.5"
+            >
+              {portalActive ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+              {portalActive ? 'PORTAL AKTİVDİR (GİRİŞ AÇIQDIR)' : 'PORTAL KİLİDLİDİR (GİRİŞ QADAĞANDIR)'}
+            </Badge>
+          </CardHeader>
+          <CardContent className="p-4 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+              {/* Toggle Active Switch */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="portal-active"
+                    checked={portalActive}
+                    onCheckedChange={setPortalActive}
+                  />
+                  <Label htmlFor="portal-active" className="text-xs sm:text-sm font-semibold cursor-pointer">
+                    {portalActive ? 'Portal Girişi Açıqdır' : 'Portal Kilidlidir'}
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2 border-l-0 sm:border-l sm:pl-4 border-slate-200 dark:border-slate-700">
+                  <Switch
+                    id="candidate-review-active"
+                    checked={allowCandidateReview}
+                    onCheckedChange={setAllowCandidateReview}
+                  />
+                  <Label htmlFor="candidate-review-active" className="text-xs sm:text-sm font-semibold cursor-pointer text-indigo-900 dark:text-indigo-300">
+                    {allowCandidateReview ? '📝 Cavab Baxışı AÇIQDIR (Level B)' : '📝 Cavab Baxışı BAĞLIDIR'}
+                  </Label>
+                </div>
+              </div>
+
+              {/* Access Code Input */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <KeyRound className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs text-slate-500">Zal Parolu:</span>
+                  <Input
+                    value={portalCode}
+                    onChange={(e) => setPortalCode(e.target.value)}
+                    className="h-7 w-32 font-mono text-xs font-bold uppercase tracking-wider"
+                    placeholder="Məs: EXAM2026"
+                  />
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={handleSaveSettings}
+                  disabled={isSavingSettings}
+                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 h-8 text-xs font-semibold"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {isSavingSettings ? 'Yadda saxlanılır...' : 'Yadda Saxla'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="shadow-sm border-slate-200 dark:border-slate-800">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-xs font-semibold flex items-center justify-between">
-              Cəmi İştirakçı <Users className="w-4 h-4 text-blue-500" />
+              <span>{isOlympiad ? 'Cəmi Şagird (Cəhd)' : 'Cəmi İştirakçı'}</span>
+              <Users className={cn('w-4 h-4', isOlympiad ? 'text-amber-500' : 'text-blue-500')} />
             </CardDescription>
             <CardTitle className="text-2xl font-extrabold">{stats.total}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 text-xs text-slate-500">
-            Daxil olan bütün namizədlər
+            {isOlympiad ? 'Qeydiyyatdan keçən şagirdlər' : 'Daxil olan bütün namizədlər'}
           </CardContent>
         </Card>
 
         <Card className="shadow-sm border-slate-200 dark:border-slate-800">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-xs font-semibold flex items-center justify-between">
-              Tamamlayanlar <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>Tamamlayanlar</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             </CardDescription>
             <CardTitle className="text-2xl font-extrabold text-emerald-600">{stats.completed}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 text-xs text-slate-500">
-            {stats.inProgress} nəfər imtahandadır
+            {stats.inProgress > 0 ? `${stats.inProgress} nəfər davam edir` : 'Bütün cəhdlər bitib'}
           </CardContent>
         </Card>
 
         <Card className="shadow-sm border-slate-200 dark:border-slate-800">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-xs font-semibold flex items-center justify-between">
-              Keçənlər (Müvəffəq) <Award className="w-4 h-4 text-amber-500" />
+              <span>{isOlympiad ? 'Yüksək Nəticə (90%+)' : 'Keçənlər (Müvəffəq)'}</span>
+              {isOlympiad ? <Trophy className="w-4 h-4 text-amber-500" /> : <Award className="w-4 h-4 text-blue-500" />}
             </CardDescription>
-            <CardTitle className="text-2xl font-extrabold text-blue-600">{stats.passed}</CardTitle>
+            <CardTitle className={cn('text-2xl font-extrabold', isOlympiad ? 'text-amber-600' : 'text-blue-600')}>
+              {isOlympiad ? stats.highScorers : stats.passed}
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0 text-xs text-slate-500">
-            Keçid faizi: %{stats.passRate}
+            {isOlympiad
+              ? `Müvəffəq (50%+): ${stats.passed} (%${stats.passRate})`
+              : `Keçid faizi: %${stats.passRate}`}
           </CardContent>
         </Card>
 
         <Card className="shadow-sm border-slate-200 dark:border-slate-800">
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-xs font-semibold flex items-center justify-between">
-              Orta Nəticə <Clock className="w-4 h-4 text-indigo-500" />
+              <span>Orta Nəticə</span>
+              <Clock className="w-4 h-4 text-indigo-500" />
             </CardDescription>
             <CardTitle className="text-2xl font-extrabold text-indigo-600">%{stats.avgScore}</CardTitle>
           </CardHeader>
@@ -720,55 +992,16 @@ export default function AdminExamsPage() {
 
       {/* Filter and Search Bar */}
       <Card className="shadow-sm border-slate-200 dark:border-slate-800">
-        <CardContent className="p-4 space-y-3">
-          {/* Category Tabs */}
-          <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={() => { setSelectedCategory('all'); setSelectedSpecialty('all'); }}
-              className={cn(
-                'px-3 py-1.5 rounded-xl text-xs font-bold transition-all',
-                selectedCategory === 'all'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground'
-              )}
-            >
-              Bütün İmtahanlar
-            </button>
-            <button
-              type="button"
-              onClick={() => { setSelectedCategory('Olimpiada'); setSelectedSpecialty('all'); }}
-              className={cn(
-                'px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all',
-                selectedCategory === 'Olimpiada'
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Trophy className="w-3.5 h-3.5" />
-              Zəfər Olimpiadası (Şagirdlər)
-            </button>
-            <button
-              type="button"
-              onClick={() => { setSelectedCategory('official_exam'); setSelectedSpecialty('all'); }}
-              className={cn(
-                'px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all',
-                selectedCategory === 'official_exam'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Award className="w-3.5 h-3.5" />
-              Rəsmi İxtisas İmtahanları
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <CardContent className="p-4">
+          <div className={cn(
+            "grid grid-cols-1 sm:grid-cols-2 gap-3",
+            isOlympiad ? "lg:grid-cols-5" : "lg:grid-cols-4"
+          )}>
             {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
               <Input
-                placeholder="UTİS, FİN və ya Ad Soyad ilə axtarış..."
+                placeholder={isOlympiad ? "UTİS, Şagird və ya Məktəb..." : "UTİS, FİN və ya Ad Soyad ilə axtarış..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 text-sm"
@@ -792,17 +1025,36 @@ export default function AdminExamsPage() {
             {/* Specialty / Exam Filter */}
             <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
               <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Bütün ixtisas və fənlər" />
+                <SelectValue placeholder={isOlympiad ? "Bütün fənlər" : "Bütün ixtisas və fənlər"} />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Bütün İmtahanlar ({availableQuizzes.length})</SelectItem>
+              <SelectContent className="max-h-72">
+                <SelectItem value="all">
+                  {isOlympiad ? `Bütün Fənlər (${availableQuizzes.length})` : `Bütün İmtahanlar (${availableQuizzes.length})`}
+                </SelectItem>
                 {availableQuizzes.map((quiz) => (
                   <SelectItem key={quiz.id} value={quiz.id}>
-                    {quiz.title}
+                    {isOlympiad && quiz.subject ? `${quiz.subject} (${quiz.grade}-ci sinif)` : quiz.title}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            {/* School Filter (Olympiad-only) */}
+            {isOlympiad && (
+              <Select value={selectedSchool} onValueChange={setSelectedSchool}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Bütün məktəblər" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">Bütün Məktəblər ({availableSchools.length})</SelectItem>
+                  {availableSchools.map((school) => (
+                    <SelectItem key={school} value={school}>
+                      {school}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             {/* Status Filter */}
             <Select
@@ -827,12 +1079,14 @@ export default function AdminExamsPage() {
       <Card className="shadow-sm border-slate-200 dark:border-slate-800 overflow-hidden">
         <CardHeader className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-base font-bold">Nəticə Cədvəli</CardTitle>
+            <CardTitle className="text-base font-bold">
+              {isOlympiad ? 'Zəfər Olimpiadası Şagird Nəticələri' : 'Nəticə Cədvəli'}
+            </CardTitle>
             <CardDescription className="text-xs">
-              Göstərilən namizəd sayı: {filteredRows.length} / {attemptsData.length}
+              Göstərilən {isOlympiad ? 'şagird' : 'namizəd'} sayı: {filteredRows.length} / {attemptsData.length}
               {sortField && (
                 <span className="ml-2 font-medium text-blue-600 dark:text-blue-400">
-                  (Sıralama: {sortField === 'fullName' ? 'Ad, Soyad' : sortField === 'fin' ? 'FİN' : sortField === 'specialty' ? 'İxtisas' : sortField === 'score' ? 'Yekun Bal' : sortField === 'correctCount' ? 'Doğru Sayı' : sortField === 'timeSpent' ? 'Vaxt' : sortField === 'tabSwitchCount' ? 'Pəncərə' : sortField === 'currentQuestionIndex' ? 'Cari Sual' : 'Status'} {sortOrder === 'asc' ? '▲ Artan' : '▼ Azalan'})
+                  (Sıralama: {sortField === 'fullName' ? 'Ad, Soyad' : sortField === 'fin' ? (isOlympiad ? 'UTİS' : 'FİN') : sortField === 'school' ? 'Məktəb' : sortField === 'specialty' ? (isOlympiad ? 'Fənn' : 'İxtisas') : sortField === 'score' ? 'Yekun Bal' : sortField === 'correctCount' ? 'Doğru Sayı' : sortField === 'timeSpent' ? 'Vaxt' : sortField === 'tabSwitchCount' ? 'Pəncərə' : sortField === 'currentQuestionIndex' ? 'Cari Sual' : 'Status'} {sortOrder === 'asc' ? '▲ Artan' : '▼ Azalan'})
                 </span>
               )}
             </CardDescription>
@@ -864,10 +1118,10 @@ export default function AdminExamsPage() {
                     sortField === 'fin' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
                   )}
                   onClick={() => handleSort('fin')}
-                  title="UTİS / FİN kod üzrə A-Z / Z-A sırala"
+                  title={isOlympiad ? "UTİS kodu üzrə sırala" : "UTİS / FİN kod üzrə A-Z / Z-A sırala"}
                 >
                   <div className="flex items-center gap-1.5">
-                    <span>UTİS / FİN Kod</span>
+                    <span>{isOlympiad ? 'UTİS Kodu' : 'UTİS / FİN Kod'}</span>
                     {sortField === 'fin' ? (
                       sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     ) : (
@@ -886,7 +1140,7 @@ export default function AdminExamsPage() {
                   title="İştirakçının Adı və Soyadı üzrə A-Z / Z-A sırala"
                 >
                   <div className="flex items-center gap-1.5">
-                    <span>İştirakçı (Ad, Soyad)</span>
+                    <span>{isOlympiad ? 'Şagird (Ad, Soyad)' : 'İştirakçı (Ad, Soyad)'}</span>
                     {sortField === 'fullName' ? (
                       sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     ) : (
@@ -895,6 +1149,27 @@ export default function AdminExamsPage() {
                   </div>
                 </TableHead>
 
+                {/* Məktəb (Olympiad-only column) */}
+                {isOlympiad && (
+                  <TableHead
+                    className={cn(
+                      "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800",
+                      sortField === 'school' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
+                    )}
+                    onClick={() => handleSort('school')}
+                    title="Məktəb üzrə A-Z / Z-A sırala"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Məktəb</span>
+                      {sortField === 'school' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                      )}
+                    </div>
+                  </TableHead>
+                )}
+
                 {/* İxtisas / Fənn */}
                 <TableHead
                   className={cn(
@@ -902,10 +1177,10 @@ export default function AdminExamsPage() {
                     sortField === 'specialty' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
                   )}
                   onClick={() => handleSort('specialty')}
-                  title="İxtisas və ya fənn üzrə A-Z / Z-A sırala"
+                  title={isOlympiad ? "Fənn və sinif üzrə sırala" : "İxtisas və ya fənn üzrə A-Z / Z-A sırala"}
                 >
                   <div className="flex items-center gap-1.5">
-                    <span>İmtahan / Fənn</span>
+                    <span>{isOlympiad ? 'Sinif & Fənn' : 'İmtahan / Fənn'}</span>
                     {sortField === 'specialty' ? (
                       sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     ) : (
@@ -914,24 +1189,26 @@ export default function AdminExamsPage() {
                   </div>
                 </TableHead>
 
-                {/* Cari Sual */}
-                <TableHead
-                  className={cn(
-                    "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800 text-center",
-                    sortField === 'currentQuestionIndex' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
-                  )}
-                  onClick={() => handleSort('currentQuestionIndex')}
-                  title="Cari sual və irəliləyişə görə sırala"
-                >
-                  <div className="flex items-center justify-center gap-1.5">
-                    <span>Cari Sual</span>
-                    {sortField === 'currentQuestionIndex' ? (
-                      sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                {/* Cari Sual (Official Exam only) */}
+                {!isOlympiad && (
+                  <TableHead
+                    className={cn(
+                      "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800 text-center",
+                      sortField === 'currentQuestionIndex' && "text-blue-600 font-bold bg-blue-50/50 dark:bg-blue-950/20"
                     )}
-                  </div>
-                </TableHead>
+                    onClick={() => handleSort('currentQuestionIndex')}
+                    title="Cari sual və irəliləyişə görə sırala"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Cari Sual</span>
+                      {sortField === 'currentQuestionIndex' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-50 shrink-0 hover:opacity-100" />
+                      )}
+                    </div>
+                  </TableHead>
+                )}
 
                 {/* Doğru / Cəmi */}
                 <TableHead
@@ -971,7 +1248,7 @@ export default function AdminExamsPage() {
                   </div>
                 </TableHead>
 
-                {/* Canlı Status */}
+                {/* Canlı Status / Nəticə */}
                 <TableHead
                   className={cn(
                     "cursor-pointer select-none transition-colors hover:text-blue-600 hover:bg-slate-100/70 dark:hover:bg-slate-800 text-center",
@@ -981,7 +1258,7 @@ export default function AdminExamsPage() {
                   title="Statusa görə sırala"
                 >
                   <div className="flex items-center justify-center gap-1.5">
-                    <span>Canlı Status</span>
+                    <span>{isOlympiad ? 'Nəticə' : 'Canlı Status'}</span>
                     {sortField === 'isPassed' ? (
                       sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600 shrink-0" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     ) : (
@@ -1057,54 +1334,87 @@ export default function AdminExamsPage() {
                           {row.fin}
                         </span>
                       </TableCell>
-                      <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
+                      <TableCell className="font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {row.fullName}
                       </TableCell>
+
+                      {/* Məktəb (Olympiad-only column) */}
+                      {isOlympiad && (
+                        <TableCell className="max-w-[200px]" title={row.school || '—'}>
+                          <span className="text-slate-700 dark:text-slate-300 font-medium truncate block">
+                            {row.school || '—'}
+                          </span>
+                        </TableCell>
+                      )}
+
+                      {/* Fənn / İxtisas */}
                       <TableCell className="max-w-[220px]" title={row.specialty}>
                         <div className="flex flex-col">
-                          <span className="text-slate-800 dark:text-slate-200 font-semibold truncate">{row.specialty}</span>
-                          {(row.grade || row.school) && (
+                          <span className="text-slate-800 dark:text-slate-200 font-semibold truncate">
+                            {row.subject || row.specialty}
+                          </span>
+                          {row.grade && (
                             <span className="text-[10px] text-muted-foreground truncate">
-                              {row.grade ? `${row.grade}-ci sinif` : ''}{row.grade && row.school ? ' • ' : ''}{row.school || ''}
+                              {row.grade}-ci sinif {!isOlympiad && row.school ? ` • ${row.school}` : ''}
                             </span>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        {row.isCompleted ? (
-                          <span className="text-emerald-600 font-semibold text-xs">Tamamlanıb</span>
-                        ) : (
-                          <div className="flex flex-col items-center">
-                            <span className="font-bold text-slate-800 dark:text-slate-200">
-                              Sual {row.currentQuestionIndex || 1}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {row.correctCount + row.incorrectCount} / {row.totalQuestions} yazıldı
-                            </span>
-                          </div>
-                        )}
-                      </TableCell>
+
+                      {/* Cari Sual (Official Exam only) */}
+                      {!isOlympiad && (
+                        <TableCell className="text-center">
+                          {row.isCompleted ? (
+                            <span className="text-emerald-600 font-semibold text-xs">Tamamlanıb</span>
+                          ) : (
+                            <div className="flex flex-col items-center">
+                              <span className="font-bold text-slate-800 dark:text-slate-200">
+                                Sual {row.currentQuestionIndex || 1}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {row.correctCount + row.incorrectCount} / {row.totalQuestions} yazıldı
+                              </span>
+                            </div>
+                          )}
+                        </TableCell>
+                      )}
+
+                      {/* Doğru / Cəmi */}
                       <TableCell className="text-center">
                         <span className="font-bold text-emerald-600">{row.correctCount}</span>
                         <span className="text-slate-400"> / {row.totalQuestions}</span>
                       </TableCell>
+
+                      {/* Yekun Bal */}
                       <TableCell className="text-center">
                         {row.isCompleted ? (
-                          <span className="font-extrabold text-sm text-blue-600 dark:text-blue-400">
+                          <span className={cn(
+                            "font-extrabold text-sm",
+                            row.score >= 90 ? "text-amber-600 dark:text-amber-400" :
+                            row.score >= 50 ? "text-blue-600 dark:text-blue-400" :
+                            "text-slate-600 dark:text-slate-400"
+                          )}>
                             %{row.score}
                           </span>
                         ) : (
                           <span className="text-amber-500 font-medium">—</span>
                         )}
                       </TableCell>
+
+                      {/* Nəticə / Status */}
                       <TableCell className="text-center">
                         {row.isCompleted ? (
-                          row.isPassed ? (
-                            <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
-                              Keçdi
+                          isOlympiad && row.score >= 90 ? (
+                            <Badge className="bg-amber-600 hover:bg-amber-700 text-white font-semibold flex items-center gap-1 mx-auto w-fit">
+                              <Trophy className="w-3 h-3" />
+                              <span>Əla (%{row.score})</span>
+                            </Badge>
+                          ) : row.isPassed ? (
+                            <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold mx-auto w-fit">
+                              {isOlympiad ? 'Müvəffəq' : 'Keçdi'}
                             </Badge>
                           ) : (
-                            <Badge variant="destructive" className="font-semibold">
+                            <Badge variant="destructive" className="font-semibold mx-auto w-fit">
                               Keçmədi
                             </Badge>
                           )
@@ -1125,6 +1435,8 @@ export default function AdminExamsPage() {
                           </Badge>
                         )}
                       </TableCell>
+
+                      {/* Pəncərə */}
                       <TableCell className="text-center">
                         {row.tabSwitchCount === 0 ? (
                           <span className="text-slate-400 font-mono text-xs">0</span>
@@ -1139,9 +1451,13 @@ export default function AdminExamsPage() {
                           </Badge>
                         )}
                       </TableCell>
+
+                      {/* Vaxt */}
                       <TableCell className="text-center text-slate-500 font-mono">
                         {formatSeconds(row.timeSpent)}
                       </TableCell>
+
+                      {/* Əməliyyatlar */}
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <Button
@@ -1149,7 +1465,7 @@ export default function AdminExamsPage() {
                             size="sm"
                             className="h-7 px-2 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 dark:border-blue-900/40 dark:hover:bg-blue-950/40"
                             onClick={() => setSelectedAttemptForReview(row)}
-                            title="Bölmələr üzrə detallı imtahan nəticələrinə bax"
+                            title="Detallı imtahan sualları və nəticələrinə bax"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>Detallı</span>
@@ -1159,7 +1475,7 @@ export default function AdminExamsPage() {
                             size="sm"
                             className="h-7 px-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1"
                             onClick={() => setSelectedAttemptForLogs(row)}
-                            title="Namizədin imtahan audit loglarına bax"
+                            title="İştirakçının audit loglarına bax"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             Loglar
