@@ -41,7 +41,7 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
 }) => {
   const { role } = useAuth();
   const isUnlimitedUser =
-    user?.email === 'scorpionabid82@gmail.com' ||
+    (user?.email && ['scorpionabid82@gmail.com', 'gunel.hadjiyeva@gmail.com', 'alqish82@gmail.com'].includes(user.email)) ||
     role === 'teacher' ||
     role === 'admin';
 

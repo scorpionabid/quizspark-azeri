@@ -82,6 +82,12 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
                 {t('badge_official_exam', 'Rəsmi İmtahan')}
               </Badge>
             )}
+            {quiz.exam_category === 'Olimpiada' && (
+              <Badge className="bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1 text-[9px] sm:text-[10px] px-1.5 py-0.5 shadow-sm shrink-0">
+                <Lock className="h-2.5 w-2.5" />
+                {quiz.access_password ? 'Olimpiada (Şifrəli)' : 'Olimpiada'}
+              </Badge>
+            )}
             {status && (
               <Badge variant={status.variant} className="flex items-center gap-1 text-[9px] sm:text-[10px] px-1.5 py-0.5 shadow-sm shrink-0">
                 {status.label}
@@ -160,7 +166,7 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
 
         {/* Actions */}
         <div className="flex gap-2 mt-auto w-full">
-          {quiz.exam_category !== 'official_exam' && onPreview && (
+          {quiz.exam_category !== 'official_exam' && quiz.exam_category !== 'Olimpiada' && !quiz.access_password && onPreview && (
             <Button
               variant="outline"
               size="sm"
@@ -182,6 +188,10 @@ export function QuizCard({ quiz, questionCount, onPlay, onPreview, isGuest }: Qu
             {quiz.exam_category === 'official_exam' ? (
               <span className="flex items-center justify-center gap-1.5">
                 <Lock className="h-3.5 w-3.5" /> {t('btn_exam_portal', 'İmtahan Portalı')}
+              </span>
+            ) : quiz.access_password ? (
+              <span className="flex items-center justify-center gap-1.5">
+                <Lock className="h-3.5 w-3.5" /> {isGuest ? t('btn_start', 'Başla') : t('btn_start_quiz', 'Quizə Başla')}
               </span>
             ) : isGuest ? t('btn_start', 'Başla') : t('btn_start_quiz', 'Quizə Başla')}
           </Button>
