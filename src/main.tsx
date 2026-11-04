@@ -38,4 +38,14 @@ window.addEventListener("unhandledrejection", (event) => {
   });
 });
 
+// Global dynamic chunk load error listener (deployment cache-bust protection)
+window.addEventListener("vite:preloadError", (event) => {
+  const lastReload = parseInt(sessionStorage.getItem("vite_preload_reload") || "0", 10);
+  const now = Date.now();
+  if (now - lastReload > 10000) {
+    sessionStorage.setItem("vite_preload_reload", now.toString());
+    window.location.reload();
+  }
+});
+
 createRoot(document.getElementById("root")!).render(<App />);

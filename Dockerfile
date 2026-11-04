@@ -48,15 +48,30 @@ server {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
 
-    # Service worker — heç vaxt cache edilməməlidir (yeni SW dərhal tətbiq olunsun)
-    location ~* (sw\.js|workbox-.*\.js)$ {
-        expires off;
+    # Service worker & workbox cleanup — heç vaxt cache edilməməlidir
+    location ~* (sw\.js|workbox-.*\.js|registerSW\.js)$ {
+        expires -1;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
         add_header Pragma "no-cache";
+        try_files $uri =204;
     }
 
-    # Static assets - uzun müddətli cache
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    # CSS assets - missing chunks fallback to empty CSS (prevents Workbox 404 bad-precaching)
+    location ~* \.css$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri /assets/fallback-style.css;
+    }
+
+    # JS assets - missing chunks fallback to reload handler (prevents Workbox 404 & white screen)
+    location ~* \.js$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri /assets/fallback-chunk.js;
+    }
+
+    # Static media assets - uzun müddətli cache
+    location ~* \.(png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
