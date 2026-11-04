@@ -66,5 +66,6 @@ supabase-docker/volumes/snippets/
 
 # Böyük sınaq məlumatları və verilənlər bazası təhlükəsizlik nüsxələri
 /data/
+/imports/
 /scripts/backups/
 /scripts/archive/
