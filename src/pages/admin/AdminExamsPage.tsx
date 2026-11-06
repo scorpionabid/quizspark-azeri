@@ -839,33 +839,101 @@ export default function AdminExamsPage() {
         </button>
       </div>
 
-      {/* OLIMPIADA HIGHLIGHT CARD */}
+      {/* OLIMPIADA HIGHLIGHT CARD & 3 SESSIONS OVERVIEW */}
       {isOlympiad && (
-        <Card className="border-amber-200 dark:border-amber-900/60 bg-gradient-to-r from-amber-50/70 via-white to-orange-50/50 dark:from-slate-900 dark:to-slate-900 shadow-sm">
-          <CardHeader className="p-4 pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-              <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                <Trophy className="w-5 h-5 text-amber-600" /> Zəfər Olimpiadası — Qəbələ Rayon Mərhələsi (03 Noyabr 2026)
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                Qəbələ rayon ümumtəhsil məktəblərinin VIII-XI sinif şagirdlərinin 8 fənn üzrə rəsmi imtahan nəticələri və məktəb protokolları
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-amber-800 border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-xs font-bold">
-                8 Fənn • 4 Sinif (VIII-XI)
-              </Badge>
-              <Button
-                size="sm"
-                onClick={() => setExportModalOpen(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 h-8"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Quizləri Seç və İxrac Et (.xlsx)</span>
-              </Button>
-            </div>
-          </CardHeader>
-        </Card>
+        <div className="space-y-3">
+          <Card className="border-amber-200 dark:border-amber-900/60 bg-gradient-to-r from-amber-50/70 via-white to-orange-50/50 dark:from-slate-900 dark:to-slate-900 shadow-sm">
+            <CardHeader className="p-4 pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                  <Trophy className="w-5 h-5 text-amber-600" /> Zəfər Olimpiadası — Final Mərhələsi (Şəki 11 №-li Məktəb)
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                  909 finalçı şagirdin 3 seans üzrə rəsmi imtahan qrafiki, nəticələri və seans şifrələri
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-amber-800 border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-xs font-bold">
+                  14 Quiz • 3 Seans (Bakı vaxtı)
+                </Badge>
+                <Button
+                  size="sm"
+                  onClick={() => setExportModalOpen(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 h-8"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Quizləri Seç və İxrac Et (.xlsx)</span>
+                </Button>
+              </div>
+            </CardHeader>
+          </Card>
+
+          {/* 3 SESSIONS OVERVIEW CARDS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Session 1 */}
+            <Card className="border-blue-200 dark:border-blue-900/60 bg-blue-50/30 dark:bg-blue-950/20 shadow-sm">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-blue-900 dark:text-blue-200 text-sm flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-blue-600" /> I SESİYA
+                  </span>
+                  <Badge className="bg-blue-600 text-white font-mono font-bold text-xs px-2.5">
+                    alma18
+                  </Badge>
+                </div>
+                <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                  <p><strong>İmtahan:</strong> 10:30 – 12:30 <span className="text-[10px] text-muted-foreground">(Bakı vaxtı)</span></p>
+                  <p><strong>Qeydiyyat:</strong> 10:00 (301 şagird)</p>
+                  <p className="text-[11px] text-muted-foreground pt-1 border-t border-blue-200/60 dark:border-blue-900/60">
+                    Riyaziyyat AYQ, Azərb. dili AYQ, Coğrafiya AYQ & YYQ
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Session 2 */}
+            <Card className="border-amber-200 dark:border-amber-900/60 bg-amber-50/30 dark:bg-amber-950/20 shadow-sm">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-amber-900 dark:text-amber-200 text-sm flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-amber-600" /> II SESİYA
+                  </span>
+                  <Badge className="bg-amber-600 text-white font-mono font-bold text-xs px-2.5">
+                    armud12
+                  </Badge>
+                </div>
+                <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                  <p><strong>İmtahan:</strong> 13:00 – 15:00 <span className="text-[10px] text-muted-foreground">(Bakı vaxtı)</span></p>
+                  <p><strong>Qeydiyyat:</strong> 12:30 (305 şagird)</p>
+                  <p className="text-[11px] text-muted-foreground pt-1 border-t border-amber-200/60 dark:border-amber-900/60">
+                    Riyaziyyat YYQ, Tarix AYQ & YYQ, Fizika AYQ & YYQ
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Session 3 */}
+            <Card className="border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-sm">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-emerald-900 dark:text-emerald-200 text-sm flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-emerald-600" /> III SESİYA
+                  </span>
+                  <Badge className="bg-emerald-600 text-white font-mono font-bold text-xs px-2.5">
+                    xurma82
+                  </Badge>
+                </div>
+                <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                  <p><strong>İmtahan:</strong> 15:30 – 17:30 <span className="text-[10px] text-muted-foreground">(Bakı vaxtı)</span></p>
+                  <p><strong>Qeydiyyat:</strong> 15:00 (298 şagird)</p>
+                  <p className="text-[11px] text-muted-foreground pt-1 border-t border-emerald-200/60 dark:border-emerald-900/60">
+                    Azərb. dili & Ədəbiyyat YYQ, Kimya AYQ & YYQ, Biologiya AYQ & YYQ
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       )}
 
       {/* SECURITY / PORTAL LOCK CONTROL CARD (Official exam only) */}

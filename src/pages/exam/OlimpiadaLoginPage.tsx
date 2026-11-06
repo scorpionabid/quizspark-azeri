@@ -69,6 +69,8 @@ interface ParticipantData {
   target_share_code?: string | null;
   quiz_title?: string | null;
   quiz_duration?: number | null;
+  session_number?: number;
+  session_time?: string;
   is_completed?: boolean;
   completed_score?: number | null;
   completed_at?: string | null;
@@ -686,7 +688,41 @@ export default function OlimpiadaLoginPage() {
                           </div>
 
                           {/* Quiz Assignment Details */}
-                          <div className="pt-2 border-t border-emerald-500/20">
+                          <div className="pt-2 border-t border-emerald-500/20 space-y-2">
+                            {/* Session Schedule Box */}
+                            <div className="p-3 rounded-xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-blue-500/10 border border-blue-500/25 space-y-1.5">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-extrabold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  {participant.session_number === 1
+                                    ? 'I SESİYA'
+                                    : participant.session_number === 2
+                                    ? 'II SESİYA'
+                                    : 'III SESİYA'}
+                                </span>
+                                <Badge variant="outline" className="text-[10px] font-bold border-blue-500/30 text-blue-700 dark:text-blue-300 bg-white/80 dark:bg-slate-900/80">
+                                  Şəki 11 №-li məktəb
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-blue-500/15">
+                                <div>
+                                  <span className="text-muted-foreground block text-[10px]">İmtahan saatı:</span>
+                                  <strong className="text-foreground text-xs">{participant.session_time || '10:30 – 12:30'}</strong>
+                                  <span className="text-[9px] text-muted-foreground block">(Bakı vaxtı ilə)</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-muted-foreground block text-[10px]">Qeydiyyat saatı:</span>
+                                  <strong className="text-foreground text-xs">
+                                    {participant.session_number === 1
+                                      ? '10:00'
+                                      : participant.session_number === 2
+                                      ? '12:30'
+                                      : '15:00'}
+                                  </strong>
+                                </div>
+                              </div>
+                            </div>
+
                             {participant.subject ? (
                               <div className="p-2.5 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-emerald-500/20 flex items-center justify-between">
                                 <span className="text-[11px] text-muted-foreground font-semibold">Təyin olunmuş Fənn:</span>
@@ -945,6 +981,39 @@ export default function OlimpiadaLoginPage() {
                           })}
                         </div>
                       </div>
+
+                      {/* Backup Session Schedule Preview */}
+                      {(() => {
+                        const gradeNum = parseInt(backupGrade, 10);
+                        const isYyq = gradeNum >= 10;
+                        let sNum = 1;
+                        let sTime = '10:30 – 12:30';
+                        if (backupSubject === 'Riyaziyyat') {
+                          sNum = isYyq ? 2 : 1;
+                          sTime = isYyq ? '13:00 – 15:00' : '10:30 – 12:30';
+                        } else if (backupSubject === 'Azərbaycan dili') {
+                          sNum = isYyq ? 3 : 1;
+                          sTime = isYyq ? '15:30 – 17:30' : '10:30 – 12:30';
+                        } else if (backupSubject === 'Coğrafiya') {
+                          sNum = 1;
+                          sTime = '10:30 – 12:30';
+                        } else if (backupSubject === 'Tarix' || backupSubject === 'Fizika') {
+                          sNum = 2;
+                          sTime = '13:00 – 15:00';
+                        } else if (backupSubject === 'Kimya' || backupSubject === 'Biologiya') {
+                          sNum = 3;
+                          sTime = '15:30 – 17:30';
+                        }
+                        return (
+                          <div className="p-2.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/50 flex items-center justify-between text-xs">
+                            <span className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-blue-600" />
+                              {sNum === 1 ? 'I SESİYA' : sNum === 2 ? 'II SESİYA' : 'III SESİYA'} ({sTime})
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">Bakı vaxtı ilə</span>
+                          </div>
+                        );
+                      })()}
 
                       {/* UTIS Code (Optional in Backup mode) */}
                       <div className="space-y-1.5">

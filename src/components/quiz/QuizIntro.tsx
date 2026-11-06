@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Trophy, RotateCcw, CheckCircle, Lock } from "lucide-react";
+import { ArrowLeft, Trophy, RotateCcw, CheckCircle, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -67,6 +67,7 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
     return '';
   });
   const [passwordError, setPasswordError] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyPassword = useVerifyQuizPassword();
 
@@ -281,27 +282,43 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <Lock className="h-4 w-4 text-primary" />
-                    Giriş şifrəsi tələb olunur
+                    {isOlympiadQuiz ? "İmtahana Giriş Şifrəsi" : "Giriş şifrəsi tələb olunur"}
                   </label>
-                  <Input
-                    type="password"
-                    placeholder={isOlympiadQuiz ? "Nəzarətçinin təqdim etdiyi şifrəni yazın..." : "Şifrəni daxil edin..."}
-                    value={passwordInput}
-                    onChange={e => { setPasswordInput(e.target.value); setPasswordError(false); }}
-                    className={cn(
-                      "rounded-xl",
-                      passwordError && "border-destructive focus-visible:ring-destructive"
-                    )}
-                    onKeyDown={e => { if (e.key === 'Enter') handleStart(); }}
-                    disabled={isVerifying}
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder={isOlympiadQuiz ? "Nəzarətçinin lövhədə elan etdiyi şifrəni yazın..." : "Şifrəni daxil edin..."}
+                      value={passwordInput}
+                      onChange={e => { setPasswordInput(e.target.value); setPasswordError(false); }}
+                      className={cn(
+                        "rounded-xl pr-10",
+                        passwordError && "border-destructive focus-visible:ring-destructive"
+                      )}
+                      onKeyDown={e => { if (e.key === 'Enter') handleStart(); }}
+                      disabled={isVerifying}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(prev => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                      tabIndex={-1}
+                      title={showPassword ? "Şifrəni gizlət" : "Şifrəni göstər"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </button>
+                  </div>
                   {isOlympiadQuiz && !passwordError && (
                     <p className="text-xs text-muted-foreground">
-                      Hamının eyni anda başlaması üçün otaqda elan edilən şifrəni daxil edin.
+                      Bütün şagirdlərin eyni anda başlaması üçün otaqda lövhədə elan edilən seans şifrəsini daxil edin.
                     </p>
                   )}
                   {passwordError && (
-                    <p className="text-xs text-destructive font-medium">Şifrə yanlışdır. Yenidən cəhd edin.</p>
+                    <p className="text-xs text-destructive font-medium">Şifrə yanlışdır. Zəhmət olmasa lövhədəki şifrəni dəqiq daxil edin.</p>
                   )}
                 </div>
               )}
