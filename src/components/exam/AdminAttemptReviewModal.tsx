@@ -610,8 +610,8 @@ export const AdminAttemptReviewModal: React.FC<AdminAttemptReviewModalProps> = (
                       {!effectiveIsCorrect && (
                         <div className="p-2.5 rounded-xl border flex items-start gap-2 bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200">
                           <span className="font-semibold shrink-0">Düzgün cavab:</span>
-                          <span className="flex-1 font-medium">
-                            {q.correct_answer}
+                          <span className="flex-1 font-medium" title={q.correct_answer}>
+                            {q.correct_answer?.split('|')[0]?.trim() || q.correct_answer}
                           </span>
                         </div>
                       )}

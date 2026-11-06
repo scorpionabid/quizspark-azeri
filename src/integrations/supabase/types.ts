@@ -1773,6 +1773,9 @@ export type Database = {
           show_feedback: boolean | null
           feedback_timing?: string | null
           show_question_nav: boolean
+          enable_calculator?: boolean
+          enable_periodic_table?: boolean
+          enable_scratchpad?: boolean
           shuffle_questions: boolean | null
           specialty_key: string | null
           strict_mode: boolean
@@ -1812,6 +1815,9 @@ export type Database = {
           show_feedback?: boolean | null
           feedback_timing?: string | null
           show_question_nav?: boolean
+          enable_calculator?: boolean
+          enable_periodic_table?: boolean
+          enable_scratchpad?: boolean
           shuffle_questions?: boolean | null
           specialty_key?: string | null
           strict_mode?: boolean
@@ -1851,6 +1857,9 @@ export type Database = {
           show_feedback?: boolean | null
           feedback_timing?: string | null
           show_question_nav?: boolean
+          enable_calculator?: boolean
+          enable_periodic_table?: boolean
+          enable_scratchpad?: boolean
           shuffle_questions?: boolean | null
           specialty_key?: string | null
           strict_mode?: boolean

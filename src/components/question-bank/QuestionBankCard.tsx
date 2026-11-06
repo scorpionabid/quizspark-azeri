@@ -152,7 +152,7 @@ export function QuestionBankCard({ question, isSelected, onSelect, onSimilar }: 
           >
             <div className="mt-5 pt-5 border-t border-border/50 space-y-4 animate-in fade-in duration-500">
                {/* Options if multiple choice */}
-               {Array.isArray(question.options) && (
+               {['multiple_choice', 'single_choice', 'multiple_select', 'true_false'].includes(question.question_type) && Array.isArray(question.options) && (
                  <div className="space-y-2">
                    <p className="font-black text-muted-foreground uppercase tracking-widest text-[9px] px-1">Seçimlər</p>
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -174,10 +174,30 @@ export function QuestionBankCard({ question, isSelected, onSelect, onSimilar }: 
                )}
 
                {/* Correct Answer for other types */}
-               {!Array.isArray(question.options) && question.correct_answer && (
-                 <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
-                    <p className="font-black text-emerald-700/70 uppercase tracking-widest text-[9px] mb-1">Düzgün Cavab</p>
-                    <div className="text-emerald-700 font-bold text-sm"><MathRenderer text={question.correct_answer} /></div>
+               {(!['multiple_choice', 'single_choice', 'multiple_select', 'true_false'].includes(question.question_type) || !Array.isArray(question.options)) && question.correct_answer && (
+                 <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl space-y-2">
+                    <p className="font-black text-emerald-700/70 uppercase tracking-widest text-[9px]">Düzgün Cavab</p>
+                    <div className="text-emerald-700 font-bold text-sm">
+                      <MathRenderer text={question.correct_answer.split('|')[0]?.trim() || question.correct_answer} />
+                    </div>
+                    {question.correct_answer.includes('|') && (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-emerald-500/10">
+                        <span className="text-[10px] font-semibold text-muted-foreground">Qəbul edilən variantlar:</span>
+                        {question.correct_answer
+                          .split('|')
+                          .slice(1)
+                          .map(v => v.trim())
+                          .filter(Boolean)
+                          .map((variant, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono"
+                            >
+                              {variant}
+                            </span>
+                          ))}
+                      </div>
+                    )}
                  </div>
                )}
 

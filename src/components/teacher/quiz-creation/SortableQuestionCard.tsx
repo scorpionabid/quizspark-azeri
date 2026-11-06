@@ -65,8 +65,15 @@ export function getAnswerSummary(q: DraftQuestion): string {
         case 'fill_blank':
             return q.fill_blank_template ?? 'Şablon yoxdur';
         case 'essay':
-        case 'short_answer':
             return q.correct_answer ? q.correct_answer.substring(0, 60) : 'Açıq cavab';
+        case 'short_answer': {
+            if (!q.correct_answer) return 'Açıq cavab';
+            const variants = q.correct_answer.split('|').map(v => v.trim()).filter(Boolean);
+            if (variants.length > 1) {
+                return `${variants[0]} (+${variants.length - 1} variant)`;
+            }
+            return variants[0]?.substring(0, 60) || 'Açıq cavab';
+        }
         default:
             return q.correct_answer ? q.correct_answer.substring(0, 60) : 'Cavab seçilməyib';
     }

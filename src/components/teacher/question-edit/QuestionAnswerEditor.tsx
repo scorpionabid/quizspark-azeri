@@ -168,8 +168,13 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
                         id="correct_answer"
                         value={formData.correct_answer}
                         onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value })}
-                        placeholder="Düzgün cavabı daxil edin"
+                        placeholder="Düzgün cavabı daxil edin (məs: 43,2 | 43.2 və ya 1, 3, 5 | 135)"
                     />
+                    {formData.question_type === 'short_answer' && (
+                        <p className="text-[11px] text-muted-foreground">
+                            İpucu: Alternativ qəbul edilən cavabları <code className="px-1 py-0.5 bg-muted rounded">|</code> işarəsi ilə ayıra bilərsiniz. Sistem həmçinin böyük-kiçik hərf, vergül/nöqtə, ölçü vahidi və ingilis klaviaturası fərqlərini avtomatik tanıyır.
+                        </p>
+                    )}
                     {validationErrors.correct_answer && (
                         <p className="text-xs text-destructive">{validationErrors.correct_answer}</p>
                     )}

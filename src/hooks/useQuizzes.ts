@@ -39,6 +39,9 @@ export interface Quiz {
   questions_per_page?: number;
   allow_bookmarks?: boolean;
   show_question_nav?: boolean;
+  enable_calculator?: boolean;
+  enable_periodic_table?: boolean;
+  enable_scratchpad?: boolean;
   background_image_url?: string | null;
   share_code?: string | null;
   has_password?: boolean;

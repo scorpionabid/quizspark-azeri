@@ -459,6 +459,65 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                             )}
                                         />
                                     </div>
+
+                                    {/* Köməkçi Alətlərin Görünmə İdarəetməsi */}
+                                    <div className="mt-5 pt-4 border-t border-border/60">
+                                        <div className="mb-3">
+                                            <h4 className="text-sm font-semibold text-foreground">
+                                                Köməkçi Alətlər (Sual Xəritəsinin Altında)
+                                            </h4>
+                                            <p className="text-xs text-muted-foreground">
+                                                İmtahan zamanı sağ paneldə şagirdlər üçün hansı köməkçi alətlərin aktiv olacağını seçin
+                                            </p>
+                                        </div>
+                                        <div className="grid gap-4 sm:grid-cols-3">
+                                            <FormField
+                                                control={form.control}
+                                                name="enable_calculator"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
+                                                        <div className="space-y-0.5">
+                                                            <FormLabel className="text-sm cursor-pointer">🧮 Hesab Makinası</FormLabel>
+                                                            <FormDescription className="text-xs">Elmi/məktəb kalkulyatoru</FormDescription>
+                                                        </div>
+                                                        <FormControl>
+                                                            <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="enable_periodic_table"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
+                                                        <div className="space-y-0.5">
+                                                            <FormLabel className="text-sm cursor-pointer">🧪 Mendeleyev Cədvəli</FormLabel>
+                                                            <FormDescription className="text-xs">Dövri sistem və aktivlik sırası</FormDescription>
+                                                        </div>
+                                                        <FormControl>
+                                                            <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="enable_scratchpad"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4">
+                                                        <div className="space-y-0.5">
+                                                            <FormLabel className="text-sm cursor-pointer">✏️ Qələm və Pozan</FormLabel>
+                                                            <FormDescription className="text-xs">Bağlanan kimi sıfırlanan qaralama</FormDescription>
+                                                        </div>
+                                                        <FormControl>
+                                                            <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
                                 </AccordionContent>
                             </AccordionItem>
                             

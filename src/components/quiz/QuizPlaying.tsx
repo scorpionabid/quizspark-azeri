@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { QuestionMap } from "./QuestionMap";
+import { ExamToolsPanel } from "./tools/ExamToolsPanel";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { QuestionRenderer } from "./QuestionRenderer";
@@ -163,7 +164,14 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   // Keyboard Navigation & Option Selection
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+          target.closest('[data-exam-tools="true"]'))
+      ) {
+        return;
+      }
 
       // Option selection with 1-5 or A-E
       if (pageQuestions.length === 1) {
@@ -229,11 +237,11 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
         <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] pointer-events-none" />
       )}
 
-      <div className="relative z-10 p-3 sm:p-8 pt-3 sm:pt-6 pb-36 sm:pb-12 flex flex-col md:flex-row gap-6 max-w-6xl mx-auto h-full">
+      <div className="relative p-3 sm:p-8 pt-3 sm:pt-6 pb-36 sm:pb-12 flex flex-col md:flex-row gap-6 max-w-6xl mx-auto h-full">
         
         {/* Main Content Area */}
         <div className="flex-1 max-w-3xl lg:max-w-4xl w-full mx-auto">
-            <div className="mb-4 sm:mb-6 flex items-center justify-between">
+            <div className="mb-4 sm:mb-6 flex items-center justify-between relative z-[50]">
             <div className="flex items-center gap-2">
               <Button
                   variant="ghost"
@@ -277,7 +285,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                            {t('map')}
                         </Button>
                       </SheetTrigger>
-                      <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] p-5 flex flex-col">
+                      <SheetContent side="bottom" className="rounded-t-3xl max-h-[88vh] p-5 flex flex-col overflow-y-auto">
                         <SheetHeader className="mb-3 text-left">
                           <SheetTitle className="flex items-center gap-2">
                             <LayoutGrid className="w-5 h-5 text-primary" />
@@ -298,8 +306,16 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                           onSelectQuestion={() => setIsMobileMenuOpen(false)}
                           language={language}
                           t={t}
-                          maxHeightClass="max-h-[50vh]"
+                          maxHeightClass="max-h-[40vh]"
                         />
+                        <div className="mt-4">
+                          <ExamToolsPanel
+                            enableCalculator={quiz.enable_calculator ?? true}
+                            enablePeriodicTable={quiz.enable_periodic_table ?? true}
+                            enableScratchpad={quiz.enable_scratchpad ?? true}
+                            currentPage={currentPage}
+                          />
+                        </div>
                       </SheetContent>
                    </Sheet>
                   )}
@@ -573,40 +589,50 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
 
         {/* Desktop Side Navigation Panel */}
         {quiz.show_question_nav && (
-            <div className="hidden lg:block w-72 shrink-0">
-                <div className="sticky top-8 bg-card/90 backdrop-blur-md border border-border/50 rounded-2xl p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3 text-foreground font-semibold border-b pb-2.5">
-                        <LayoutGrid className="w-5 h-5 text-primary" />
-                        <h2>{t('question_map')}</h2>
-                    </div>
-                    <QuestionMap
-                      totalPages={totalPages}
-                      currentPage={currentPage}
-                      allQuestions={allQuestions}
-                      questionsPerPage={quiz.questions_per_page || 1}
-                      localAnswers={localAnswers}
-                      bookmarkedQuestions={bookmarkedQuestions}
-                      allowBacktracking={quiz.allow_backtracking}
-                      allowBookmarks={quiz.allow_bookmarks}
-                      isInstantFeedback={isInstantFeedback}
-                      jumpToPage={jumpToPage}
-                      language={language}
-                      t={t}
-                      maxHeightClass="max-h-[min(340px,40vh)]"
-                    />
+            <div className="hidden lg:block w-72 shrink-0 relative z-[50] pointer-events-auto">
+                <div className="sticky top-6 space-y-3.5 max-h-[calc(100vh-3rem)] overflow-y-auto pr-0.5">
+                    <div className="bg-card/90 backdrop-blur-md border border-border/50 rounded-2xl p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3 text-foreground font-semibold border-b pb-2.5">
+                            <LayoutGrid className="w-5 h-5 text-primary" />
+                            <h2>{t('question_map')}</h2>
+                        </div>
+                        <QuestionMap
+                          totalPages={totalPages}
+                          currentPage={currentPage}
+                          allQuestions={allQuestions}
+                          questionsPerPage={quiz.questions_per_page || 1}
+                          localAnswers={localAnswers}
+                          bookmarkedQuestions={bookmarkedQuestions}
+                          allowBacktracking={quiz.allow_backtracking}
+                          allowBookmarks={quiz.allow_bookmarks}
+                          isInstantFeedback={isInstantFeedback}
+                          jumpToPage={jumpToPage}
+                          language={language}
+                          t={t}
+                          maxHeightClass="max-h-[min(300px,35vh)]"
+                        />
 
-                    {!isInstantFeedback && (
-                      <div className="mt-4 pt-3 border-t border-border/40">
-                        <Button
-                          type="button"
-                          className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-none shadow-md shadow-emerald-600/20"
-                          onClick={() => setShowFinalSubmitModal(true)}
-                        >
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          {t('finish_exam')}
-                        </Button>
-                      </div>
-                    )}
+                        {!isInstantFeedback && (
+                          <div className="mt-4 pt-3 border-t border-border/40">
+                            <Button
+                              type="button"
+                              className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-none shadow-md shadow-emerald-600/20"
+                              onClick={() => setShowFinalSubmitModal(true)}
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                              {t('finish_exam')}
+                            </Button>
+                          </div>
+                        )}
+                    </div>
+
+                    {/* Collapsible Helper Tools (Calculator, Mendeleev Table, Auto-Resetting Scratchpad) */}
+                    <ExamToolsPanel
+                      enableCalculator={quiz.enable_calculator ?? true}
+                      enablePeriodicTable={quiz.enable_periodic_table ?? true}
+                      enableScratchpad={quiz.enable_scratchpad ?? true}
+                      currentPage={currentPage}
+                    />
                 </div>
             </div>
         )}

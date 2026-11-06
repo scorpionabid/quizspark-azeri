@@ -41,6 +41,9 @@ export const quizMetadataSchema = z.object({
     questions_per_page: z.number().int().default(1),
     allow_bookmarks: z.boolean().default(true),
     show_question_nav: z.boolean().default(true),
+    enable_calculator: z.boolean().default(true),
+    enable_periodic_table: z.boolean().default(true),
+    enable_scratchpad: z.boolean().default(true),
     background_image_url: z.string().optional().nullable().or(z.literal('')),
 }).refine(
     (data) => {

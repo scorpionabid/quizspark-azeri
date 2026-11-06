@@ -217,6 +217,9 @@ export default function CreateQuizPage() {
       questions_per_page: 1,
       allow_bookmarks: true,
       show_question_nav: true,
+      enable_calculator: true,
+      enable_periodic_table: true,
+      enable_scratchpad: true,
       background_image_url: '',
     },
   });
@@ -251,6 +254,9 @@ export default function CreateQuizPage() {
         questions_per_page: existingQuiz.questions_per_page ?? 1,
         allow_bookmarks: existingQuiz.allow_bookmarks ?? true,
         show_question_nav: existingQuiz.show_question_nav ?? true,
+        enable_calculator: existingQuiz.enable_calculator ?? true,
+        enable_periodic_table: existingQuiz.enable_periodic_table ?? true,
+        enable_scratchpad: existingQuiz.enable_scratchpad ?? true,
         background_image_url: existingQuiz.background_image_url || '',
       });
     }
@@ -582,6 +588,9 @@ export default function CreateQuizPage() {
         questions_per_page: metadata.questions_per_page,
         allow_bookmarks: metadata.allow_bookmarks,
         show_question_nav: metadata.show_question_nav,
+        enable_calculator: metadata.enable_calculator,
+        enable_periodic_table: metadata.enable_periodic_table,
+        enable_scratchpad: metadata.enable_scratchpad,
         background_image_url: metadata.background_image_url || null,
       };
 

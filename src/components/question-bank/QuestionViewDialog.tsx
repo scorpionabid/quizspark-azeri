@@ -360,10 +360,27 @@ export function QuestionViewDialog({
 
           {/* Correct Answer (for other types like short_answer, essay, code) */}
           {!showStandardOptions && !['matching', 'ordering', 'fill_blank', 'numerical'].includes(question.question_type) && (
-            <div>
-              <h4 className="font-medium mb-2">Düzgün Cavab</h4>
-              <div className="p-3 bg-green-50/50 dark:bg-green-900/10 rounded-md border border-green-200 dark:border-green-800 font-mono text-sm">
-                <MathRenderer text={question.correct_answer} />
+            <div className="space-y-2">
+              <h4 className="font-medium">Düzgün Cavab</h4>
+              <div className="p-3 bg-green-50/50 dark:bg-green-900/10 rounded-md border border-green-200 dark:border-green-800 space-y-2">
+                <div className="font-mono text-sm font-bold text-green-700 dark:text-green-400">
+                  <MathRenderer text={question.correct_answer?.split('|')[0]?.trim() || question.correct_answer} />
+                </div>
+                {question.correct_answer?.includes('|') && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-green-200/60 dark:border-green-800/60">
+                    <span className="text-xs font-medium text-muted-foreground">Alternativ yazılışlar:</span>
+                    {question.correct_answer
+                      .split('|')
+                      .slice(1)
+                      .map(v => v.trim())
+                      .filter(Boolean)
+                      .map((variant, idx) => (
+                        <Badge key={idx} variant="secondary" className="font-mono text-xs">
+                          {variant}
+                        </Badge>
+                      ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

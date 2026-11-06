@@ -69,3 +69,4 @@ supabase-docker/volumes/snippets/
 /imports/
 /scripts/backups/
 /scripts/archive/
+/backups/
