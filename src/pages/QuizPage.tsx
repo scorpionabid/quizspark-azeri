@@ -76,6 +76,7 @@ export default function QuizPage() {
     return ordered;
   }, [questions, questionOrder]);
 
+  const [quizState, setQuizState] = useState<QuizState>('intro');
   const { open: isSidebarOpen, setOpen: setSidebarOpen } = useSidebar();
   const isSidebarOpenRef = useRef(isSidebarOpen);
   const prevSidebarOpenRef = useRef<boolean | null>(null);
@@ -107,8 +108,6 @@ export default function QuizPage() {
       }
     };
   }, [setSidebarOpen]);
-
-  const [quizState, setQuizState] = useState<QuizState>('intro');
   const [currentPage, setCurrentPage] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [localAnswers, setLocalAnswers] = useState<Record<string, string>>({});
