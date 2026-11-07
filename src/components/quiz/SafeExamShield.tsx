@@ -296,23 +296,40 @@ export const SafeExamShield: React.FC<SafeExamShieldProps> = ({
       {/* 1. Fullscreen Entry & Recovery Modal */}
       <Dialog open={showFullscreenBlock} onOpenChange={() => {}}>
         <DialogContent
-          className="sm:max-w-md border-amber-300 dark:border-amber-800 bg-card/95 backdrop-blur-xl [&>button]:hidden shadow-2xl"
+          className={cn(
+            "sm:max-w-lg p-6 sm:p-8 backdrop-blur-xl [&>button]:hidden shadow-2xl transition-all",
+            hasAcknowledgedIntro
+              ? "border-4 border-red-600 dark:border-red-500 bg-gradient-to-b from-red-50 via-card to-card dark:from-red-950/50 dark:via-card dark:to-card shadow-red-600/30"
+              : "border-amber-300 dark:border-amber-800 bg-card/95"
+          )}
           onPointerDownOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <DialogHeader className="text-center space-y-3">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-600 dark:text-amber-400">
-              <Shield className="w-8 h-8 animate-pulse" />
+          <DialogHeader className="text-center space-y-4">
+            <div className={cn(
+              "w-20 h-20 rounded-3xl flex items-center justify-center mx-auto transition-transform",
+              hasAcknowledgedIntro
+                ? "bg-red-600/15 border-2 border-red-600/40 text-red-600 animate-pulse"
+                : "bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400"
+            )}>
+              <Shield className="w-10 h-10 animate-pulse" />
             </div>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              {hasAcknowledgedIntro ? 'Tam Ekran Rejimi Tərk Edildi!' : 'Təhlükəsiz İmtahan Rejimi (Safe Exam)'}
+            <DialogTitle className={cn(
+              "text-2xl font-black tracking-tight",
+              hasAcknowledgedIntro ? "text-red-600 dark:text-red-400" : "text-foreground"
+            )}>
+              {hasAcknowledgedIntro ? '⚠️ TAM EKRAN REJİMİ TƏRK EDİLDİ!' : 'Təhlükəsiz İmtahan Rejimi (Safe Exam)'}
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
               {hasAcknowledgedIntro ? (
-                <>
-                  İmtahan qaydalarına əsasən sualları görmək üçün səhifə mütləq <strong className="text-foreground">Tam Ekran</strong> rejimində olmalıdır.
-                  Qayda pozuntuları sistem tərəfindən qeydə alınır.
-                </>
+                <div className="space-y-3">
+                  <p className="text-foreground font-medium">
+                    İmtahan qaydalarına əsasən sualları görmək üçün səhifə mütləq <strong className="text-red-600 dark:text-red-400 font-bold">Tam Ekran</strong> rejimində olmalıdır.
+                  </p>
+                  <div className="p-3 rounded-xl bg-red-600/10 border border-red-600/20 text-xs text-red-700 dark:text-red-300 font-semibold">
+                    Ekrandan kənara çıxış və pəncərəni bağlamaq cəhdləri sistem tərəfindən qeydə alınır.
+                  </div>
+                </div>
               ) : (
                 <>
                   Bu imtahan Təhlükəsiz İmtahan Qaydaları (Anti-cheat) ilə qorunur:
@@ -334,15 +351,20 @@ export const SafeExamShield: React.FC<SafeExamShieldProps> = ({
               )}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4 sm:justify-center">
+          <DialogFooter className="mt-5 sm:justify-center">
             <Button
               type="button"
               size="lg"
               onClick={requestFullscreen}
-              className="w-full h-12 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-lg shadow-amber-600/20"
+              className={cn(
+                "w-full h-13 rounded-2xl font-black text-base shadow-xl text-white",
+                hasAcknowledgedIntro
+                  ? "bg-red-600 hover:bg-red-700 shadow-red-600/30"
+                  : "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+              )}
             >
-              <Maximize2 className="w-4 h-4 mr-2" />
-              <span>{hasAcknowledgedIntro ? 'Tam Ekrana Qayıt' : 'Tam Ekrana Keç və Başla'}</span>
+              <Maximize2 className="w-5 h-5 mr-2" />
+              <span>{hasAcknowledgedIntro ? 'Dərhal Tam Ekrana Qayıt' : 'Tam Ekrana Keç və Başla'}</span>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -351,41 +373,59 @@ export const SafeExamShield: React.FC<SafeExamShieldProps> = ({
       {/* 2. Violation Warning Modal (When candidate returns from tab/window switch) */}
       <Dialog open={showWarningModal && !showFullscreenBlock && !isLockedOut} onOpenChange={setShowWarningModal}>
         <DialogContent
-          className="sm:max-w-md border-destructive/40 bg-card/95 backdrop-blur-xl shadow-2xl [&>button]:hidden"
+          className="sm:max-w-xl md:max-w-2xl border-4 border-red-600 dark:border-red-500 bg-gradient-to-b from-red-50 via-card to-card dark:from-red-950/60 dark:via-card dark:to-card p-6 sm:p-8 shadow-2xl shadow-red-600/30 [&>button]:hidden"
           onPointerDownOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
-          <DialogHeader className="text-center space-y-3">
-            <div className="w-16 h-16 rounded-2xl bg-destructive/10 border border-destructive/30 flex items-center justify-center mx-auto text-destructive">
-              <AlertTriangle className="w-8 h-8 animate-bounce" />
+          <DialogHeader className="text-center space-y-4">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-red-600/15 border-2 border-red-600/40 flex items-center justify-center mx-auto text-red-600 shadow-inner animate-pulse">
+              <AlertTriangle className="w-14 h-14 sm:w-16 sm:h-16 text-red-600" />
             </div>
-            <DialogTitle className="text-xl font-bold text-destructive">
-              Qayda Pozuntusu Qeydə Alındı!
+
+            <DialogTitle className="text-2xl sm:text-3xl font-black text-red-600 dark:text-red-400 tracking-tight">
+              ⚠️ DİQQƏT: QAYDA POZUNTUSU QEYDƏ ALINDI!
             </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-              İmtahan pəncərəsini və ya tabı tərk etdiniz.
-              <div className="mt-3 p-3 rounded-xl bg-destructive/5 border border-destructive/20 text-center font-semibold text-destructive">
-                Xəbərdarlıq: {violationCount} {maxLimit > 0 ? `/ ${maxLimit}` : ''}
-              </div>
-              {maxLimit > 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Qeyd: <strong className="text-foreground">{maxLimit} xəbərdarlıqdan sonra</strong> imtahanınız avtomatik dayandırılacaq və nəticəniz yekunlaşacaqdır.
+
+            <DialogDescription asChild>
+              <div className="space-y-4 text-sm text-foreground">
+                <p className="text-base sm:text-lg font-semibold text-foreground/90">
+                  İmtahan pəncərəsini və ya tabı tərk etdiniz.
                 </p>
-              )}
+
+                {/* Big Red Warning Counter Banner */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-red-600 text-white shadow-xl shadow-red-600/30 text-center">
+                  <div className="text-xs uppercase tracking-widest text-red-100 font-bold mb-1">
+                    Cari Pozuntu Göstəricisi
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black tracking-wide">
+                    XƏBƏRDARLIQ: {violationCount} {maxLimit > 0 ? `/ ${maxLimit}` : ''}
+                  </div>
+                </div>
+
+                {maxLimit > 0 ? (
+                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-900 dark:text-red-200 text-xs sm:text-sm leading-relaxed text-center font-medium">
+                    ⚠️ Qeyd: <strong className="text-red-600 dark:text-red-400 font-extrabold">{maxLimit} xəbərdarlıq həddinə çatdıqda</strong> imtahanınız avtomatik dayandırılacaq və nəticəniz yekunlaşacaqdır!
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Bu pozuntu audit jurnalında qeydə alındı və imtahan nəzarətçisinə təqdim olunacaq.
+                  </p>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4 sm:justify-center">
+
+          <DialogFooter className="mt-6 sm:justify-center">
             <Button
               type="button"
               size="lg"
-              variant="destructive"
-              className="w-full h-11 rounded-xl font-bold shadow-md shadow-destructive/20"
+              className="w-full h-14 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-base sm:text-lg shadow-xl shadow-red-600/30 transition-all hover:scale-[1.01]"
               onClick={() => {
                 setShowWarningModal(false);
                 setIsWindowBlurred(false);
               }}
             >
-              <span>Başa düşdüm, İmtahana Davam Et</span>
+              <span>Qaydaları Başa Düşdüm, İmtahana Qayıt</span>
             </Button>
           </DialogFooter>
         </DialogContent>
