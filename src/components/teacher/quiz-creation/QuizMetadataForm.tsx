@@ -379,10 +379,15 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                     render={({ field }) => (
                                                         <FormControl>
                                                             <Switch
-                                                                checked={field.value}
+                                                                checked={Boolean(field.value || form.watch('seb_config.enabled'))}
                                                                 onCheckedChange={(checked) => {
                                                                     field.onChange(checked);
-                                                                    form.setValue('seb_config.enabled', checked);
+                                                                    const currentSeb = form.getValues('seb_config') || {};
+                                                                    form.setValue('seb_config', {
+                                                                        ...currentSeb,
+                                                                        enabled: checked,
+                                                                    }, { shouldDirty: true, shouldValidate: true });
+                                                                    form.setValue('seb_config.enabled', checked, { shouldDirty: true, shouldValidate: true });
                                                                 }}
                                                             />
                                                         </FormControl>
@@ -390,7 +395,7 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                 />
                                             </div>
 
-                                            {form.watch('strict_mode') && (
+                                            {(form.watch('strict_mode') || form.watch('seb_config.enabled')) && (
                                                 <div className="pt-4 border-t border-red-200 dark:border-red-900/40 space-y-4 animate-in fade-in duration-200">
                                                     <div className="grid gap-4 sm:grid-cols-2">
                                                         {/* Fullscreen Enforce */}

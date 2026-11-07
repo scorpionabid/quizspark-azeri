@@ -14,7 +14,7 @@ export interface SafeExamConfig {
 
 export function getSafeExamConfig(quiz?: Partial<Quiz> | null): SafeExamConfig {
   const fromConfig = quiz?.seb_config;
-  const isEnabled = Boolean(fromConfig?.enabled ?? quiz?.strict_mode ?? false);
+  const isEnabled = Boolean(fromConfig?.enabled || quiz?.strict_mode);
   return {
     enabled: isEnabled,
     enforce_fullscreen: fromConfig?.enforce_fullscreen ?? true,

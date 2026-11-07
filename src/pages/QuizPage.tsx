@@ -80,34 +80,47 @@ export default function QuizPage() {
   const { open: isSidebarOpen, setOpen: setSidebarOpen } = useSidebar();
   const isSidebarOpenRef = useRef(isSidebarOpen);
   const prevSidebarOpenRef = useRef<boolean | null>(null);
+  const hasAutoCollapsedSidebarRef = useRef(false);
+  const setSidebarOpenRef = useRef(setSidebarOpen);
 
   useEffect(() => {
     isSidebarOpenRef.current = isSidebarOpen;
   }, [isSidebarOpen]);
 
-  // Auto-collapse sidebar when quiz enters 'playing' state to maximize question area
+  useEffect(() => {
+    setSidebarOpenRef.current = setSidebarOpen;
+  }, [setSidebarOpen]);
+
+  // Auto-collapse sidebar ONCE when quiz enters 'playing' state to maximize question area.
+  // Do not re-collapse if candidate explicitly opens the sidebar via header menu button.
   useEffect(() => {
     if (quizState === 'playing') {
-      if (prevSidebarOpenRef.current === null) {
-        prevSidebarOpenRef.current = isSidebarOpenRef.current;
+      if (!hasAutoCollapsedSidebarRef.current) {
+        hasAutoCollapsedSidebarRef.current = true;
+        if (prevSidebarOpenRef.current === null) {
+          prevSidebarOpenRef.current = isSidebarOpenRef.current;
+        }
+        setSidebarOpenRef.current(false);
       }
-      setSidebarOpen(false);
     } else if (quizState === 'result') {
       if (prevSidebarOpenRef.current) {
-        setSidebarOpen(true);
+        setSidebarOpenRef.current(true);
       }
       prevSidebarOpenRef.current = null;
+      hasAutoCollapsedSidebarRef.current = false;
+    } else {
+      hasAutoCollapsedSidebarRef.current = false;
     }
-  }, [quizState, setSidebarOpen]);
+  }, [quizState]);
 
   // Restore sidebar state if component unmounts while in playing state
   useEffect(() => {
     return () => {
       if (prevSidebarOpenRef.current) {
-        setSidebarOpen(true);
+        setSidebarOpenRef.current(true);
       }
     };
-  }, [setSidebarOpen]);
+  }, []);
   const [currentPage, setCurrentPage] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [localAnswers, setLocalAnswers] = useState<Record<string, string>>({});
