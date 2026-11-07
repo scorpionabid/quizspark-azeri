@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 // Hooks & Context
-import { useQuiz } from "@/hooks/useQuizzes";
+import { useQuiz, getSafeExamConfig } from "@/hooks/useQuizzes";
 import { useQuestions, Question } from "@/hooks/useQuestions";
 import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt, useExamHeartbeat } from "@/hooks/useQuizAttempts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -449,7 +449,7 @@ export default function QuizPage() {
     if (currentPage < totalPages - 1) {
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
-      const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
+      const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
       const targetSlice = displayQuestions.slice(nextPage * questionsPerPage, (nextPage + 1) * questionsPerPage);
       const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => latestAnswers.some(a => a.questionId === q.id && a.textAnswer && a.textAnswer.trim().length > 0));
       setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
@@ -487,7 +487,7 @@ export default function QuizPage() {
       else anyIncorrect = true;
     });
 
-    const isInstant = (quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam');
+    const isInstant = Boolean(quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled);
 
     if (isInstant) {
       setShowFeedback(true);
@@ -779,7 +779,7 @@ export default function QuizPage() {
     if (pageIdx === currentPage) return 'current';
 
     if (isAllAnswered) {
-      const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
+      const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
       if (isInstant) {
         const pageAnswers = pageSlice
           .map(q => answers.find(a => a.questionId === q.id))
@@ -900,14 +900,14 @@ export default function QuizPage() {
         handlePrevPage={() => {
             const prevPage = Math.max(0, currentPage - 1);
             setCurrentPage(prevPage);
-            const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
+            const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
             const targetSlice = displayQuestions.slice(prevPage * questionsPerPage, (prevPage + 1) * questionsPerPage);
             const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => Boolean(localAnswers[q.id]?.trim()?.length));
             setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
         }}
         jumpToPage={(idx) => {
             setCurrentPage(idx);
-            const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam';
+            const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
             const targetSlice = displayQuestions.slice(idx * questionsPerPage, (idx + 1) * questionsPerPage);
             const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => Boolean(localAnswers[q.id]?.trim()?.length));
             setShowFeedback(Boolean(isAlreadyAnswered && isInstant));

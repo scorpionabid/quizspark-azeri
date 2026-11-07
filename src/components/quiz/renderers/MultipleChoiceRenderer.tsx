@@ -1,5 +1,4 @@
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
+import React from 'react';
 import { RendererProps } from './types';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
@@ -12,7 +11,7 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
   disabled,
   showFeedback,
 }) => {
-  // Find matching option for the RadioGroup value prop across languages
+  // Find matching option for the value prop across languages
   const activeRadioValue = (() => {
     if (!value) return '';
     if (question.options?.includes(value)) return value;
@@ -44,12 +43,7 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
   };
 
   return (
-    <RadioGroup
-      value={activeRadioValue}
-      onValueChange={onChange}
-      disabled={disabled}
-      className="space-y-3"
-    >
+    <div className="space-y-3" role="radiogroup">
       {question.options?.map((opt, i) => {
         const isSelected = activeRadioValue === opt;
         const optIsCorrect = isCorrect(opt);
@@ -60,14 +54,17 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
           else if (isSelected && !optIsCorrect) statusClass = "border-red-500 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-300";
           else if (!isSelected && optIsCorrect) statusClass = "border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 text-amber-700";
         } else if (isSelected) {
-          statusClass = "border-primary/50 bg-primary/5 shadow-sm";
+          statusClass = "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30";
         }
 
         return (
           <div 
             key={i} 
+            role="radio"
+            aria-checked={isSelected}
+            tabIndex={disabled ? -1 : 0}
             className={cn(
-              "flex items-center space-x-3 p-4 rounded-2xl border transition-all duration-200 cursor-pointer hover:border-primary/30",
+              "flex items-center space-x-3 p-4 rounded-2xl border transition-all duration-200 cursor-pointer hover:border-primary/40 select-none",
               statusClass,
               disabled && !showFeedback && "opacity-60 cursor-not-allowed"
             )}
@@ -79,40 +76,30 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
                 onChange(opt);
               }
             }}
+            onKeyDown={(e) => {
+              if (disabled || showFeedback) return;
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                if (isSelected) onChange('');
+                else onChange(opt);
+              }
+            }}
           >
-            <RadioGroupItem 
-              value={opt} 
-              id={`${question.id}-opt-${i}`} 
-              disabled={disabled}
-              onClick={(e) => {
-                if (disabled || showFeedback) return;
-                if (isSelected) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onChange('');
-                }
-              }}
+            {/* Custom Radio Circle Indicator */}
+            <div 
               className={cn(
-                "h-5 w-5",
-                showFeedback && optIsCorrect && "border-green-500 text-green-600",
-                showFeedback && isSelected && !optIsCorrect && "border-red-500 text-red-600"
+                "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
+                isSelected 
+                  ? "border-primary bg-primary text-primary-foreground" 
+                  : "border-muted-foreground/50 bg-background",
+                showFeedback && optIsCorrect && "border-green-600 bg-green-600 text-white",
+                showFeedback && isSelected && !optIsCorrect && "border-red-600 bg-red-600 text-white"
               )}
-            />
-            <Label 
-              htmlFor={`${question.id}-opt-${i}`} 
-              className="flex-1 cursor-pointer font-medium text-sm md:text-base flex items-center"
-              onClick={(e) => {
-                if (disabled || showFeedback) return;
-                if (isSelected) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onChange('');
-                } else {
-                  e.stopPropagation();
-                  onChange(opt);
-                }
-              }}
             >
+              {isSelected && <div className="h-2 w-2 rounded-full bg-primary-foreground" />}
+            </div>
+
+            <div className="flex-1 font-medium text-sm md:text-base flex items-center">
               {!/^[A-Z][).]\s+/i.test(opt) && (
                 <span className={cn(
                   "inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-bold mr-3 shrink-0 border transition-colors",
@@ -126,10 +113,10 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
               <span className="flex-1">
                 <MathRenderer text={opt} />
               </span>
-            </Label>
-            
+            </div>
+
             {showFeedback && (
-              <div className="shrink-0">
+              <div className="shrink-0 ml-2">
                 {optIsCorrect ? (
                   <Check className="h-5 w-5 text-green-600" />
                 ) : isSelected ? (
@@ -140,6 +127,6 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
           </div>
         );
       })}
-    </RadioGroup>
+    </div>
   );
 };

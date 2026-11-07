@@ -25,7 +25,7 @@ import { QuestionFeedbackDialog } from "./QuestionFeedbackDialog";
 import { QuestionTimerBar } from "./QuestionTimerBar";
 import { parseNumberedItems, isSequenceQuestion } from "./renderers/utils";
 
-import { Quiz } from "@/hooks/useQuizzes";
+import { Quiz, getSafeExamConfig } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
 import { QUESTION_TYPES } from "@/types/question";
 import { MathRenderer } from "@/components/common/MathRenderer";
@@ -100,7 +100,8 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [feedbackQuestion, setFeedbackQuestion] = React.useState<{ question: Question; index: number } | null>(null);
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const isInstantFeedback = quiz.feedback_timing === 'instant' && quiz.exam_category !== 'official_exam';
+  const safeExam = getSafeExamConfig(quiz);
+  const isInstantFeedback = quiz.feedback_timing === 'instant' && quiz.exam_category !== 'official_exam' && !safeExam.enabled;
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -549,10 +550,14 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                       question={question}
                       value={localAnswers[question.id] || ''}
                       onChange={(val) => {
-                        setLocalAnswers(prev => ({ ...prev, [question.id]: val }));
-                        if (isInstantFeedback && !showFeedback && (question.question_type === 'multiple_choice' || question.question_type === 'true_false')) {
-                          handlePageSubmit({ ...localAnswers, [question.id]: val });
-                        }
+                        setLocalAnswers(prev => {
+                          if (!val || val.trim() === '') {
+                            const next = { ...prev };
+                            delete next[question.id];
+                            return next;
+                          }
+                          return { ...prev, [question.id]: val };
+                        });
                       }}
                       showFeedback={showFeedback}
                       disabled={showFeedback}
