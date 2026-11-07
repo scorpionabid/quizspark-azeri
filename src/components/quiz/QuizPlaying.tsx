@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle, Maximize, Minimize, MessageSquarePlus, Wifi, WifiOff, CheckCircle2, XCircle, RefreshCw, Wrench } from "lucide-react";
+import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle, Maximize, Minimize, MessageSquarePlus, Wifi, WifiOff, CheckCircle2, XCircle, RefreshCw, Wrench, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -191,8 +191,28 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
         if (optIdx >= 0 && optIdx < opts.length && !showFeedback) {
           e.preventDefault();
           const selectedOpt = opts[optIdx];
-          setLocalAnswers(prev => ({ ...prev, [q.id]: selectedOpt }));
+          setLocalAnswers(prev => {
+            if (prev[q.id] === selectedOpt) {
+              const next = { ...prev };
+              delete next[q.id];
+              return next;
+            }
+            return { ...prev, [q.id]: selectedOpt };
+          });
           return;
+        }
+
+        // Backspace / Delete shortcut to clear answer when single question per page
+        if ((e.key === 'Backspace' || e.key === 'Delete') && !showFeedback) {
+          if (localAnswers[q.id]) {
+            e.preventDefault();
+            setLocalAnswers(prev => {
+              const next = { ...prev };
+              delete next[q.id];
+              return next;
+            });
+            return;
+          }
         }
 
         // Bookmark shortcut 'B'
@@ -480,23 +500,45 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                             </div>
                           )}
 
-                          <div className="flex flex-wrap items-center gap-2 mb-6">
-                            <Badge variant="secondary" className="bg-muted/50 text-muted-foreground font-medium border-none px-2.5 py-0.5 text-[10px] sm:text-xs">
-                              {parsedNumbered ? (isSeq ? 'Ardıcıllıq' : 'Çoxbəndli seçim') : (QUESTION_TYPES.find(t => t.value === question.question_type)?.label || question.question_type)}
-                            </Badge>
-                            
-                            {question.question_type === 'multiple_select' && (
-                              <div className="flex items-center gap-1.5 text-primary/80 font-bold text-[10px] sm:text-xs animate-pulse bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
-                                <Info className="w-3.5 h-3.5" />
-                                <span>Bir və ya bir neçə cavab seçə bilərsiniz</span>
-                              </div>
-                            )}
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="secondary" className="bg-muted/50 text-muted-foreground font-medium border-none px-2.5 py-0.5 text-[10px] sm:text-xs">
+                                {parsedNumbered ? (isSeq ? 'Ardıcıllıq' : 'Çoxbəndli seçim') : (QUESTION_TYPES.find(t => t.value === question.question_type)?.label || question.question_type)}
+                              </Badge>
+                              
+                              {question.question_type === 'multiple_select' && (
+                                <div className="flex items-center gap-1.5 text-primary/80 font-bold text-[10px] sm:text-xs animate-pulse bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
+                                  <Info className="w-3.5 h-3.5" />
+                                  <span>Bir və ya bir neçə cavab seçə bilərsiniz</span>
+                                </div>
+                              )}
 
-                            {parsedNumbered && (
-                              <div className="flex items-center gap-1.5 text-primary/90 font-bold text-[10px] sm:text-xs bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
-                                <Info className="w-3.5 h-3.5 text-primary" />
-                                <span>{isSeq ? 'Bəndləri düzgün ardıcıllıqla klikləyin' : 'Doğru olan bütün bəndləri işarələyin'}</span>
-                              </div>
+                              {parsedNumbered && (
+                                <div className="flex items-center gap-1.5 text-primary/90 font-bold text-[10px] sm:text-xs bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                                  <Info className="w-3.5 h-3.5 text-primary" />
+                                  <span>{isSeq ? 'Bəndləri düzgün ardıcıllıqla klikləyin' : 'Doğru olan bütün bəndləri işarələyin'}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {Boolean(localAnswers[question.id]?.trim()?.length) && !showFeedback && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setLocalAnswers(prev => {
+                                    const next = { ...prev };
+                                    delete next[question.id];
+                                    return next;
+                                  });
+                                }}
+                                className="h-7 px-2.5 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors gap-1.5 shrink-0 border border-transparent hover:border-destructive/20"
+                                title="Bu sualın cavabını sil və cavabsız qoy"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5 text-muted-foreground group-hover:text-destructive" />
+                                <span>Cavabı sil</span>
+                              </Button>
                             )}
                           </div>
                         </>

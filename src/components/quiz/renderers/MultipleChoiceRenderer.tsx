@@ -71,12 +71,27 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
               statusClass,
               disabled && !showFeedback && "opacity-60 cursor-not-allowed"
             )}
-            onClick={() => !disabled && onChange(opt)}
+            onClick={() => {
+              if (disabled || showFeedback) return;
+              if (isSelected) {
+                onChange('');
+              } else {
+                onChange(opt);
+              }
+            }}
           >
             <RadioGroupItem 
               value={opt} 
               id={`${question.id}-opt-${i}`} 
               disabled={disabled}
+              onClick={(e) => {
+                if (disabled || showFeedback) return;
+                if (isSelected) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange('');
+                }
+              }}
               className={cn(
                 "h-5 w-5",
                 showFeedback && optIsCorrect && "border-green-500 text-green-600",
@@ -86,7 +101,17 @@ export const MultipleChoiceRenderer: React.FC<RendererProps> = ({
             <Label 
               htmlFor={`${question.id}-opt-${i}`} 
               className="flex-1 cursor-pointer font-medium text-sm md:text-base flex items-center"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                if (disabled || showFeedback) return;
+                if (isSelected) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange('');
+                } else {
+                  e.stopPropagation();
+                  onChange(opt);
+                }
+              }}
             >
               {!/^[A-Z][).]\s+/i.test(opt) && (
                 <span className={cn(

@@ -26,32 +26,104 @@ export const TrueFalseRenderer: React.FC<RendererProps> = ({
       disabled={disabled || showFeedback}
       className="flex gap-6 pt-2"
     >
-      <div className={cn(
-        "flex flex-1 items-center gap-3 px-6 py-4 rounded-2xl border-2 transition-all cursor-pointer",
-        value === 'true' || value === 'A' 
-          ? "border-green-500 bg-green-50/50 dark:bg-green-950/20" 
-          : "border-border/40 bg-muted/10 opacity-70 hover:opacity-100 hover:border-green-200",
-        showFeedback && isCorrectAnswerTrue && "border-green-600 bg-green-100 dark:bg-green-900/30",
-        showFeedback && !isCorrectAnswerTrue && (value === 'true' || value === 'A') && "border-red-500 bg-red-100 dark:bg-red-900/30"
-      )}>
-        <RadioGroupItem value="true" id={`${question.id}-tf-true`} className="w-5 h-5 border-green-500 text-green-600" />
-        <Label htmlFor={`${question.id}-tf-true`} className="cursor-pointer font-bold text-green-700 dark:text-green-400 flex-1 flex items-center justify-between">
+      <div 
+        className={cn(
+          "flex flex-1 items-center gap-3 px-6 py-4 rounded-2xl border-2 transition-all cursor-pointer",
+          value === 'true' || value === 'A' 
+            ? "border-green-500 bg-green-50/50 dark:bg-green-950/20" 
+            : "border-border/40 bg-muted/10 opacity-70 hover:opacity-100 hover:border-green-200",
+          showFeedback && isCorrectAnswerTrue && "border-green-600 bg-green-100 dark:bg-green-900/30",
+          showFeedback && !isCorrectAnswerTrue && (value === 'true' || value === 'A') && "border-red-500 bg-red-100 dark:bg-red-900/30"
+        )}
+        onClick={() => {
+          if (disabled || showFeedback) return;
+          if (value === 'true' || value === 'A') {
+            onChange('');
+          } else {
+            onChange('true');
+          }
+        }}
+      >
+        <RadioGroupItem 
+          value="true" 
+          id={`${question.id}-tf-true`} 
+          className="w-5 h-5 border-green-500 text-green-600"
+          onClick={(e) => {
+            if (disabled || showFeedback) return;
+            if (value === 'true' || value === 'A') {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange('');
+            }
+          }}
+        />
+        <Label 
+          htmlFor={`${question.id}-tf-true`} 
+          className="cursor-pointer font-bold text-green-700 dark:text-green-400 flex-1 flex items-center justify-between"
+          onClick={(e) => {
+            if (disabled || showFeedback) return;
+            if (value === 'true' || value === 'A') {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange('');
+            } else {
+              e.stopPropagation();
+              onChange('true');
+            }
+          }}
+        >
           Doğru
           {showFeedback && isCorrectAnswerTrue && <Check className="w-5 h-5" />}
           {showFeedback && !isCorrectAnswerTrue && (value === 'true' || value === 'A') && <X className="w-5 h-5 text-red-600" />}
         </Label>
       </div>
 
-      <div className={cn(
-        "flex flex-1 items-center gap-3 px-6 py-4 rounded-2xl border-2 transition-all cursor-pointer",
-        value === 'false' || value === 'B' 
-          ? "border-red-500 bg-red-50/50 dark:bg-red-950/20" 
-          : "border-border/40 bg-muted/10 opacity-70 hover:opacity-100 hover:border-red-200",
-        showFeedback && !isCorrectAnswerTrue && "border-red-600 bg-red-100 dark:bg-red-900/30",
-        showFeedback && isCorrectAnswerTrue && (value === 'false' || value === 'B') && "border-red-500 bg-green-100 dark:bg-red-900/30"
-      )}>
-        <RadioGroupItem value="false" id={`${question.id}-tf-false`} className="w-5 h-5 border-red-500 text-red-600" />
-        <Label htmlFor={`${question.id}-tf-false`} className="cursor-pointer font-bold text-red-700 dark:text-red-400 flex-1 flex items-center justify-between">
+      <div 
+        className={cn(
+          "flex flex-1 items-center gap-3 px-6 py-4 rounded-2xl border-2 transition-all cursor-pointer",
+          value === 'false' || value === 'B' 
+            ? "border-red-500 bg-red-50/50 dark:bg-red-950/20" 
+            : "border-border/40 bg-muted/10 opacity-70 hover:opacity-100 hover:border-red-200",
+          showFeedback && !isCorrectAnswerTrue && "border-red-600 bg-red-100 dark:bg-red-900/30",
+          showFeedback && isCorrectAnswerTrue && (value === 'false' || value === 'B') && "border-red-500 bg-green-100 dark:bg-red-900/30"
+        )}
+        onClick={() => {
+          if (disabled || showFeedback) return;
+          if (value === 'false' || value === 'B') {
+            onChange('');
+          } else {
+            onChange('false');
+          }
+        }}
+      >
+        <RadioGroupItem 
+          value="false" 
+          id={`${question.id}-tf-false`} 
+          className="w-5 h-5 border-red-500 text-red-600"
+          onClick={(e) => {
+            if (disabled || showFeedback) return;
+            if (value === 'false' || value === 'B') {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange('');
+            }
+          }}
+        />
+        <Label 
+          htmlFor={`${question.id}-tf-false`} 
+          className="cursor-pointer font-bold text-red-700 dark:text-red-400 flex-1 flex items-center justify-between"
+          onClick={(e) => {
+            if (disabled || showFeedback) return;
+            if (value === 'false' || value === 'B') {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange('');
+            } else {
+              e.stopPropagation();
+              onChange('false');
+            }
+          }}
+        >
           Yanlış
           {showFeedback && !isCorrectAnswerTrue && <Check className="w-5 h-5 text-green-600" />}
           {showFeedback && isCorrectAnswerTrue && (value === 'false' || value === 'B') && <X className="w-5 h-5" />}
