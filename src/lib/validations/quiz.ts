@@ -23,6 +23,7 @@ export const quizMetadataSchema = z.object({
     is_public: z.boolean(),
     // Yeni sahələr
     shuffle_questions: z.boolean().default(false),
+    shuffle_options: z.boolean().default(false),
     show_feedback: z.boolean().default(true),
     feedback_timing: z.enum(['end_of_quiz', 'instant', 'never']).default('end_of_quiz'),
     pass_percentage: z.number().int().min(0).max(100).default(60),

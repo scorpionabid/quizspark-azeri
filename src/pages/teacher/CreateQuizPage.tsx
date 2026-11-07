@@ -202,6 +202,7 @@ export default function CreateQuizPage() {
       duration: 20,
       is_public: true,
       shuffle_questions: false,
+      shuffle_options: false,
       show_feedback: true,
       feedback_timing: 'end_of_quiz',
       pass_percentage: 60,
@@ -247,6 +248,7 @@ export default function CreateQuizPage() {
         duration: existingQuiz.duration,
         is_public: existingQuiz.is_public,
         shuffle_questions: existingQuiz.shuffle_questions ?? false,
+        shuffle_options: Boolean(existingQuestions?.[0]?.shuffle_options),
         show_feedback: existingQuiz.show_feedback ?? true,
         feedback_timing: existingQuiz.feedback_timing || (existingQuiz.show_feedback === false ? 'never' : 'end_of_quiz'),
         pass_percentage: existingQuiz.pass_percentage ?? 60,
@@ -276,7 +278,7 @@ export default function CreateQuizPage() {
         background_image_url: existingQuiz.background_image_url || '',
       });
     }
-  }, [id, existingQuiz, form]);
+  }, [id, existingQuiz, existingQuestions, form]);
 
   useEffect(() => {
     if (id && existingQuestions) {
@@ -620,7 +622,10 @@ export default function CreateQuizPage() {
 
       if (id) {
         await updateQuiz.mutateAsync({ id, ...quizPayload });
-        const newQuestions = questions.map((q, i) => draftToDbInsert(q, id, i));
+        const newQuestions = questions.map((q, i) => ({
+          ...draftToDbInsert(q, id, i),
+          shuffle_options: Boolean(metadata.shuffle_options),
+        }));
         const oldQuestionIds = (existingQuestions ?? []).map((q) => q.id);
         await replaceQuestions.mutateAsync({ quizId: id, oldQuestionIds, newQuestions });
       } else {
@@ -628,7 +633,10 @@ export default function CreateQuizPage() {
         quizId = quiz.id;
         const questionsToCreate = questions.map((q, i) => {
           const { id: _ignoreId, ...rest } = draftToDbInsert(q, quizId!, i);
-          return rest;
+          return {
+            ...rest,
+            shuffle_options: Boolean(metadata.shuffle_options),
+          };
         });
         await createQuestions.mutateAsync(questionsToCreate);
       }

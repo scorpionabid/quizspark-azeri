@@ -11,7 +11,7 @@ interface QuizActionHeaderProps {
 
 export function QuizActionHeader({ onBack, onSave, isSubmitting, questionCount }: QuizActionHeaderProps) {
     return (
-        <div className="mb-8 flex items-center justify-between gap-2">
+        <div className="sticky top-0 z-30 mb-6 -mx-4 px-4 py-3 sm:-mx-6 sm:px-6 bg-background/85 backdrop-blur-md border-b border-border/40 flex items-center justify-between gap-2 shadow-xs transition-all">
             <div className="flex items-center gap-3">
                 <Button
                     variant="ghost"
