@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle, Maximize, Minimize, MessageSquarePlus, Wifi, WifiOff, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Lightbulb, Info, Bookmark, LayoutGrid, ChevronLeft, ChevronRight, Menu, AlertTriangle, Maximize, Minimize, MessageSquarePlus, Wifi, WifiOff, CheckCircle2, XCircle, RefreshCw, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -93,6 +93,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [showExitConfirm, setShowExitConfirm] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isRightPanelOpen, setIsRightPanelOpen] = React.useState(false);
   
   const [attemptedSubmit, setAttemptedSubmit] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -237,10 +238,16 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
         <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] pointer-events-none" />
       )}
 
-      <div className="relative p-3 sm:p-8 pt-3 sm:pt-6 pb-36 sm:pb-12 flex flex-col md:flex-row gap-6 max-w-6xl mx-auto h-full">
+      <div className={cn(
+        "relative p-3 sm:p-8 pt-3 sm:pt-6 pb-36 sm:pb-12 flex flex-col lg:flex-row gap-6 mx-auto h-full transition-all duration-300",
+        isRightPanelOpen ? "max-w-7xl" : "max-w-5xl"
+      )}>
         
         {/* Main Content Area */}
-        <div className="flex-1 max-w-3xl lg:max-w-4xl w-full mx-auto">
+        <div className={cn(
+          "flex-1 w-full mx-auto transition-all duration-300",
+          isRightPanelOpen ? "max-w-3xl lg:max-w-4xl" : "max-w-4xl lg:max-w-5xl"
+        )}>
             <div className="mb-4 sm:mb-6 flex items-center justify-between relative z-[50]">
             <div className="flex items-center gap-2">
               <Button
@@ -321,6 +328,24 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                   )}
 
                    <LanguageSwitcher className="hidden sm:inline-flex" />
+
+                   {quiz.show_question_nav && (
+                     <Button
+                       variant={isRightPanelOpen ? "secondary" : "outline"}
+                       size="sm"
+                       onClick={() => setIsRightPanelOpen(prev => !prev)}
+                       className="hidden lg:inline-flex items-center gap-1.5 h-10 px-3 shrink-0 rounded-xl border-dashed bg-background/50 backdrop-blur-md hover:bg-accent transition-all"
+                       title={isRightPanelOpen ? "Sual xəritəsi və alətləri sağa yığ" : "Sual xəritəsi və alətləri göstər"}
+                     >
+                       <LayoutGrid className="h-4 w-4 text-primary" />
+                       <span className="font-medium text-xs">
+                         {isRightPanelOpen ? "Xəritəni Yığ" : t('question_map')}
+                       </span>
+                       <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-mono h-4 border-primary/30 text-primary">
+                         {currentPage + 1}/{totalPages}
+                       </Badge>
+                     </Button>
+                   )}
 
                    <Button
                      variant="outline"
@@ -589,52 +614,91 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
 
         {/* Desktop Side Navigation Panel */}
         {quiz.show_question_nav && (
-            <div className="hidden lg:block w-72 shrink-0 relative z-[50] pointer-events-auto">
-                <div className="sticky top-6 space-y-3.5 max-h-[calc(100vh-3rem)] overflow-y-auto pr-0.5">
-                    <div className="bg-card/90 backdrop-blur-md border border-border/50 rounded-2xl p-4 shadow-sm">
-                        <div className="flex items-center gap-2 mb-3 text-foreground font-semibold border-b pb-2.5">
-                            <LayoutGrid className="w-5 h-5 text-primary" />
-                            <h2>{t('question_map')}</h2>
-                        </div>
-                        <QuestionMap
-                          totalPages={totalPages}
-                          currentPage={currentPage}
-                          allQuestions={allQuestions}
-                          questionsPerPage={quiz.questions_per_page || 1}
-                          localAnswers={localAnswers}
-                          bookmarkedQuestions={bookmarkedQuestions}
-                          allowBacktracking={quiz.allow_backtracking}
-                          allowBookmarks={quiz.allow_bookmarks}
-                          isInstantFeedback={isInstantFeedback}
-                          jumpToPage={jumpToPage}
-                          language={language}
-                          t={t}
-                          maxHeightClass="max-h-[min(300px,35vh)]"
-                        />
-
-                        {!isInstantFeedback && (
-                          <div className="mt-4 pt-3 border-t border-border/40">
-                            <Button
-                              type="button"
-                              className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-none shadow-md shadow-emerald-600/20"
-                              onClick={() => setShowFinalSubmitModal(true)}
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-2" />
-                              {t('finish_exam')}
-                            </Button>
-                          </div>
-                        )}
-                    </div>
-
-                    {/* Collapsible Helper Tools (Calculator, Mendeleev Table, Auto-Resetting Scratchpad) */}
-                    <ExamToolsPanel
-                      enableCalculator={quiz.enable_calculator ?? true}
-                      enablePeriodicTable={quiz.enable_periodic_table ?? true}
-                      enableScratchpad={quiz.enable_scratchpad ?? true}
-                      currentPage={currentPage}
-                    />
+          <>
+            {/* Collapsed Right Floating Tab on Screen Edge */}
+            {!isRightPanelOpen && (
+              <button
+                type="button"
+                onClick={() => setIsRightPanelOpen(true)}
+                className="hidden lg:flex fixed right-0 top-32 z-40 bg-card/95 hover:bg-card border border-r-0 border-border/80 shadow-elevated rounded-l-2xl py-3.5 px-2 flex-col items-center gap-2 group transition-all hover:pr-3 cursor-pointer text-foreground backdrop-blur-md animate-in fade-in slide-in-from-right duration-200"
+                title="Sual Xəritəsi və Köməkçi Alətləri Aç"
+              >
+                <div className="flex items-center text-primary group-hover:scale-110 transition-transform">
+                  <ChevronLeft className="w-4 h-4" />
+                  <LayoutGrid className="w-4 h-4 -ml-1" />
                 </div>
-            </div>
+                <Wrench className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <span className="text-[10px] font-bold text-muted-foreground [writing-mode:vertical-rl] tracking-wider uppercase mt-1">
+                  Xəritə & Alətlər
+                </span>
+                <span className="text-[10px] font-bold text-primary font-mono bg-primary/10 px-1.5 py-0.5 rounded-md mt-1 border border-primary/20">
+                  {currentPage + 1}/{totalPages}
+                </span>
+              </button>
+            )}
+
+            {/* Expanded Right Side Navigation Panel */}
+            {isRightPanelOpen && (
+              <div className="hidden lg:block w-80 shrink-0 relative z-[50] pointer-events-auto animate-in fade-in slide-in-from-right duration-300">
+                <div className="sticky top-6 space-y-3.5 max-h-[calc(100vh-3rem)] overflow-y-auto pr-0.5">
+                  <div className="bg-card/90 backdrop-blur-md border border-border/50 rounded-2xl p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-2 mb-3 text-foreground font-semibold border-b pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <LayoutGrid className="w-5 h-5 text-primary" />
+                        <h2>{t('question_map')}</h2>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsRightPanelOpen(false)}
+                        className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-xl"
+                        title="Paneli sağa yığ (Geniş görünüş)"
+                      >
+                        <span>Sağa yığ</span>
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                    <QuestionMap
+                      totalPages={totalPages}
+                      currentPage={currentPage}
+                      allQuestions={allQuestions}
+                      questionsPerPage={quiz.questions_per_page || 1}
+                      localAnswers={localAnswers}
+                      bookmarkedQuestions={bookmarkedQuestions}
+                      allowBacktracking={quiz.allow_backtracking}
+                      allowBookmarks={quiz.allow_bookmarks}
+                      isInstantFeedback={isInstantFeedback}
+                      jumpToPage={jumpToPage}
+                      language={language}
+                      t={t}
+                      maxHeightClass="max-h-[min(300px,35vh)]"
+                    />
+
+                    {!isInstantFeedback && (
+                      <div className="mt-4 pt-3 border-t border-border/40">
+                        <Button
+                          type="button"
+                          className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-none shadow-md shadow-emerald-600/20"
+                          onClick={() => setShowFinalSubmitModal(true)}
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          {t('finish_exam')}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Collapsible Helper Tools (Calculator, Mendeleev Table, Auto-Resetting Scratchpad) */}
+                  <ExamToolsPanel
+                    enableCalculator={quiz.enable_calculator ?? true}
+                    enablePeriodicTable={quiz.enable_periodic_table ?? true}
+                    enableScratchpad={quiz.enable_scratchpad ?? true}
+                    currentPage={currentPage}
+                  />
+                </div>
+              </div>
+            )}
+          </>
         )}
 
       </div>

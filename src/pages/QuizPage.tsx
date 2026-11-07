@@ -9,6 +9,7 @@ import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt, u
 import { useAuth } from "@/contexts/AuthContext";
 import { useGamification } from "@/hooks/useGamification";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSidebar } from "@/components/ui/sidebar";
 
 import { Lock, Shield, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,38 @@ export default function QuizPage() {
     });
     return ordered;
   }, [questions, questionOrder]);
+
+  const { open: isSidebarOpen, setOpen: setSidebarOpen } = useSidebar();
+  const isSidebarOpenRef = useRef(isSidebarOpen);
+  const prevSidebarOpenRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    isSidebarOpenRef.current = isSidebarOpen;
+  }, [isSidebarOpen]);
+
+  // Auto-collapse sidebar when quiz enters 'playing' state to maximize question area
+  useEffect(() => {
+    if (quizState === 'playing') {
+      if (prevSidebarOpenRef.current === null) {
+        prevSidebarOpenRef.current = isSidebarOpenRef.current;
+      }
+      setSidebarOpen(false);
+    } else if (quizState === 'result') {
+      if (prevSidebarOpenRef.current) {
+        setSidebarOpen(true);
+      }
+      prevSidebarOpenRef.current = null;
+    }
+  }, [quizState, setSidebarOpen]);
+
+  // Restore sidebar state if component unmounts while in playing state
+  useEffect(() => {
+    return () => {
+      if (prevSidebarOpenRef.current) {
+        setSidebarOpen(true);
+      }
+    };
+  }, [setSidebarOpen]);
 
   const [quizState, setQuizState] = useState<QuizState>('intro');
   const [currentPage, setCurrentPage] = useState(0);
