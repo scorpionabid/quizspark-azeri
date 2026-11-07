@@ -3,6 +3,28 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+export interface SafeExamConfig {
+  enabled: boolean;
+  enforce_fullscreen?: boolean;
+  max_violations?: number; // 0 = unlimited / warning only, 3 or 5 = auto-submit
+  prevent_copy_paste?: boolean;
+  blur_on_leave?: boolean;
+  watermark_enabled?: boolean;
+}
+
+export function getSafeExamConfig(quiz?: Partial<Quiz> | null): SafeExamConfig {
+  const fromConfig = quiz?.seb_config;
+  const isEnabled = Boolean(fromConfig?.enabled ?? quiz?.strict_mode ?? false);
+  return {
+    enabled: isEnabled,
+    enforce_fullscreen: fromConfig?.enforce_fullscreen ?? true,
+    max_violations: fromConfig?.max_violations ?? 3,
+    prevent_copy_paste: fromConfig?.prevent_copy_paste ?? true,
+    blur_on_leave: fromConfig?.blur_on_leave ?? true,
+    watermark_enabled: fromConfig?.watermark_enabled ?? true,
+  };
+}
+
 export interface Quiz {
   id: string;
   creator_id: string;
@@ -35,6 +57,7 @@ export interface Quiz {
   auto_advance?: boolean;
   access_password?: string | null;
   strict_mode?: boolean;
+  seb_config?: SafeExamConfig | null;
   allow_backtracking?: boolean;
   questions_per_page?: number;
   allow_bookmarks?: boolean;

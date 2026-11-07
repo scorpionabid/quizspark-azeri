@@ -142,7 +142,7 @@ BEGIN
             FROM public.quiz_attempts
             WHERE user_id = v_p.user_id 
               AND quiz_id = v_quiz_id 
-              AND is_completed = true
+              AND completed_at IS NOT NULL
             ORDER BY completed_at DESC
             LIMIT 1;
 

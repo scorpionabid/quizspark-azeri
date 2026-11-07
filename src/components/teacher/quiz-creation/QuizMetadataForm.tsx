@@ -360,21 +360,143 @@ export function QuizMetadataForm({ form, isEditMode }: QuizMetadataFormProps) {
                                                 </FormItem>
                                             )}
                                         />
-                                        <FormField
-                                            control={form.control}
-                                            name="strict_mode"
-                                            render={({ field }) => (
-                                                <FormItem className="flex items-center justify-between space-x-2 rounded-lg border bg-background p-4 border-red-200 dark:border-red-900/30">
-                                                    <div className="space-y-0.5">
-                                                        <FormLabel className="text-sm cursor-pointer text-red-600 dark:text-red-400">Ciddi Rejim (Anti-cheat)</FormLabel>
-                                                        <FormDescription className="text-xs">Tab dəyişdikdə xəbərdarlıq edir</FormDescription>
+                                        <div className="space-y-4 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/30 dark:bg-red-950/20 p-4">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
+                                                        <FormLabel className="text-base font-bold text-red-700 dark:text-red-300">
+                                                            Təhlükəsiz İmtahan Rejimi (Safe Exam Browser)
+                                                        </FormLabel>
                                                     </div>
-                                                    <FormControl>
-                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                                    </FormControl>
-                                                </FormItem>
+                                                    <FormDescription className="text-xs text-red-600/80 dark:text-red-400/80">
+                                                        Rəsmi imtahanlar üçün saxtakarlığın (tab dəyişmə, ekran şəkli, kopyalama, kənar proqramlar) qarşısını alan qabaqcıl qorunma sistemi
+                                                    </FormDescription>
+                                                </div>
+                                                <FormField
+                                                    control={form.control}
+                                                    name="strict_mode"
+                                                    render={({ field }) => (
+                                                        <FormControl>
+                                                            <Switch
+                                                                checked={field.value}
+                                                                onCheckedChange={(checked) => {
+                                                                    field.onChange(checked);
+                                                                    form.setValue('seb_config.enabled', checked);
+                                                                }}
+                                                            />
+                                                        </FormControl>
+                                                    )}
+                                                />
+                                            </div>
+
+                                            {form.watch('strict_mode') && (
+                                                <div className="pt-4 border-t border-red-200 dark:border-red-900/40 space-y-4 animate-in fade-in duration-200">
+                                                    <div className="grid gap-4 sm:grid-cols-2">
+                                                        {/* Fullscreen Enforce */}
+                                                        <FormField
+                                                            control={form.control}
+                                                            name="seb_config.enforce_fullscreen"
+                                                            render={({ field }) => (
+                                                                <FormItem className="flex items-center justify-between rounded-lg border bg-background/80 p-3 shadow-xs">
+                                                                    <div className="space-y-0.5 pr-2">
+                                                                        <FormLabel className="text-xs font-semibold cursor-pointer">Məcburi Tam Ekran</FormLabel>
+                                                                        <FormDescription className="text-[11px]">İmtahan yalnız tam ekranda verilir, çıxdıqda suallar bloklanır</FormDescription>
+                                                                    </div>
+                                                                    <FormControl>
+                                                                        <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                                                                    </FormControl>
+                                                                </FormItem>
+                                                            )}
+                                                        />
+
+                                                        {/* Blur on Leave */}
+                                                        <FormField
+                                                            control={form.control}
+                                                            name="seb_config.blur_on_leave"
+                                                            render={({ field }) => (
+                                                                <FormItem className="flex items-center justify-between rounded-lg border bg-background/80 p-3 shadow-xs">
+                                                                    <div className="space-y-0.5 pr-2">
+                                                                        <FormLabel className="text-xs font-semibold cursor-pointer">Ekran Şəkli & Kənar Proqram Qorunması</FormLabel>
+                                                                        <FormDescription className="text-[11px]">Pəncərə fokusunu itirdikdə suallar dərhal bulanıqlaşır, PrintScreen silinir</FormDescription>
+                                                                    </div>
+                                                                    <FormControl>
+                                                                        <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                                                                    </FormControl>
+                                                                </FormItem>
+                                                            )}
+                                                        />
+
+                                                        {/* Copy/Paste Lock */}
+                                                        <FormField
+                                                            control={form.control}
+                                                            name="seb_config.prevent_copy_paste"
+                                                            render={({ field }) => (
+                                                                <FormItem className="flex items-center justify-between rounded-lg border bg-background/80 p-3 shadow-xs">
+                                                                    <div className="space-y-0.5 pr-2">
+                                                                        <FormLabel className="text-xs font-semibold cursor-pointer">Kopyalama & Sağ Klik Qadağası</FormLabel>
+                                                                        <FormDescription className="text-[11px]">Sual mətni seçilə, kopyalana bilməz, sağ klik və DevTools bloklanır</FormDescription>
+                                                                    </div>
+                                                                    <FormControl>
+                                                                        <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                                                                    </FormControl>
+                                                                </FormItem>
+                                                            )}
+                                                        />
+
+                                                        {/* Watermark */}
+                                                        <FormField
+                                                            control={form.control}
+                                                            name="seb_config.watermark_enabled"
+                                                            render={({ field }) => (
+                                                                <FormItem className="flex items-center justify-between rounded-lg border bg-background/80 p-3 shadow-xs">
+                                                                    <div className="space-y-0.5 pr-2">
+                                                                        <FormLabel className="text-xs font-semibold cursor-pointer">Şagird Su Nişanı (Watermark)</FormLabel>
+                                                                        <FormDescription className="text-[11px]">Ekranda FİN və ad şəffaf şəkildə əks olunur (telefonla çəkilişə qarşı)</FormDescription>
+                                                                    </div>
+                                                                    <FormControl>
+                                                                        <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                                                                    </FormControl>
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    </div>
+
+                                                    {/* Violation Limit */}
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="seb_config.max_violations"
+                                                        render={({ field }) => (
+                                                            <FormItem className="rounded-lg border bg-background/80 p-3 shadow-xs">
+                                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                                    <div className="space-y-0.5">
+                                                                        <FormLabel className="text-xs font-semibold">Qayda Pozuntusu Həddi (Avto-Təhvil)</FormLabel>
+                                                                        <FormDescription className="text-[11px]">
+                                                                            İştirakçı pəncərəni tərk etdikdə xəbərdarlıq limiti
+                                                                        </FormDescription>
+                                                                    </div>
+                                                                    <Select
+                                                                        value={String(field.value ?? 3)}
+                                                                        onValueChange={(val) => field.onChange(Number(val))}
+                                                                    >
+                                                                        <FormControl>
+                                                                            <SelectTrigger className="w-full sm:w-[260px] h-9 text-xs">
+                                                                                <SelectValue placeholder="Limit seçin" />
+                                                                            </SelectTrigger>
+                                                                        </FormControl>
+                                                                        <SelectContent>
+                                                                            <SelectItem value="3">3 xəbərdarlıqdan sonra bitir (Tövsiyə olunan)</SelectItem>
+                                                                            <SelectItem value="5">5 xəbərdarlıqdan sonra bitir</SelectItem>
+                                                                            <SelectItem value="0">Yalnız qeyd et (İmtahanı kəsmə)</SelectItem>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
                                             )}
-                                        />
+                                        </div>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>

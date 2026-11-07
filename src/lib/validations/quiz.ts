@@ -37,6 +37,14 @@ export const quizMetadataSchema = z.object({
     // Advanced Features
     access_password: z.string().max(50).optional().nullable().or(z.literal('')),
     strict_mode: z.boolean().default(false),
+    seb_config: z.object({
+        enabled: z.boolean().default(false),
+        enforce_fullscreen: z.boolean().default(true),
+        max_violations: z.number().int().min(0).max(10).default(3),
+        prevent_copy_paste: z.boolean().default(true),
+        blur_on_leave: z.boolean().default(true),
+        watermark_enabled: z.boolean().default(true),
+    }).optional().nullable(),
     allow_backtracking: z.boolean().default(true),
     questions_per_page: z.number().int().default(1),
     allow_bookmarks: z.boolean().default(true),

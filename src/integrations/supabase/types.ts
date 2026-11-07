@@ -1779,6 +1779,7 @@ export type Database = {
           shuffle_questions: boolean | null
           specialty_key: string | null
           strict_mode: boolean
+          seb_config?: Json | null
           subject: string | null
           time_bonus_enabled: boolean | null
           time_penalty_enabled: boolean | null
@@ -1821,6 +1822,7 @@ export type Database = {
           shuffle_questions?: boolean | null
           specialty_key?: string | null
           strict_mode?: boolean
+          seb_config?: Json | null
           subject?: string | null
           time_bonus_enabled?: boolean | null
           time_penalty_enabled?: boolean | null
@@ -1863,6 +1865,7 @@ export type Database = {
           shuffle_questions?: boolean | null
           specialty_key?: string | null
           strict_mode?: boolean
+          seb_config?: Json | null
           subject?: string | null
           time_bonus_enabled?: boolean | null
           time_penalty_enabled?: boolean | null

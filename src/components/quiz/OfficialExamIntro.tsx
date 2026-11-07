@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import { OFFICIAL_EXAMS, getExamTitle } from '@/lib/constants/exams';
-import { Quiz } from '@/hooks/useQuizzes';
+import { Quiz, getSafeExamConfig } from '@/hooks/useQuizzes';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface OfficialExamIntroProps {
@@ -33,6 +33,7 @@ export const OfficialExamIntro: React.FC<OfficialExamIntroProps> = ({
   const duration = quiz.duration || 90;
   const questionCount = quiz.question_count || 60;
   const passPercentage = quiz.pass_percentage || 60;
+  const safeExam = getSafeExamConfig(quiz);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-10 px-4 flex flex-col justify-center items-center">
@@ -95,6 +96,16 @@ export const OfficialExamIntro: React.FC<OfficialExamIntroProps> = ({
               <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{t('pass_score')}</div>
             </div>
           </div>
+
+          {/* Safe Exam Banner */}
+          {safeExam.enabled && (
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs">
+              <Shield className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 animate-pulse" />
+              <span>
+                <strong>Təhlükəsiz İmtahan (Safe Exam) Rejimi:</strong> Bu imtahan tam ekranda keçirilir. Pəncərəni tərk etmək, ekran şəkli çəkmək və ya kopyalamaq qadağandır. Qayda pozuntuları sistemdə qeydə alınır.
+              </span>
+            </div>
+          )}
 
           {/* Simple Rules */}
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-2.5">

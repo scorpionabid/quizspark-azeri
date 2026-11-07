@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Trophy, RotateCcw, CheckCircle, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Trophy, RotateCcw, CheckCircle, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { QuizRating } from "./QuizRating";
 import { QuizComments } from "./QuizComments";
 import { FavoriteButton } from "./FavoriteButton";
 
-import { Quiz, useVerifyQuizPassword } from "@/hooks/useQuizzes";
+import { Quiz, useVerifyQuizPassword, getSafeExamConfig } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -126,6 +126,7 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
 
   const isPattern = isPatternBackground(quiz.background_image_url);
   const bgStyle = getQuizBackgroundStyle(quiz.background_image_url);
+  const safeExam = getSafeExamConfig(quiz);
 
   return (
     <div 
@@ -252,6 +253,33 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                 </div>
               )}
             </>
+          )}
+
+          {safeExam.enabled && (
+            <div className="mb-6 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-left">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                <h4 className="font-semibold text-foreground text-sm">
+                  Təhlükəsiz İmtahan Rejimi (Safe Exam) Aktivdir
+                </h4>
+              </div>
+              <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                {safeExam.enforce_fullscreen && (
+                  <li>İmtahan tam ekran rejimində aparılır; çıxış cəhd sayılır.</li>
+                )}
+                {safeExam.blur_on_leave && (
+                  <li>Pəncərəni və ya tabı dəyişmək, başqa proqrama keçmək qadağandır.</li>
+                )}
+                {safeExam.prevent_copy_paste && (
+                  <li>Kopyalama, sağ düymə və ekran şəkli (screenshot) məhdudlaşdırılıb.</li>
+                )}
+                {safeExam.max_violations > 0 ? (
+                  <li>Maksimum xəbərdarlıq limiti: <strong className="text-foreground">{safeExam.max_violations}</strong>. Limit bitdikdə imtahan avtomatik təhvil verilir.</li>
+                ) : (
+                  <li>Qaydaların pozulması sistem jurnalında qeydə alınır.</li>
+                )}
+              </ul>
+            </div>
           )}
 
           {(isPreview || !user) ? (

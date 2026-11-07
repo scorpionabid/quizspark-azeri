@@ -16,6 +16,7 @@ import {
 
 import { QuestionMap } from "./QuestionMap";
 import { ExamToolsPanel } from "./tools/ExamToolsPanel";
+import { SafeExamShield } from "./SafeExamShield";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { QuestionRenderer } from "./QuestionRenderer";
@@ -230,10 +231,15 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   const bgStyle = getQuizBackgroundStyle(quiz.background_image_url);
 
   return (
-    <div 
-      className="flex-1 bg-background relative min-h-screen transition-colors"
-      style={bgStyle}
+    <SafeExamShield
+      quiz={quiz}
+      currentPage={currentPage}
+      onFinalSubmit={onFinalSubmit}
     >
+      <div 
+        className="flex-1 bg-background relative min-h-screen transition-colors"
+        style={bgStyle}
+      >
       {quiz.background_image_url && !isPattern && (
         <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] pointer-events-none" />
       )}
@@ -843,6 +849,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
         />
       )}
 
-    </div>
+      </div>
+    </SafeExamShield>
   );
 };
