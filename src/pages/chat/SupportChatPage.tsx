@@ -1,15 +1,17 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useSupportMessages, useSendMessage } from "@/hooks/useChat";
+import { useSupportMessages, useSendMessage, useMarkAsRead } from "@/hooks/useChat";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { Loader2, MessageSquare, ShieldCheck } from "lucide-react";
+import { Loader2, MessageSquare, ShieldCheck, Mail } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { Badge } from "@/components/ui/badge";
 
 export default function SupportChatPage() {
-    const { user } = useAuth();
-    const { messages, isLoading } = useSupportMessages();
+    const { user, profile } = useAuth();
+    const { messages, isLoading, supportAdminId } = useSupportMessages();
     const { mutateAsync: sendMessage, isPending: isSending } = useSendMessage();
+    const { mutate: markAsRead } = useMarkAsRead();
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to bottom
@@ -18,6 +20,19 @@ export default function SupportChatPage() {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
+    // Mark admin messages as read when viewed
+    useEffect(() => {
+        if (user && messages && messages.length > 0) {
+            const hasUnread = messages.some(m => m.receiver_id === user.id && !m.is_read);
+            if (hasUnread) {
+                const adminId = messages.find(m => m.receiver_id === user.id && !m.is_read)?.sender_id || supportAdminId;
+                if (adminId) {
+                    markAsRead(adminId);
+                }
+            }
+        }
+    }, [user, messages, supportAdminId, markAsRead]);
 
     const handleSend = async (content: string) => {
         await sendMessage({ content });
@@ -43,7 +58,15 @@ export default function SupportChatPage() {
                         <MessageSquare className="h-5 w-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Admin Dəstək</h1>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-bold tracking-tight">Admin Dəstək</h1>
+                            {user?.email && (
+                                <Badge variant="secondary" className="text-[11px] font-normal gap-1 hidden sm:inline-flex">
+                                    <Mail className="h-3 w-3 opacity-70" />
+                                    {user.email}
+                                </Badge>
+                            )}
+                        </div>
                         <p className="text-sm text-muted-foreground font-medium">Suallarınızı birbaşa adminə ünvanlayın</p>
                     </div>
                 </div>
@@ -66,6 +89,7 @@ export default function SupportChatPage() {
                                 content={m.content}
                                 isOwn={m.sender_id === user?.id}
                                 timestamp={m.created_at}
+                                isRead={m.is_read}
                             />
                         ))
                     ) : (

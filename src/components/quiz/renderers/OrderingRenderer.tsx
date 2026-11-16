@@ -19,10 +19,12 @@ export const OrderingRenderer: React.FC<RendererProps> = ({
       if (value) {
         setSequence(value.split('|||'));
       } else {
-        setSequence([...question.sequence_items].sort(() => Math.random() - 0.5));
+        const initial = [...question.sequence_items].sort(() => Math.random() - 0.5);
+        setSequence(initial);
+        onChange(initial.join('|||'));
       }
     }
-  }, [question.id, question.sequence_items, value, sequence.length]);
+  }, [question.id, question.sequence_items, value, sequence.length, onChange]);
 
   const handleMove = (from: number, direction: -1 | 1) => {
     if (disabled || showFeedback) return;

@@ -34,6 +34,8 @@ export interface DraftQuestion {
     question_image_url?: string | null;
     media_type?: string | null;
     media_url?: string | null;
+    bank_question_id?: string | null;
+    shuffle_options?: boolean;
 }
 
 export function getAnswerSummary(q: DraftQuestion): string {

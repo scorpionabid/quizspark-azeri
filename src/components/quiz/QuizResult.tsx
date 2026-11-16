@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, BookOpen, Share2, Sparkles, CheckCircle2 } from "lucide-react";
+import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, Minus, BookOpen, Share2, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -123,6 +123,20 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   const [reviewOpen, setReviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const unansweredCount = questions.length > 0
+    ? questions.filter((q) => {
+        const a = answers.find((ans) => ans.questionId === q.id);
+        return !a || !a.textAnswer || a.textAnswer.trim().length === 0;
+      }).length
+    : Math.max(0, totalQuestions - answers.filter((a) => Boolean(a.textAnswer && a.textAnswer.trim().length > 0)).length);
+
+  const actualWrongCount = questions.length > 0
+    ? questions.filter((q) => {
+        const a = answers.find((ans) => ans.questionId === q.id);
+        return a && a.textAnswer && a.textAnswer.trim().length > 0 && !a.isCorrect && !a.needsReview;
+      }).length
+    : Math.max(0, totalQuestions - correctAnswers - pendingReviews - unansweredCount);
+
   // Minimal and clean layout for official exams
   if (isOfficialExam) {
     return (
@@ -151,14 +165,18 @@ export const QuizResult: React.FC<QuizResultProps> = ({
           </div>
 
           {/* Metrics grid */}
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-4 gap-2 text-center">
             <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 p-2.5">
               <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{correctAnswers}</div>
               <div className="text-[10px] text-slate-500">{t('correct_count')}</div>
             </div>
             <div className="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 p-2.5">
-              <div className="text-lg font-bold text-rose-600 dark:text-rose-400">{totalQuestions - correctAnswers}</div>
+              <div className="text-lg font-bold text-rose-600 dark:text-rose-400">{actualWrongCount}</div>
               <div className="text-[10px] text-slate-500">{t('wrong_count')}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-2.5">
+              <div className="text-lg font-bold text-slate-600 dark:text-slate-400">{unansweredCount}</div>
+              <div className="text-[10px] text-slate-500">{t('unanswered_filter', 'Boş')}</div>
             </div>
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-2.5">
               <div className="text-lg font-bold text-slate-800 dark:text-slate-200">{formatTime(timeSpent)}</div>
@@ -273,11 +291,15 @@ export const QuizResult: React.FC<QuizResultProps> = ({
           <div className="mb-8 flex flex-wrap justify-center gap-3">
             <div className="rounded-xl bg-success/10 p-4 min-w-[80px] flex-1 text-center">
               <div className="text-2xl font-bold text-success">{correctAnswers}</div>
-              <div className="text-xs text-muted-foreground">Düzgün</div>
+              <div className="text-xs text-muted-foreground">{t('correct_count', 'Düzgün')}</div>
             </div>
             <div className="rounded-xl bg-destructive/10 p-4 min-w-[80px] flex-1 text-center">
-              <div className="text-2xl font-bold text-destructive">{totalQuestions - correctAnswers - pendingReviews}</div>
-              <div className="text-xs text-muted-foreground">Yanlış</div>
+              <div className="text-2xl font-bold text-destructive">{actualWrongCount}</div>
+              <div className="text-xs text-muted-foreground">{t('wrong_count', 'Yanlış')}</div>
+            </div>
+            <div className="rounded-xl bg-muted/50 border border-muted-foreground/15 p-4 min-w-[80px] flex-1 text-center">
+              <div className="text-2xl font-bold text-muted-foreground">{unansweredCount}</div>
+              <div className="text-xs text-muted-foreground">{t('unanswered_filter', 'Boş')}</div>
             </div>
             {pendingReviews > 0 && (
               <div className="rounded-xl bg-muted/50 border border-muted-foreground/20 p-4 min-w-[80px] flex-1 text-center">
@@ -287,7 +309,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
             )}
             <div className="rounded-xl bg-muted/50 p-4 min-w-[80px] flex-1 text-center">
               <div className="text-2xl font-bold text-foreground">{totalQuestions}</div>
-              <div className="text-xs text-muted-foreground">Ümumi</div>
+              <div className="text-xs text-muted-foreground">{t('total', 'Ümumi')}</div>
             </div>
             {timeSpent > 0 && (
               <div className="rounded-xl bg-primary/5 border border-primary/10 p-4 min-w-[80px] flex-1 text-center">
@@ -295,7 +317,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
                   <Clock className="h-4 w-4" />
                   {formatTime(timeSpent)}
                 </div>
-                <div className="text-xs text-muted-foreground">Vaxt</div>
+                <div className="text-xs text-muted-foreground">{t('duration', 'Vaxt')}</div>
               </div>
             )}
           </div>
@@ -371,8 +393,10 @@ export const QuizResult: React.FC<QuizResultProps> = ({
                   <div className="p-4 pt-0 space-y-3">
                     {questions.map((q, idx) => {
                       const ans = answers.find(a => a.questionId === q.id);
-                      const isCorrect = ans?.isCorrect ?? false;
-                      const needsReview = ans?.needsReview ?? false;
+                      const isUnanswered = !ans || !ans.textAnswer || ans.textAnswer.trim().length === 0;
+                      const isCorrect = !isUnanswered && (ans?.isCorrect ?? false);
+                      const needsReview = !isUnanswered && (ans?.needsReview ?? false);
+                      const isWrong = !isUnanswered && !isCorrect && !needsReview;
                       const typeLabel = QUESTION_TYPES.find(t => t.value === q.question_type)?.label ?? q.question_type;
 
                       return (
@@ -384,30 +408,41 @@ export const QuizResult: React.FC<QuizResultProps> = ({
                               ? 'border-muted-foreground/20 bg-muted/20'
                               : isCorrect
                                 ? 'border-green-500/30 bg-green-50/50 dark:bg-green-900/10'
-                                : 'border-red-400/30 bg-red-50/50 dark:bg-red-900/10'
+                                : isUnanswered
+                                  ? 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/20'
+                                  : 'border-red-400/30 bg-red-50/50 dark:bg-red-900/10'
                           )}
                         >
                           <div className="flex items-start gap-3">
                             <div className={cn(
                               'shrink-0 flex items-center justify-center h-6 w-6 rounded-full text-[10px] font-bold mt-0.5',
                               needsReview ? 'bg-muted text-muted-foreground' :
-                              isCorrect ? 'bg-green-100 text-green-700 dark:bg-green-900/30' : 'bg-red-100 text-red-700 dark:bg-red-900/30'
+                              isCorrect ? 'bg-green-100 text-green-700 dark:bg-green-900/30' :
+                              isUnanswered ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' :
+                              'bg-red-100 text-red-700 dark:bg-red-900/30'
                             )}>
-                              {needsReview ? '?' : isCorrect ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                              {needsReview ? '?' : isCorrect ? <Check className="h-3 w-3" /> : isUnanswered ? <Minus className="h-3 w-3" /> : <X className="h-3 w-3" />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <span className="font-semibold text-foreground">{idx + 1}.</span>
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">{typeLabel}</Badge>
                                 {needsReview && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Gözlənilir</Badge>}
+                                {isCorrect && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-emerald-600 border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20">Düzgün</Badge>}
+                                {isWrong && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-rose-600 border-rose-300 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/20">Yanlış</Badge>}
+                                {isUnanswered && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-slate-500 border-slate-300 dark:border-slate-700 bg-slate-100/50 dark:bg-slate-800/40">Boş</Badge>}
                               </div>
                               <p className="text-foreground/80 leading-snug line-clamp-2"><MathRenderer text={q.question_text} /></p>
-                              {ans && !needsReview && (
+                              {!needsReview && (
                                 <div className="mt-2 space-y-1">
                                   <div className="flex gap-1 text-[11px] items-start">
                                     <span className="text-muted-foreground shrink-0 mt-0.5">Cavabınız:</span>
-                                    <span className={cn('font-medium leading-snug', (!ans || !ans.textAnswer) ? 'text-muted-foreground italic' : (isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'))}>
-                                      {(!ans || !ans.textAnswer) ? 'Cavablandırılmayıb' : <MathRenderer text={ans.textAnswer} />}
+                                    <span className={cn(
+                                      'font-medium leading-snug',
+                                      isUnanswered ? 'text-slate-500 italic' :
+                                      isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+                                    )}>
+                                      {isUnanswered ? 'Cavablandırılmayıb' : <MathRenderer text={ans?.textAnswer || ''} />}
                                     </span>
                                   </div>
                                   {!isCorrect && q.correct_answer && (

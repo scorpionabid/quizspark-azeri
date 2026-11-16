@@ -14,9 +14,12 @@ describe("useAuth hook", () => {
         vi.clearAllMocks();
     });
 
-    it("should initialize with loading state", () => {
+    it("should initialize with loading state", async () => {
         const { result } = renderHook(() => useAuth(), { wrapper });
         expect(result.current.isLoading).toBe(true);
+        await act(async () => {
+            await Promise.resolve();
+        });
     });
 
     it("should sign in successfully", async () => {

@@ -128,6 +128,60 @@ export function isSequenceQuestion(text?: string | null): boolean {
   return (t.includes('ardıcıl') || t.includes('xronoloji')) && !t.includes('sxemi tamamlayın');
 }
 
+export function getNormalizedMultiSelectIndices(raw: string, question: Question): number[] {
+  if (!raw && raw !== '0') return [];
+  const options = question.options || [];
+  const optsLower = options.map(o => o.trim().toLowerCase());
+
+  // 1. Check if raw is JSON array of indices
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every(n => typeof n === 'number')) {
+      return Array.from(new Set(parsed as number[])).sort((a, b) => a - b);
+    }
+  } catch {}
+
+  const tokens = raw.split(',').map(s => s.trim()).filter(Boolean);
+  const result = new Set<number>();
+
+  for (const t of tokens) {
+    const tLower = t.toLowerCase();
+    // Letter: A, B, C...
+    if (/^[A-Z]$/i.test(t)) {
+      result.add(t.toUpperCase().charCodeAt(0) - 65);
+      continue;
+    }
+    // Number: 0, 1, 2...
+    if (/^\d+$/.test(t)) {
+      result.add(parseInt(t, 10));
+      continue;
+    }
+    // Option text match
+    const idx = optsLower.indexOf(tLower);
+    if (idx !== -1) {
+      result.add(idx);
+    }
+  }
+
+  // Fallback: Check if whole raw string matches an option directly
+  if (result.size === 0 && options.length > 0) {
+    options.forEach((opt, idx) => {
+      if (raw.toLowerCase().includes(opt.toLowerCase())) {
+        result.add(idx);
+      }
+    });
+  }
+
+  return Array.from(result).sort((a, b) => a - b);
+}
+
+export function getCorrectMultiSelectIndices(question: Question): number[] {
+  if (Array.isArray(question.correct_option_indices) && question.correct_option_indices.length > 0) {
+    return [...question.correct_option_indices].sort((a, b) => a - b);
+  }
+  return getNormalizedMultiSelectIndices(question.correct_answer || '', question);
+}
+
 export function isAnswerCorrect(question: Question, value: string): boolean {
   if (!value && value !== '0') return false;
   const qt = question.question_type;
@@ -273,10 +327,10 @@ export function isAnswerCorrect(question: Question, value: string): boolean {
   }
 
   if (qt === 'multiple_select') {
-    const studentAnswers = value.split(',').map(a => a.trim().toLowerCase()).filter(Boolean).sort();
-    const correctAnswers = (question.correct_answer || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean).sort();
-    if (studentAnswers.length !== correctAnswers.length) return false;
-    return studentAnswers.every((a, i) => a === correctAnswers[i]);
+    const studentIndices = getNormalizedMultiSelectIndices(value, question);
+    const correctIndices = getCorrectMultiSelectIndices(question);
+    if (studentIndices.length !== correctIndices.length || correctIndices.length === 0) return false;
+    return studentIndices.every((idx, i) => idx === correctIndices[i]);
   }
 
   // Short answer or fallback — 7-Layer Smart Open-Answer Evaluator
@@ -844,21 +898,21 @@ export function evaluateAnswer(question: Question, value: string): AnswerEvaluat
 
   // Partial credit for multiple_select
   if (qt === 'multiple_select') {
-    const studentAnswers = value.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
-    const correctAnswers = (question.correct_answer || '').split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+    const studentIndices = getNormalizedMultiSelectIndices(value, question);
+    const correctIndices = getCorrectMultiSelectIndices(question);
 
-    if (correctAnswers.length === 0) {
+    if (correctIndices.length === 0) {
       return { isCorrect: false, pointsEarned: 0, maxPoints, needsReview: false };
     }
 
-    const correctSelected = studentAnswers.filter(a => correctAnswers.includes(a)).length;
-    const incorrectSelected = studentAnswers.filter(a => !correctAnswers.includes(a)).length;
+    const correctSelected = studentIndices.filter(idx => correctIndices.includes(idx)).length;
+    const incorrectSelected = studentIndices.filter(idx => !correctIndices.includes(idx)).length;
 
-    const isCorrect = correctSelected === correctAnswers.length && incorrectSelected === 0;
+    const isCorrect = correctSelected === correctIndices.length && incorrectSelected === 0;
     const netCorrect = Math.max(0, correctSelected - incorrectSelected);
     const pointsEarned = isCorrect
       ? maxPoints
-      : Math.round((netCorrect / correctAnswers.length) * maxPoints * 100) / 100;
+      : Math.round((netCorrect / correctIndices.length) * maxPoints * 100) / 100;
 
     return { isCorrect, pointsEarned, maxPoints, needsReview: false };
   }

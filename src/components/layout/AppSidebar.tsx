@@ -23,6 +23,7 @@ import {
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useUserUnreadMessagesCount } from "@/hooks/useChat";
 import {
   Sidebar,
   SidebarContent,
@@ -60,6 +61,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { data: unreadSupportCount } = useUserUnreadMessagesCount();
 
   const currentRole: NavRole = role || 'guest';
 
@@ -189,6 +191,11 @@ export function AppSidebar() {
                         >
                           <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
                           {!collapsed && <span>{item.title}</span>}
+                          {!collapsed && (item.url === '/support' || item.url === '/admin/chat') && Boolean(unreadSupportCount && unreadSupportCount > 0) && (
+                            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-white shadow-sm">
+                              {unreadSupportCount}
+                            </span>
+                          )}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

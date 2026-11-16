@@ -61,6 +61,7 @@ interface QuizPlayingProps {
   isOnline?: boolean;
   isSyncing?: boolean;
   onFinalSubmit?: () => void;
+  submittedQuestionIds?: Set<string>;
 }
 
 export const QuizPlaying: React.FC<QuizPlayingProps> = ({
@@ -89,6 +90,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   isOnline = true,
   isSyncing = false,
   onFinalSubmit,
+  submittedQuestionIds,
   }) => {
   const { language, t } = useLanguage();
   const [showConfirm, setShowConfirm] = React.useState(false);
@@ -101,7 +103,7 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
   const [feedbackQuestion, setFeedbackQuestion] = React.useState<{ question: Question; index: number } | null>(null);
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const safeExam = getSafeExamConfig(quiz);
-  const isInstantFeedback = quiz.feedback_timing === 'instant' && quiz.exam_category !== 'official_exam' && !safeExam.enabled;
+  const isInstantFeedback = (quiz.feedback_timing === 'instant' || quiz.feedback_timing === 'immediate') && quiz.exam_category !== 'official_exam' && !safeExam.enabled;
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -336,6 +338,8 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                           allowBacktracking={quiz.allow_backtracking}
                           allowBookmarks={quiz.allow_bookmarks}
                           isInstantFeedback={isInstantFeedback}
+                          showFeedback={showFeedback}
+                          submittedQuestionIds={submittedQuestionIds}
                           jumpToPage={jumpToPage}
                           onSelectQuestion={() => setIsMobileMenuOpen(false)}
                           language={language}
@@ -721,6 +725,8 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                       allowBacktracking={quiz.allow_backtracking}
                       allowBookmarks={quiz.allow_bookmarks}
                       isInstantFeedback={isInstantFeedback}
+                      showFeedback={showFeedback}
+                      submittedQuestionIds={submittedQuestionIds}
                       jumpToPage={jumpToPage}
                       language={language}
                       t={t}

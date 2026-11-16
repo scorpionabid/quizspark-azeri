@@ -13,6 +13,10 @@ import { cn } from '@/lib/utils';
 import { RendererProps } from './types';
 import { normalizePairs, parseMatchingValue } from './utils';
 import { MathRenderer } from '@/components/common/MathRenderer';
+import { fisherYatesShuffle } from '@/utils/shuffle';
+
+// Module-level stable cache so right items stay in fixed positions across page navigations
+const stableRightItemsCache = new Map<string, string[]>();
 
 export const MatchingRenderer: React.FC<RendererProps> = ({
   question,
@@ -21,7 +25,6 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
   disabled,
   showFeedback,
 }) => {
-  const [shuffledRightItems, setShuffledRightItems] = useState<string[]>([]);
   const pairsRecord = normalizePairs(question.matching_pairs ?? null);
   const leftItems = Object.keys(pairsRecord);
   const currentMatches = parseMatchingValue(value, pairsRecord);
@@ -30,16 +33,28 @@ export const MatchingRenderer: React.FC<RendererProps> = ({
   // Detect 1:1 vs N:M based on correct answer pairs
   const isNtoM = Object.values(pairsRecord).some(v => v.includes(','));
 
+  const [shuffledRightItems, setShuffledRightItems] = useState<string[]>(() => {
+    if (stableRightItemsCache.has(question.id)) {
+      return stableRightItemsCache.get(question.id)!;
+    }
+    const allRightItems = Array.from(
+      new Set(Object.values(pairsRecord).flatMap(r => r.split(',').map(v => v.trim()))),
+    );
+    const shuffled = fisherYatesShuffle(allRightItems);
+    stableRightItemsCache.set(question.id, shuffled);
+    return shuffled;
+  });
+
   useEffect(() => {
-    if (question.matching_pairs) {
+    if (question.matching_pairs && !stableRightItemsCache.has(question.id)) {
       const allRightItems = Array.from(
         new Set(Object.values(pairsRecord).flatMap(r => r.split(',').map(v => v.trim()))),
       );
-      // Shuffle right items once on mount
-      setShuffledRightItems([...allRightItems].sort(() => Math.random() - 0.5));
+      const shuffled = fisherYatesShuffle(allRightItems);
+      stableRightItemsCache.set(question.id, shuffled);
+      setShuffledRightItems(shuffled);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [question.id, question.matching_pairs]);
+  }, [question.id, question.matching_pairs, pairsRecord]);
 
   // ── 1:1 handler (Select) ────────────────────────────────────────────────────
   const handleSelectMatch = (leftKey: string, rightVal: string) => {

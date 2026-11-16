@@ -172,7 +172,11 @@ export function useAIAssistant() {
     return new Promise<void>((resolve, reject) => {
       createQuestion.mutate(questionData, {
         onSuccess: () => { toast.success('Sual bankına əlavə edildi'); resolve(); },
-        onError: (err) => { toast.error('Xəta baş verdi'); reject(err); },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : 'Xəta baş verdi';
+          toast.error(`Sual banka əlavə edilərkən xəta: ${msg}`);
+          reject(err);
+        },
       });
     });
   };
@@ -359,7 +363,11 @@ export function useAIAssistant() {
         questionType: question.questionType || questionType,
       },
     });
-    if (fnError || !data?.questions?.[0]) { toast.error('Sual yenilənə bilmədi'); return; }
+    if (fnError || !data?.questions?.[0]) {
+      const msg = fnError?.message || 'AI sualı yeniləyə bilmədi';
+      toast.error(`Sual yenilənə bilmədi: ${msg}`);
+      return;
+    }
     const newQ: GeneratedQuestion = { ...data.questions[0], id: question.id };
     setGeneratedQuestions((prev) => prev.map((q) => (q.id === question.id ? newQ : q)));
     toast.success('Sual yeniləndi');

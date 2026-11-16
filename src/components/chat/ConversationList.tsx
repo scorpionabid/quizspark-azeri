@@ -31,20 +31,25 @@ export function ConversationList({ conversations, selectedUserId, onSelect }: Co
                         </Avatar>
 
                         <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-baseline mb-1">
+                            <div className="flex justify-between items-baseline mb-0.5">
                                 <h3 className={cn(
-                                    "font-semibold truncate",
-                                    conv.unread_count > 0 ? "text-foreground" : "text-foreground/80"
+                                    "font-semibold text-sm truncate",
+                                    conv.unread_count > 0 ? "text-foreground font-bold" : "text-foreground/90"
                                 )}>
-                                    {conv.full_name || "Adsız İstifadəçi"}
+                                    {conv.full_name || "İstifadəçi"}
                                 </h3>
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
                                     {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: az })}
                                 </span>
                             </div>
+                            {conv.email && (
+                                <p className="text-[11px] text-muted-foreground truncate mb-1">
+                                    {conv.email}
+                                </p>
+                            )}
                             <p className={cn(
-                                "text-sm truncate",
-                                conv.unread_count > 0 ? "font-bold text-foreground" : "text-muted-foreground"
+                                "text-xs truncate",
+                                conv.unread_count > 0 ? "font-semibold text-primary" : "text-muted-foreground"
                             )}>
                                 {conv.last_message}
                             </p>

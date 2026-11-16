@@ -7,6 +7,7 @@ import { NumericalEditor } from './NumericalEditor';
 import { FillBlankEditor } from './FillBlankEditor';
 import { CodeQuestionEditor } from './CodeQuestionEditor';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { AlertCircle } from 'lucide-react';
 
 interface QuestionAnswerEditorProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,13 +50,27 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
         <div className="space-y-4">
             {/* MCQ / Multi-select */}
             {(isMCQ || isMS) && (
-                <MultipleChoiceEditor
-                    options={formData.options || []}
-                    onChange={(options) => setFormData({ ...formData, options })}
-                    correctAnswer={formData.correct_answer || ''}
-                    onCorrectAnswerChange={(answer) => setFormData({ ...formData, correct_answer: answer })}
-                    isMultiple={isMS}
-                />
+                <div className="space-y-2">
+                    <MultipleChoiceEditor
+                        options={formData.options || []}
+                        onChange={(options) => setFormData({ ...formData, options })}
+                        correctAnswer={formData.correct_answer || ''}
+                        onCorrectAnswerChange={(answer) => setFormData({ ...formData, correct_answer: answer })}
+                        isMultiple={isMS}
+                    />
+                    {validationErrors.options && (
+                        <p className="text-xs text-destructive font-medium px-1 flex items-center gap-1.5">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                            {validationErrors.options}
+                        </p>
+                    )}
+                    {validationErrors.correct_answer && (
+                        <p className="text-xs text-destructive font-medium px-1 flex items-center gap-1.5">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                            {validationErrors.correct_answer}
+                        </p>
+                    )}
+                </div>
             )}
 
             {/* True/False */}
@@ -82,7 +97,10 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
                     </RadioGroup>
                     <p className="text-[10px] text-muted-foreground px-1 italic">Məlumat: A = Doğru · B = Yanlış</p>
                     {validationErrors.correct_answer && (
-                        <p className="text-xs text-destructive px-1">{validationErrors.correct_answer}</p>
+                        <p className="text-xs text-destructive font-medium px-1 flex items-center gap-1.5">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                            {validationErrors.correct_answer}
+                        </p>
                     )}
                 </div>
             )}
@@ -95,7 +113,10 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
                 />
             )}
             {isMatching && validationErrors.matching_pairs && (
-                <p className="text-xs text-destructive">{validationErrors.matching_pairs}</p>
+                <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {validationErrors.matching_pairs}
+                </p>
             )}
 
             {/* Ordering */}
@@ -106,7 +127,10 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
                 />
             )}
             {isOrdering && validationErrors.sequence_items && (
-                <p className="text-xs text-destructive">{validationErrors.sequence_items}</p>
+                <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {validationErrors.sequence_items}
+                </p>
             )}
 
             {/* Numerical */}
@@ -118,7 +142,10 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
                 />
             )}
             {isNumerical && validationErrors.numerical_answer && (
-                <p className="text-xs text-destructive">{validationErrors.numerical_answer}</p>
+                <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {validationErrors.numerical_answer}
+                </p>
             )}
 
             {/* Fill Blank */}
@@ -136,7 +163,10 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
                 />
             )}
             {isFillBlank && validationErrors.correct_answer && (
-                <p className="text-xs text-destructive">{validationErrors.correct_answer}</p>
+                <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {validationErrors.correct_answer}
+                </p>
             )}
 
             {/* Code */}
@@ -157,7 +187,10 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
                 />
             )}
             {isCode && validationErrors.correct_answer && (
-                <p className="text-xs text-destructive">{validationErrors.correct_answer}</p>
+                <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {validationErrors.correct_answer}
+                </p>
             )}
 
             {/* Plain text answer for other types (short_answer, essay, hotspot) */}
@@ -176,7 +209,10 @@ export function QuestionAnswerEditor({ formData, setFormData, validationErrors =
                         </p>
                     )}
                     {validationErrors.correct_answer && (
-                        <p className="text-xs text-destructive">{validationErrors.correct_answer}</p>
+                        <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                            {validationErrors.correct_answer}
+                        </p>
                     )}
                 </div>
             )}

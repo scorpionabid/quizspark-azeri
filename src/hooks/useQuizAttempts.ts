@@ -192,38 +192,66 @@ export function useCompleteAttempt() {
     }) => {
       if (!user) throw new Error('İstifadəçi daxil olmayıb');
 
-      // Update attempt and insert leaderboard result in parallel
-      const percentage = score;
-      const [attemptRes, resultRes] = await Promise.all([
-        supabase
-          .from('quiz_attempts')
-          .update({
-            completed_at: new Date().toISOString(),
-            score,
-            time_spent: timeSpent,
-            answers,
-          })
-          .eq('id', attemptId),
-        supabase
-          .from('quiz_results')
-          .insert({
-            quiz_id: quizId,
-            user_id: user.id,
-            score,
-            total_questions: totalQuestions,
-            percentage,
-            time_spent: timeSpent,
-          })
-          .select()
-          .single(),
-      ]);
+      let resultData: Partial<QuizResult> | null = null;
 
-      if (attemptRes.error) throw attemptRes.error;
-      if (resultRes.error) throw resultRes.error;
+      // 1. Primary: Atomic server-side procedure (eliminates submit race condition & lost play_count)
+      const { data: atomicData, error: atomicError } = await supabase.rpc('complete_quiz_attempt_atomic', {
+        p_attempt_id: attemptId,
+        p_quiz_id: quizId,
+        p_user_id: user.id,
+        p_score: score,
+        p_total_questions: totalQuestions,
+        p_time_spent: timeSpent,
+        p_answers: answers as unknown as any,
+      });
 
-      // Non-blocking background tasks
-      (async () => {
-        // Increment play count
+      if (!atomicError && atomicData) {
+        resultData = {
+          id: (atomicData as any).result_id || attemptId,
+          quiz_id: quizId,
+          user_id: user.id,
+          score,
+          total_questions: totalQuestions,
+          percentage: score,
+          time_spent: timeSpent,
+          completed_at: new Date().toISOString(),
+        };
+      } else {
+        // 2. Fallback to parallel client-side update if RPC is missing
+        if (atomicError) {
+          console.warn('Atomic completion RPC unavailable, falling back:', atomicError.message);
+        }
+        const percentage = score;
+        const [attemptRes, resultRes] = await Promise.all([
+          supabase
+            .from('quiz_attempts')
+            .update({
+              completed_at: new Date().toISOString(),
+              score,
+              time_spent: timeSpent,
+              answers,
+            })
+            .eq('id', attemptId),
+          supabase
+            .from('quiz_results')
+            .upsert({
+              attempt_id: attemptId,
+              quiz_id: quizId,
+              user_id: user.id,
+              score,
+              total_questions: totalQuestions,
+              percentage,
+              time_spent: timeSpent,
+            }, { onConflict: 'attempt_id' })
+            .select()
+            .single(),
+        ]);
+
+        if (attemptRes.error) throw attemptRes.error;
+        if (resultRes.error) throw resultRes.error;
+        resultData = resultRes.data as QuizResult;
+
+        // Increment play count fallback
         try {
           const { data: quizData } = await supabase
             .from('quizzes')
@@ -240,7 +268,10 @@ export function useCompleteAttempt() {
         } catch {
           // Ignore errors
         }
+      }
 
+      // Non-blocking background tasks
+      (async () => {
         // Update Student Mastery in the background
         try {
           await syncStudentMasteryAfterQuiz({
@@ -257,7 +288,7 @@ export function useCompleteAttempt() {
         }
       })();
 
-      return resultRes.data as QuizResult;
+      return resultData as QuizResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attempts'] });

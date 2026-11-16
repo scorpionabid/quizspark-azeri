@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { User, Settings, LogOut, Shield, GraduationCap } from "lucide-react";
+import { User, Settings, LogOut, Shield, GraduationCap, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
@@ -120,6 +120,12 @@ export function UserMenu() {
           <Link to="/settings" className="flex items-center">
             <Settings className="mr-2 h-4 w-4" />
             {t('menu_settings', 'Ayarlar')}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link to={role === "admin" ? "/admin/chat" : "/support"} className="flex items-center">
+            <MessageCircle className="mr-2 h-4 w-4" />
+            {role === "admin" ? t('menu_messages', 'Mesajlar Paneli') : t('menu_support', 'Dəstək Çatı')}
           </Link>
         </DropdownMenuItem>
         {role === "admin" && (

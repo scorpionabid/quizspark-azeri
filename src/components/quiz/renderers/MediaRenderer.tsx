@@ -9,16 +9,19 @@ interface MediaRendererProps {
 }
 
 export const MediaRenderer: React.FC<MediaRendererProps> = ({ question }) => {
+  const hasInlineImage = Boolean(question.question_text && question.question_text.includes('!['));
+
   return (
     <div className="space-y-4 mb-4">
-      {(question.question_image_url ||
-        (question.media_type === 'image' && question.media_url)) && (
-        <img
-          src={question.question_image_url || question.media_url!}
-          alt="Sual şəkli"
-          className="max-h-80 w-auto mx-auto rounded-2xl border-2 border-primary/10 shadow-lg object-contain bg-background/50"
-        />
-      )}
+      {!hasInlineImage &&
+        (question.question_image_url ||
+          (question.media_type === 'image' && question.media_url)) && (
+          <img
+            src={question.question_image_url || question.media_url!}
+            alt="Sual şəkli"
+            className="max-h-80 w-auto mx-auto rounded-2xl border-2 border-primary/10 shadow-lg object-contain bg-background/50"
+          />
+        )}
 
       {(question.question_type === 'video' || question.media_type === 'video') &&
         (question.video_url || question.media_url) && (

@@ -442,7 +442,18 @@ export function useDuplicateQuiz() {
         .single();
       if (sourceError) throw sourceError;
 
-      const { id: _id, created_at: _ca, updated_at: _ua, play_count: _pc, rating: _r, is_popular: _ip, is_new: _in, ...rest } = source;
+      const {
+        id: _id,
+        created_at: _ca,
+        updated_at: _ua,
+        play_count: _pc,
+        rating: _r,
+        is_popular: _ip,
+        is_new: _in,
+        share_code: _sc,
+        question_count: _qc,
+        ...rest
+      } = source;
       const { data: newQuiz, error: createError } = await supabase
         .from('quizzes')
         .insert({
@@ -453,6 +464,7 @@ export function useDuplicateQuiz() {
           play_count: 0,
           available_from: null,
           available_to: null,
+          share_code: null,
         })
         .select()
         .single();

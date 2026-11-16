@@ -177,6 +177,22 @@ function AppRoutes() {
           </Suspense>
         } />
 
+        {/* Support Chat Routes - Accessible by all authenticated users */}
+        <Route path="/support" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+              <MainLayout><SupportChatPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+        <Route path="/chat" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+              <MainLayout><SupportChatPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+
         {/* Admin Routes - Protected + lazy */}
         <Route path="/admin/dashboard" element={
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>

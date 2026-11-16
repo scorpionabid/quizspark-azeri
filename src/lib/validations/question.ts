@@ -7,6 +7,14 @@ import { DraftQuestion } from '@/components/teacher/quiz-creation/SortableQuesti
 export function validateDraftQuestion(q: DraftQuestion): string | null {
   switch (q.question_type) {
     case 'multiple_choice':
+      if (!q.correct_answer?.trim()) {
+        return `Sual ${q.order_index + 1}: Düzgün cavab daxil edilməyib`;
+      }
+      if (!q.options || q.options.filter(o => o && o.trim() !== '').length < 2) {
+        return `Sual ${q.order_index + 1}: Ən azı 2 variant daxil edilməlidir`;
+      }
+      return null;
+
     case 'true_false':
     case 'short_answer':
     case 'fill_blank':
@@ -58,7 +66,10 @@ export function validateDraftQuestion(q: DraftQuestion): string | null {
       return null;
 
     case 'multiple_select':
-      if (!q.correct_answer?.trim()) {
+      if (!q.options || q.options.filter(o => o && o.trim() !== '').length < 2) {
+        return `Sual ${q.order_index + 1}: Ən azı 2 variant daxil edilməlidir`;
+      }
+      if (!q.correct_answer?.trim() && (!Array.isArray(q.correct_option_indices) || q.correct_option_indices.length === 0)) {
         return `Sual ${q.order_index + 1}: Düzgün cavab(lar) seçilməyib`;
       }
       return null;

@@ -58,17 +58,34 @@ function parseMathParts(text: string): MathPart[] {
   return parts;
 }
 
+function normalizeImageUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  if (trimmed.startsWith('./images/')) {
+    return '/images/' + trimmed.slice(9);
+  }
+  if (trimmed.startsWith('images/')) {
+    return '/images/' + trimmed.slice(7);
+  }
+  return trimmed;
+}
+
 /**
- * Mətn hissələrində tünd-qara (**bold**), altından xətt (<u>underline</u>)
- * və kursiv (*italic*) formatlamasını render edir.
+ * Mətn hissələrində tünd-qara (**bold**), altından xətt (<u>underline</u>),
+ * kursiv (*italic*) və Markdown şəkilləri (![alt](url)) render edir.
  */
 function renderFormattedText(text: string): React.ReactNode {
   if (!text) return null;
-  if (!text.includes('**') && !text.includes('<u>') && !text.includes('*')) {
+  if (
+    !text.includes('**') &&
+    !text.includes('<u>') &&
+    !text.includes('*') &&
+    !text.includes('![')
+  ) {
     return text;
   }
 
-  const tokenRegex = /(\*\*[\s\S]+?\*\*|<u>[\s\S]+?<\/u>|\*(?!\*)[\s\S]+?\*)/g;
+  const tokenRegex =
+    /(!\[[\s\S]*?\]\([\s\S]*?\))|(\*\*[\s\S]+?\*\*)|(<u>[\s\S]+?<\/u>)|(\*(?!\*)[\s\S]+?\*)/g;
   const elements: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -80,7 +97,24 @@ function renderFormattedText(text: string): React.ReactNode {
     const token = match[0];
     const key = `fmt-${match.index}`;
 
-    if (token.startsWith('**') && token.endsWith('**')) {
+    if (token.startsWith('![') && token.endsWith(')')) {
+      const imgMatch = token.match(/^!\[([\s\S]*?)\]\(([\s\S]*?)\)$/);
+      if (imgMatch) {
+        const alt = imgMatch[1]?.trim() || 'Sual şəkli';
+        const src = normalizeImageUrl(imgMatch[2] || '');
+        elements.push(
+          <img
+            key={key}
+            src={src}
+            alt={alt}
+            loading="lazy"
+            className="my-3 mx-auto max-h-80 sm:max-h-96 w-auto max-w-full rounded-2xl border-2 border-primary/10 shadow-md object-contain bg-background/50 block"
+          />
+        );
+      } else {
+        elements.push(token);
+      }
+    } else if (token.startsWith('**') && token.endsWith('**')) {
       elements.push(
         <strong
           key={key}
@@ -260,8 +294,16 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className }) =
 
   if (!hasTable) {
     const hasNewlines = text.includes('\n');
+    const hasImages = text.includes('![');
+    if (hasImages || hasNewlines) {
+      return (
+        <div className={cn('whitespace-pre-line leading-relaxed', className)}>
+          <RenderInline content={text} />
+        </div>
+      );
+    }
     return (
-      <span className={cn(hasNewlines && 'whitespace-pre-line inline-block', className)}>
+      <span className={className}>
         <RenderInline content={text} />
       </span>
     );

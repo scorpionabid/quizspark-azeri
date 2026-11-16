@@ -16,10 +16,12 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { useUserUnreadMessagesCount } from '@/hooks/useChat';
 
 export function BottomNav() {
   const { role, isAuthenticated } = useAuth();
   const location = useLocation();
+  const { data: unreadCount } = useUserUnreadMessagesCount();
 
   // Hide BottomNav on active test taking screen (e.g. /quiz/123)
   const isTakingQuiz = location.pathname.startsWith('/quiz/') && location.pathname !== '/quizzes';
@@ -91,6 +93,11 @@ export function BottomNav() {
             >
               <div className="relative">
                 <Icon className={cn('h-5 w-5 transition-transform duration-200', isActive && 'scale-110')} />
+                {(item.path === '/support' || item.path === '/admin/chat') && Boolean(unreadCount && unreadCount > 0) && (
+                  <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-white shadow-sm animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
                 {isActive && (
                   <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary" />
                 )}

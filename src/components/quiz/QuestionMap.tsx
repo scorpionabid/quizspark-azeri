@@ -14,6 +14,8 @@ interface QuestionMapProps {
   allowBacktracking: boolean;
   allowBookmarks: boolean;
   isInstantFeedback: boolean;
+  showFeedback?: boolean;
+  submittedQuestionIds?: Set<string>;
   jumpToPage: (pageIndex: number) => void;
   onSelectQuestion?: () => void;
   language: string;
@@ -32,6 +34,8 @@ export const QuestionMap: React.FC<QuestionMapProps> = React.memo(({
   allowBacktracking,
   allowBookmarks,
   isInstantFeedback,
+  showFeedback = false,
+  submittedQuestionIds,
   jumpToPage,
   onSelectQuestion,
   language: _language,
@@ -71,7 +75,16 @@ export const QuestionMap: React.FC<QuestionMapProps> = React.memo(({
       let isCorrect = false;
       let isIncorrect = false;
 
-      if (hasAnswer && isInstantFeedback && targetSlice.length > 0) {
+      // In instant feedback mode, ONLY show correctness for questions that have actually been SUBMITTED / CHECKED!
+      // If the user is on currentPage and has not submitted yet (!showFeedback), DO NOT evaluate correctness to prevent spoilers!
+      const isPageSubmitted = targetSlice.length > 0 && targetSlice.every(q => {
+        if (idx === currentPage) {
+          return Boolean(showFeedback);
+        }
+        return submittedQuestionIds ? submittedQuestionIds.has(q.id) : false;
+      });
+
+      if (hasAnswer && isInstantFeedback && targetSlice.length > 0 && isPageSubmitted) {
         const allSliceCorrect = targetSlice.every(q => {
           const val = localAnswers[q.id];
           return typeof val === 'string' && val.trim().length > 0 && isAnswerCorrect(q, val);
@@ -113,7 +126,7 @@ export const QuestionMap: React.FC<QuestionMapProps> = React.memo(({
       unansweredCount: unansweredPagesCount,
       bookmarkedCount: bookmarkedPagesCount,
     };
-  }, [totalPages, allQuestions, questionsPerPage, localAnswers, bookmarkedQuestions, isInstantFeedback]);
+  }, [totalPages, allQuestions, questionsPerPage, localAnswers, bookmarkedQuestions, isInstantFeedback, showFeedback, submittedQuestionIds, currentPage]);
 
   // Filtered pages
   const displayedPages = useMemo(() => {
@@ -276,9 +289,9 @@ export const QuestionMap: React.FC<QuestionMapProps> = React.memo(({
 
               if (isInstantFeedback) {
                 if (isCurrent) {
-                  if (isCorrect) {
+                  if (showFeedback && isCorrect) {
                     colorClasses = "border-primary bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 ring-2 ring-primary ring-offset-2 ring-offset-background font-black shadow-sm";
-                  } else if (isIncorrect) {
+                  } else if (showFeedback && isIncorrect) {
                     colorClasses = "border-primary bg-rose-500/25 text-rose-800 dark:text-rose-300 ring-2 ring-primary ring-offset-2 ring-offset-background font-black shadow-sm";
                   } else {
                     colorClasses = "border-primary bg-primary/15 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background font-black shadow-sm";
@@ -288,6 +301,8 @@ export const QuestionMap: React.FC<QuestionMapProps> = React.memo(({
                     colorClasses = "border-emerald-500/70 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 font-bold";
                   } else if (isIncorrect) {
                     colorClasses = "border-rose-500/70 bg-rose-500/15 text-rose-700 dark:text-rose-400 hover:bg-rose-500/25 font-bold";
+                  } else if (hasAnswer) {
+                    colorClasses = "border-primary/40 bg-primary/10 text-primary font-semibold";
                   }
                 }
               } else {

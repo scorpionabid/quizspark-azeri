@@ -26,6 +26,8 @@ import { QuizResult } from "@/components/quiz/QuizResult";
 import { QuestionAnswer, QuestionType } from "@/types/question";
 import { supabase } from "@/integrations/supabase/client";
 import { evaluateAnswer } from "@/components/quiz/renderers/utils";
+import { getSynchronizedServerNow, syncServerClock } from "@/utils/serverTime";
+import { fisherYatesShuffle } from "@/utils/shuffle";
 
 type QuizState = 'intro' | 'playing' | 'result';
 type Answer = QuestionAnswer;
@@ -90,6 +92,11 @@ export default function QuizPage() {
   useEffect(() => {
     setSidebarOpenRef.current = setSidebarOpen;
   }, [setSidebarOpen]);
+
+  // Synchronize client-server clock offset once on page mount
+  useEffect(() => {
+    void syncServerClock();
+  }, []);
 
   // Auto-collapse sidebar ONCE when quiz enters 'playing' state to maximize question area.
   // Do not re-collapse if candidate explicitly opens the sidebar via header menu button.
@@ -256,7 +263,7 @@ export default function QuizPage() {
       }
       debouncedSyncRef.current = setTimeout(() => {
         const answersArray = buildCompleteAnswersFromLocal(localAnswers);
-        setAnswers(answersArray);
+        // Only sync draft to DB, do NOT pollute committed `answers` state with unsubmitted placeholders
         updateAttemptMutateRef.current({
           attemptId,
           answers: answersArray as unknown as Record<string, string>[],
@@ -325,16 +332,27 @@ export default function QuizPage() {
     setAnswers(latestAnswers);
 
     if (!isPreview && attemptId && startTime && user && quiz) {
-      const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+      const nowMs = getSynchronizedServerNow();
+      const timeSpent = Math.max(1, Math.floor((nowMs - startTime.getTime()) / 1000));
       setTimeSpent(timeSpent);
-      const earnedPoints = latestAnswers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
-      const maxPoints = displayQuestions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
+
+      // Isolate essay/manual review questions so candidates don't get an immediate false 0%
+      const evaluatableQuestions = displayQuestions.filter(q => q.question_type !== 'essay' && q.question_type !== 'code');
+      const earnedPoints = latestAnswers.filter(a => !a.needsReview).reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
+      const maxPoints = (evaluatableQuestions.length > 0 ? evaluatableQuestions : displayQuestions).reduce((sum, q) => sum + (q.weight ?? 1), 0);
       const weightedScore = maxPoints > 0 ? Math.round((earnedPoints / maxPoints) * 100) : 0;
 
-      // Instant UI transition to result screen (0ms latency for candidate)
-      setQuizState('result');
+      // Emergency local persistence to prevent data loss on network failure
+      localStorage.setItem(`quiz_final_payload_${attemptId}`, JSON.stringify({
+        attemptId,
+        quizId: quiz.id,
+        score: weightedScore,
+        totalQuestions: displayQuestions.length,
+        timeSpent,
+        answers: latestAnswers,
+      }));
 
-      // Execute background database persistence asynchronously
+      // Execute database persistence
       (async () => {
         try {
           await completeAttempt.mutateAsync({
@@ -347,6 +365,7 @@ export default function QuizPage() {
           });
           localStorage.removeItem(`quiz_start_${quiz.id}`);
           localStorage.removeItem(`quiz_draft_${attemptId}`);
+          localStorage.removeItem(`quiz_final_payload_${attemptId}`);
 
           // Insert pending reviews for open-ended / essay questions
           const essayAnswers = latestAnswers.filter(a => a.needsReview && a.textAnswer);
@@ -389,8 +408,19 @@ export default function QuizPage() {
           if (xpGain > 0) {
             await updateXPAsync(xpGain);
           }
+
+          // Transition to result only after confirmed persistence
+          setQuizState('result');
         } catch (error) {
           console.error("Error completing quiz in background:", error);
+          isCompletingRef.current = false;
+          toast.error("İmtahan nəticəsi serverə çatmadı. Zəhmət olmasa internet bağlantınızı yoxlayın və 'Yenidən göndər' düyməsini sıxın.", {
+            duration: 12000,
+            action: {
+              label: 'Yenidən göndər',
+              onClick: () => completeQuizWithAnswers(latestAnswers),
+            },
+          });
         }
       })();
     } else {
@@ -449,7 +479,7 @@ export default function QuizPage() {
     if (currentPage < totalPages - 1) {
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
-      const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
+      const isInstant = (quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
       const targetSlice = displayQuestions.slice(nextPage * questionsPerPage, (nextPage + 1) * questionsPerPage);
       const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => latestAnswers.some(a => a.questionId === q.id && a.textAnswer && a.textAnswer.trim().length > 0));
       setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
@@ -487,7 +517,7 @@ export default function QuizPage() {
       else anyIncorrect = true;
     });
 
-    const isInstant = Boolean(quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled);
+    const isInstant = Boolean((quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled);
 
     if (isInstant) {
       setShowFeedback(true);
@@ -548,7 +578,8 @@ export default function QuizPage() {
 
     totalTimeUpRef.current = false;
 
-    const prevAnswers = (attempt.answers || []) as unknown as Answer[];
+    const rawAnswers = (attempt.answers || []) as unknown as Answer[];
+    const prevAnswers = rawAnswers.filter(ans => typeof ans.textAnswer === 'string' && ans.textAnswer.trim().length > 0);
     setAnswers(prevAnswers);
     setAttemptId(attempt.id);
 
@@ -558,7 +589,7 @@ export default function QuizPage() {
 
     const initialLocalAnswers: Record<string, string> = {};
     prevAnswers.forEach(ans => {
-      initialLocalAnswers[ans.questionId] = ans.textAnswer || '';
+      initialLocalAnswers[ans.questionId] = ans.textAnswer;
     });
     try {
       const savedDraft = localStorage.getItem(`quiz_draft_${attempt.id}`);
@@ -578,7 +609,7 @@ export default function QuizPage() {
 
     const isTimeless = !quiz.duration || quiz.duration === 0;
     const totalDurationSecs = isTimeless ? 0 : quiz.duration * 60;
-    const elapsed = (Date.now() - startedAt.getTime()) / 1000;
+    const elapsed = (getSynchronizedServerNow() - startedAt.getTime()) / 1000;
     const remaining = isTimeless ? 0 : Math.max(0, Math.floor(totalDurationSecs - elapsed));
 
     if (!isTimeless && remaining <= 0) {
@@ -633,7 +664,7 @@ export default function QuizPage() {
     }
 
     const shuffled = quiz.shuffle_questions
-      ? [...questions].sort(() => Math.random() - 0.5)
+      ? fisherYatesShuffle(questions)
       : [...questions];
     const questionOrderIds = shuffled.map((q) => q.id);
     setQuestionOrder(questionOrderIds);
@@ -706,7 +737,7 @@ export default function QuizPage() {
     const totalDuration = isTimeless ? 0 : quiz.duration * 60;
 
     const timer = setInterval(() => {
-      const now = Date.now();
+      const now = getSynchronizedServerNow();
       const elapsed = (now - startTime.getTime()) / 1000;
       
       if (!isTimeless) {
@@ -754,6 +785,14 @@ export default function QuizPage() {
   const correctCount = answers.filter(a => a.isCorrect).length;
   const pendingReviews = answers.filter(a => a.needsReview).length;
   const feedbackEnabled = quiz?.exam_category !== 'official_exam' && quiz?.show_feedback !== false && quiz?.feedback_timing !== 'never';
+  const submittedQuestionIds = useMemo(
+    () => new Set(
+      answers
+        .filter(a => typeof a.textAnswer === 'string' && a.textAnswer.trim().length > 0)
+        .map(a => a.questionId)
+    ),
+    [answers]
+  );
 
   const toggleBookmark = (id: string) => {
     setBookmarkedQuestions(prev => {
@@ -779,10 +818,13 @@ export default function QuizPage() {
     if (pageIdx === currentPage) return 'current';
 
     if (isAllAnswered) {
-      const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
+      const isInstant = (quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
       if (isInstant) {
+        const isPageSubmitted = pageSlice.length > 0 && pageSlice.every(q => submittedQuestionIds.has(q.id));
+        if (!isPageSubmitted) return 'pending';
+
         const pageAnswers = pageSlice
-          .map(q => answers.find(a => a.questionId === q.id))
+          .map(q => answers.find(a => a.questionId === q.id && typeof a.textAnswer === 'string' && a.textAnswer.trim().length > 0))
           .filter((a): a is Answer => Boolean(a));
         const allCorrect = pageAnswers.length === pageSlice.length && pageAnswers.every(a => a.isCorrect);
         return allCorrect ? 'correct' : 'incorrect';
@@ -900,16 +942,16 @@ export default function QuizPage() {
         handlePrevPage={() => {
             const prevPage = Math.max(0, currentPage - 1);
             setCurrentPage(prevPage);
-            const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
+            const isInstant = (quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
             const targetSlice = displayQuestions.slice(prevPage * questionsPerPage, (prevPage + 1) * questionsPerPage);
-            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => Boolean(localAnswers[q.id]?.trim()?.length));
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => submittedQuestionIds.has(q.id) && Boolean(localAnswers[q.id]?.trim()?.length));
             setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
         }}
         jumpToPage={(idx) => {
             setCurrentPage(idx);
-            const isInstant = quiz?.feedback_timing === 'instant' && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
+            const isInstant = (quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
             const targetSlice = displayQuestions.slice(idx * questionsPerPage, (idx + 1) * questionsPerPage);
-            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => Boolean(localAnswers[q.id]?.trim()?.length));
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => submittedQuestionIds.has(q.id) && Boolean(localAnswers[q.id]?.trim()?.length));
             setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
         }}
         onExit={() => navigate(quiz.exam_category === 'official_exam' ? '/imtahan' : '/')}
@@ -920,6 +962,7 @@ export default function QuizPage() {
         isOnline={isOnline}
         isSyncing={updateAttempt.isPending}
         onFinalSubmit={() => void completeQuizWithAnswers()}
+        submittedQuestionIds={submittedQuestionIds}
       />
     );
   }

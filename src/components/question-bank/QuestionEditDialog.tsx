@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -88,6 +89,8 @@ export function QuestionEditDialog({
     formData,
     setFormData,
     validationErrors,
+    setValidationErrors,
+    validateForm,
     isUploading,
     is3DUploading,
     setIs3DUploading,
@@ -308,11 +311,29 @@ export function QuestionEditDialog({
                   <Textarea
                     id="question_text"
                     value={formData.question_text}
-                    onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, question_text: e.target.value });
+                      if (validationErrors.question_text) {
+                        setValidationErrors(prev => {
+                          const next = { ...prev };
+                          delete next.question_text;
+                          return next;
+                        });
+                      }
+                    }}
                     placeholder="Sualı daxil edin..."
                     rows={3}
-                    className="pr-12"
+                    className={cn(
+                      "pr-12",
+                      validationErrors.question_text && "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
+                  {validationErrors.question_text && (
+                    <p className="text-xs text-destructive font-medium mt-1 flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      {validationErrors.question_text}
+                    </p>
+                  )}
                   <QuestionAISection onAnalyze={handleAIAnalysis} isEnhancing={isEnhancing} disabled={!formData.question_text} />
                   {(formData.question_text.includes('$') || formData.question_text.includes('\\(') || formData.question_text.includes('\\[')) && (
                     <div className="mt-2 p-2 rounded-md border border-dashed bg-muted/30">
@@ -460,54 +481,70 @@ export function QuestionEditDialog({
             </label>
           )}
           {Object.keys(validationErrors).length > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-destructive mr-auto">
-              <AlertCircle className="h-3.5 w-3.5" />
-              <span>Formdakı xətaları düzəldin</span>
+            <div className="flex flex-col gap-1 text-xs text-destructive mr-auto bg-destructive/10 border border-destructive/20 p-2.5 rounded-lg max-w-md animate-in fade-in">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
+                <span>Zəhmət olmasa aşağıdakı çatışmazlıqları aradan qaldırın:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 text-destructive/90 pl-1">
+                {Object.values(validationErrors).map((msg, idx) => (
+                  <li key={idx}>{msg}</li>
+                ))}
+              </ul>
             </div>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Ləğv et</Button>
           <Button
             onClick={async () => {
+              const errors = validateForm();
+              if (Object.keys(errors).length > 0) {
+                handleSubmit();
+                return;
+              }
               if (saveToBank && showSaveToBank && mode === 'create') {
-                await createQuestionBank.mutateAsync({
-                  question_text: formData.question_text,
-                  question_type: formData.question_type,
-                  options: formData.options ?? null,
-                  correct_answer: formData.correct_answer ?? '',
-                  explanation: formData.explanation ?? null,
-                  title: formData.title ?? null,
-                  weight: formData.weight ?? null,
-                  hint: formData.hint ?? null,
-                  time_limit: formData.time_limit ?? null,
-                  difficulty: formData.difficulty ?? null,
-                  category: formData.category ?? null,
-                  bloom_level: formData.bloom_level ?? null,
-                  tags: formData.tags ?? null,
-                  per_option_explanations: formData.per_option_explanations ?? null,
-                  question_image_url: formData.question_image_url ?? null,
-                  option_images: formData.option_images ?? null,
-                  media_type: formData.media_type ?? null,
-                  media_url: formData.media_url ?? null,
-                  video_url: formData.video_url ?? null,
-                  video_start_time: formData.video_start_time ?? null,
-                  video_end_time: formData.video_end_time ?? null,
-                  model_3d_url: formData.model_3d_url ?? null,
-                  model_3d_type: formData.model_3d_type ?? null,
-                  hotspot_data: formData.hotspot_data ?? null,
-                  matching_pairs: formData.matching_pairs ?? null,
-                  sequence_items: formData.sequence_items ?? null,
-                  fill_blank_template: formData.fill_blank_template ?? null,
-                  numerical_answer: formData.numerical_answer ?? null,
-                  numerical_tolerance: formData.numerical_tolerance ?? null,
-                  source_document_id: null,
-                  quality_score: null,
-                  usage_count: null,
-                  feedback_enabled: null,
-                });
+                try {
+                  await createQuestionBank.mutateAsync({
+                    question_text: formData.question_text,
+                    question_type: formData.question_type,
+                    options: formData.options ?? null,
+                    correct_answer: formData.correct_answer ?? '',
+                    explanation: formData.explanation ?? null,
+                    title: formData.title ?? null,
+                    weight: formData.weight ?? null,
+                    hint: formData.hint ?? null,
+                    time_limit: formData.time_limit ?? null,
+                    difficulty: formData.difficulty ?? null,
+                    category: formData.category ?? null,
+                    bloom_level: formData.bloom_level ?? null,
+                    tags: formData.tags ?? null,
+                    per_option_explanations: formData.per_option_explanations ?? null,
+                    question_image_url: formData.question_image_url ?? null,
+                    option_images: formData.option_images ?? null,
+                    media_type: formData.media_type ?? null,
+                    media_url: formData.media_url ?? null,
+                    video_url: formData.video_url ?? null,
+                    video_start_time: formData.video_start_time ?? null,
+                    video_end_time: formData.video_end_time ?? null,
+                    model_3d_url: formData.model_3d_url ?? null,
+                    model_3d_type: formData.model_3d_type ?? null,
+                    hotspot_data: formData.hotspot_data ?? null,
+                    matching_pairs: formData.matching_pairs ?? null,
+                    sequence_items: formData.sequence_items ?? null,
+                    fill_blank_template: formData.fill_blank_template ?? null,
+                    numerical_answer: formData.numerical_answer ?? null,
+                    numerical_tolerance: formData.numerical_tolerance ?? null,
+                    source_document_id: null,
+                    quality_score: null,
+                    usage_count: null,
+                    feedback_enabled: null,
+                  });
+                } catch {
+                  return;
+                }
               }
               handleSubmit();
             }}
-            disabled={!formData.question_text || savingLoading || isUploading || is3DUploading || createQuestionBank.isPending}
+            disabled={savingLoading || isUploading || is3DUploading || createQuestionBank.isPending}
           >
             {(savingLoading || createQuestionBank.isPending) ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Yüklənir...</> : mode === 'create' ? 'Yarat' : 'Yadda saxla'}
           </Button>

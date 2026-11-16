@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 430" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+
+    <!-- 3D Faces Gradients -->
+    <linearGradient id="faceTopFront" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.20" />
+    </linearGradient>
+    <linearGradient id="faceTopRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#2563eb" stop-opacity="0.15" />
+    </linearGradient>
+    <linearGradient id="faceBotFront" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.30" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.15" />
+    </linearGradient>
+
+    <!-- Net Triangle Gradients -->
+    <linearGradient id="triGradA" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#bae6fd" />
+    </linearGradient>
+    <linearGradient id="triGradB" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ede9fe" />
+      <stop offset="100%" stop-color="#ddd6fe" />
+    </linearGradient>
+
+    <!-- Drop Shadow -->
+    <filter id="dropShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.06" />
+    </filter>
+  </defs>
+
+  <!-- Container Box -->
+  <rect x="10" y="10" width="660" height="410" rx="24" fill="url(#cardBg)" stroke="#cbd5e1" stroke-width="1.5" filter="url(#dropShadow)" />
+
+  <!-- Badge / Title -->
+  <g transform="translate(340, 44)">
+    <rect x="-165" y="-16" width="330" height="32" rx="16" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" />
+    <text text-anchor="middle" y="5" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#1e293b" letter-spacing="0.3">
+      DÜZGÜN OKTAEDR: 3D FORMA VƏ AÇILIŞI
+    </text>
+  </g>
+
+  <!-- Divider Line -->
+  <line x1="290" y1="75" x2="290" y2="390" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4" />
+
+  <!-- LEFT: 3D OKTAEDR -->
+  <g id="threeD_octahedron">
+    <!-- Subtitle -->
+    <text x="150" y="95" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#0284c7">
+      Fəzada Görünüş (3D)
+    </text>
+
+    <!-- Vertices:
+         Top: (150, 125)
+         Bottom: (150, 315)
+         Left: (65, 220)
+         Right: (235, 220)
+         Front: (140, 255)
+         Back: (160, 185)
+    -->
+    <!-- Back faces / Hidden Edges (dashed) -->
+    <line x1="65" y1="220" x2="160" y2="185" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4" />
+    <line x1="160" y1="185" x2="235" y2="220" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4" />
+    <line x1="150" y1="125" x2="160" y2="185" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4" />
+    <line x1="150" y1="315" x2="160" y2="185" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4" />
+
+    <!-- Solid Faces (Front) -->
+    <!-- Top-Left-Front Face -->
+    <polygon points="150,125 65,220 140,255" fill="url(#faceTopFront)" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" />
+    <!-- Top-Right-Front Face -->
+    <polygon points="150,125 235,220 140,255" fill="url(#faceTopRight)" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" />
+    <!-- Bottom-Left-Front Face -->
+    <polygon points="150,315 65,220 140,255" fill="url(#faceBotFront)" stroke="#0284c7" stroke-width="2" stroke-linejoin="round" />
+    <!-- Bottom-Right-Front Face -->
+    <polygon points="150,315 235,220 140,255" fill="url(#faceBotFront)" stroke="#0284c7" stroke-width="2" stroke-linejoin="round" />
+
+    <!-- External profile edges -->
+    <line x1="150" y1="125" x2="65" y2="220" stroke="#1d4ed8" stroke-width="2.2" />
+    <line x1="150" y1="125" x2="235" y2="220" stroke="#1d4ed8" stroke-width="2.2" />
+    <line x1="150" y1="315" x2="65" y2="220" stroke="#0369a1" stroke-width="2.2" />
+    <line x1="150" y1="315" x2="235" y2="220" stroke="#0369a1" stroke-width="2.2" />
+
+    <!-- Front center ridge -->
+    <line x1="150" y1="125" x2="140" y2="255" stroke="#1d4ed8" stroke-width="2" />
+    <line x1="150" y1="315" x2="140" y2="255" stroke="#0284c7" stroke-width="2" />
+
+    <!-- Vertex Dots (6 təpə) -->
+    <circle cx="150" cy="125" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="150" cy="315" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="65" cy="220" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="235" cy="220" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="140" cy="255" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5" />
+    <circle cx="160" cy="185" r="4" fill="#94a3b8" stroke="#ffffff" stroke-width="1" />
+
+    <!-- Info text under 3D -->
+    <g transform="translate(150, 360)">
+      <rect x="-120" y="-14" width="240" height="28" rx="14" fill="#f0fdf4" stroke="#86efac" stroke-width="1" />
+      <text text-anchor="middle" y="5" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#166534">
+        V = 6 Təpə  |  E = 12 Til  |  F = 8 Üz
+      </text>
+    </g>
+  </g>
+
+  <!-- RIGHT: 2D UN折疊 (NET OF 8 EQUILATERAL TRIANGLES) -->
+  <g id="twoD_net">
+    <!-- Subtitle -->
+    <text x="485" y="95" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#6366f1">
+      Müstəvidə Düzgün Açılışı (8 bərabərtərəfli üçbucaq)
+    </text>
+
+    <polygon points="325.0,215.0 359.0,156.1 393.0,215.0" fill="url(#triGradA)" stroke="#4f46e5" stroke-width="1.8" stroke-linejoin="round" />
+    <circle cx="359.0" cy="195.4" r="11" fill="#ffffff" stroke="#6366f1" stroke-width="1.2" />
+    <text x="359.0" y="199.4" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#4338ca">1</text>
+    <polygon points="359.0,156.1 393.0,215.0 427.0,156.1" fill="url(#triGradB)" stroke="#4f46e5" stroke-width="1.8" stroke-linejoin="round" />
+    <circle cx="393.0" cy="175.7" r="11" fill="#ffffff" stroke="#6366f1" stroke-width="1.2" />
+    <text x="393.0" y="179.7" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#4338ca">2</text>
+    <polygon points="393.0,215.0 427.0,156.1 461.0,215.0" fill="url(#triGradA)" stroke="#4f46e5" stroke-width="1.8" stroke-linejoin="round" />
+    <circle cx="427.0" cy="195.4" r="11" fill="#ffffff" stroke="#6366f1" stroke-width="1.2" />
+    <text x="427.0" y="199.4" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#4338ca">3</text>
+    <polygon points="427.0,156.1 461.0,215.0 495.0,156.1" fill="url(#triGradB)" stroke="#4f46e5" stroke-width="1.8" stroke-linejoin="round" />
+    <circle cx="461.0" cy="175.7" r="11" fill="#ffffff" stroke="#6366f1" stroke-width="1.2" />
+    <text x="461.0" y="179.7" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#4338ca">4</text>
+    <polygon points="393.0,215.0 427.0,273.9 461.0,215.0" fill="url(#triGradB)" stroke="#4f46e5" stroke-width="1.8" stroke-linejoin="round" />
+    <circle cx="427.0" cy="234.6" r="11" fill="#ffffff" stroke="#6366f1" stroke-width="1.2" />
+    <text x="427.0" y="238.6" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#4338ca">5</text>
+    <polygon points="427.0,273.9 461.0,215.0 495.0,273.9" fill="url(#triGradA)" stroke="#4f46e5" stroke-width="1.8" stroke-linejoin="round" />
+    <circle cx="461.0" cy="254.3" r="11" fill="#ffffff" stroke="#6366f1" stroke-width="1.2" />
+    <text x="461.0" y="258.3" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#4338ca">6</text>
+    <polygon points="461.0,215.0 495.0,273.9 529.0,215.0" fill="url(#triGradB)" stroke="#4f46e5" stroke-width="1.8" stroke-linejoin="round" />
+    <circle cx="495.0" cy="234.6" r="11" fill="#ffffff" stroke="#6366f1" stroke-width="1.2" />
+    <text x="495.0" y="238.6" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#4338ca">7</text>
+    <polygon points="495.0,273.9 529.0,215.0 563.0,273.9" fill="url(#triGradA)" stroke="#4f46e5" stroke-width="1.8" stroke-linejoin="round" />
+    <circle cx="529.0" cy="254.3" r="11" fill="#ffffff" stroke="#6366f1" stroke-width="1.2" />
+    <text x="529.0" y="258.3" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#4338ca">8</text>
+    <!-- Net Info Legend -->
+    <g transform="translate(485, 360)">
+      <rect x="-150" y="-14" width="300" height="28" rx="14" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1" />
+      <text text-anchor="middle" y="5" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#3730a3">
+        Açılışda 8 bərabər üçbucaq üz qatlanaraq 6 təpə yaradır
+      </text>
+    </g>
+  </g>
+</svg>
