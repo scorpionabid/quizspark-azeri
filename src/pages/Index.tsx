@@ -320,7 +320,7 @@ export default function Index() {
               </div>
             </div>
             <Button
-              onClick={() => navigate('/olimpiada')}
+              onClick={() => navigate('/imtahan?tab=olimpiada')}
               className="h-11 px-6 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-md shadow-amber-600/20 shrink-0 w-full md:w-auto gap-2"
             >
               <Trophy className="w-4 h-4" />

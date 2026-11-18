@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
@@ -32,6 +32,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 import { CandidateReviewModal, type AnswerRecord } from '@/components/exam/CandidateReviewModal';
+import OlimpiadaLoginPage from './OlimpiadaLoginPage';
 import { FileText, HelpCircle } from 'lucide-react';
 
 interface CompletedAttemptInfo {
@@ -50,7 +51,7 @@ interface ExamSettings {
   allow_candidate_review?: boolean;
 }
 
-export default function ExamLoginPage() {
+function OfficialExamView({ onSwitchToOlimpiada }: { onSwitchToOlimpiada: () => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { language, t } = useLanguage();
@@ -317,7 +318,7 @@ export default function ExamLoginPage() {
         <div className="bg-slate-200/80 dark:bg-slate-800/80 p-1 rounded-2xl flex items-center text-xs font-bold mt-5">
           <button
             type="button"
-            onClick={() => navigate('/olimpiada')}
+            onClick={onSwitchToOlimpiada}
             className="flex-1 py-2 px-3 rounded-xl text-muted-foreground hover:text-foreground flex items-center justify-center gap-2 transition-all"
           >
             <Trophy className="w-4 h-4 text-amber-500" />
@@ -572,5 +573,16 @@ export default function ExamLoginPage() {
       )}
     </div>
   );
+}
+
+export default function ExamLoginPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'olimpiada' ? 'olimpiada' : 'official';
+
+  if (activeTab === 'olimpiada') {
+    return <OlimpiadaLoginPage />;
+  }
+
+  return <OfficialExamView onSwitchToOlimpiada={() => setSearchParams({ tab: 'olimpiada' })} />;
 }
 

@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { FontProvider } from "@/contexts/FontContext";
@@ -29,7 +29,6 @@ const ResetPasswordPage = lazy(() => import("./pages/auth/ResetPasswordPage"));
 const PendingApprovalPage = lazy(() => import("./pages/auth/PendingApprovalPage"));
 const SupportChatPage = lazy(() => import("./pages/chat/SupportChatPage"));
 const ExamLoginPage = lazy(() => import("./pages/exam/ExamLoginPage"));
-const OlimpiadaLoginPage = lazy(() => import("./pages/exam/OlimpiadaLoginPage"));
 
 // Teacher Pages — lazy
 const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));
@@ -127,11 +126,7 @@ function AppRoutes() {
             <ExamLoginPage />
           </Suspense>
         } />
-        <Route path="/olimpiada" element={
-          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
-            <OlimpiadaLoginPage />
-          </Suspense>
-        } />
+        <Route path="/olimpiada" element={<Navigate to="/imtahan?tab=olimpiada" replace />} />
 
         {/* Teacher Routes - Protected + lazy */}
         <Route path="/teacher/dashboard" element={

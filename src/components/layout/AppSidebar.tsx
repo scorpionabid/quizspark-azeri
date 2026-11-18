@@ -71,7 +71,6 @@ export function AppSidebar() {
       items: [
         { title: t('nav_home', 'Ana Səhifə'), url: "/", icon: Home, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_quizzes', 'Quizlər və Kurslar'), url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
-        { title: t('nav_olimpiada', 'Zəfər Olimpiadası'), url: "/olimpiada", icon: Trophy, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_official_exam', 'Rəsmi İmtahan Portalı'), url: "/imtahan", icon: Award, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_leaderboard', 'Liderlik Lövhəsi'), url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student'] },
         { title: t('nav_support', 'Dəstək'), url: "/support", icon: MessageCircle, roles: ['admin', 'teacher', 'student'] },
