@@ -1,4 +1,5 @@
 import { Bell, Check, FileQuestion, Trophy, MessageSquare, Info, Trash2, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,10 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useNotifications, type Notification } from "@/hooks/useNotifications";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { formatDistanceToNow } from "date-fns";
-import { az } from "date-fns/locale";
+import { az, enUS, ru, tr } from "date-fns/locale";
 
 export function NotificationsDropdown() {
+  const navigate = useNavigate();
   const {
     notifications,
     loading,
@@ -24,6 +27,16 @@ export function NotificationsDropdown() {
     markAllAsRead,
     deleteNotification,
   } = useNotifications();
+  const { t, language } = useLanguage();
+
+  const getDateLocale = () => {
+    switch (language) {
+      case 'ru': return ru;
+      case 'tr': return tr;
+      case 'en': return enUS;
+      default: return az;
+    }
+  };
 
   const getIcon = (type: Notification["type"]) => {
     switch (type) {
@@ -45,7 +58,7 @@ export function NotificationsDropdown() {
     try {
       return formatDistanceToNow(new Date(dateString), {
         addSuffix: true,
-        locale: az,
+        locale: getDateLocale(),
       });
     } catch {
       return "";
@@ -65,12 +78,12 @@ export function NotificationsDropdown() {
               {unreadCount > 9 ? "9+" : unreadCount}
             </Badge>
           )}
-          <span className="sr-only">Bildirişlər</span>
+          <span className="sr-only">{t('notifications_title', 'Bildirişlər')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Bildirişlər</span>
+          <span>{t('notifications_title', 'Bildirişlər')}</span>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
@@ -82,7 +95,7 @@ export function NotificationsDropdown() {
               }}
             >
               <Check className="mr-1 h-3 w-3" />
-              Hamısını oxunmuş et
+              {t('mark_all_read', 'Hamısını oxunmuş et')}
             </Button>
           )}
         </DropdownMenuLabel>
@@ -94,7 +107,7 @@ export function NotificationsDropdown() {
             </div>
           ) : notifications.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
-              Bildiriş yoxdur
+              {t('no_notifications', 'Bildiriş yoxdur')}
             </div>
           ) : (
             notifications.map((notification) => (
@@ -106,7 +119,10 @@ export function NotificationsDropdown() {
                 )}
                 onClick={() => {
                   if (!notification.read) {
-                    markAsRead(notification.id);
+                    void markAsRead(notification.id);
+                  }
+                  if (notification.link) {
+                    navigate(notification.link);
                   }
                 }}
               >

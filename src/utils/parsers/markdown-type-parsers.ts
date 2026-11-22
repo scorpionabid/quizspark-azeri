@@ -5,7 +5,7 @@ import { buildMetaRE, ANSWER_META, TIP_LINE_RE } from './markdown-utils';
 type BlockResult = { questions: ParsedQuestion[]; warnings: ParseWarning[] };
 
 // META_RE variants for each block type
-const BASE_META_RE = buildMetaRE();
+const BASE_META_RE = buildMetaRE(ANSWER_META);
 const FILL_META_RE = buildMetaRE(ANSWER_META);
 const NUM_META_RE = buildMetaRE(`${ANSWER_META}|Tolerans|Tolerance`);
 const CODE_META_RE = buildMetaRE(`${ANSWER_META}|Dil|Language`);
@@ -76,10 +76,12 @@ export function parseMatchingBlock(lines: string[], lineOffset: number): BlockRe
       continue;
     }
 
-    // Format B: sağ tərəf (hərfli)
-    const rightMatch = clean.match(RIGHT_LABEL_RE);
-    if (rightMatch && leftItems.length > 0) {
-      rightItems.push({ id: rightMatch[1].toLowerCase(), text: rightMatch[2].trim() });
+    // Format B: sağ tərəf (hərfli — tək sətir və ya inline)
+    const rightMatches = [...clean.matchAll(/([a-z])[.):]\s+((?:(?![a-z][.):]\s+).)+)/gi)];
+    if (rightMatches.length > 0 && leftItems.length > 0) {
+      for (const rm of rightMatches) {
+        rightItems.push({ id: rm[1].toLowerCase(), text: rm[2].trim() });
+      }
       continue;
     }
 

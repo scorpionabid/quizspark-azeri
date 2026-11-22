@@ -18,12 +18,14 @@ export const quizMetadataSchema = z.object({
     duration: z
         .number({ invalid_type_error: 'Müddət rəqəm olmalıdır' })
         .int()
-        .min(1, 'Minimum 1 dəqiqə')
+        .min(0, 'Minimum 0 dəqiqə')
         .max(300, 'Maksimum 300 dəqiqə'),
     is_public: z.boolean(),
     // Yeni sahələr
     shuffle_questions: z.boolean().default(false),
+    shuffle_options: z.boolean().default(false),
     show_feedback: z.boolean().default(true),
+    feedback_timing: z.enum(['end_of_quiz', 'instant', 'never']).default('end_of_quiz'),
     pass_percentage: z.number().int().min(0).max(100).default(60),
     cover_image_url: z.string().url().optional().nullable().or(z.literal('')),
     attempts_limit: z.number().int().min(1).max(100).default(1),
@@ -36,10 +38,21 @@ export const quizMetadataSchema = z.object({
     // Advanced Features
     access_password: z.string().max(50).optional().nullable().or(z.literal('')),
     strict_mode: z.boolean().default(false),
+    seb_config: z.object({
+        enabled: z.boolean().default(false),
+        enforce_fullscreen: z.boolean().default(true),
+        max_violations: z.number().int().min(0).max(10).default(3),
+        prevent_copy_paste: z.boolean().default(true),
+        blur_on_leave: z.boolean().default(true),
+        watermark_enabled: z.boolean().default(true),
+    }).optional().nullable(),
     allow_backtracking: z.boolean().default(true),
     questions_per_page: z.number().int().default(1),
     allow_bookmarks: z.boolean().default(true),
     show_question_nav: z.boolean().default(true),
+    enable_calculator: z.boolean().default(true),
+    enable_periodic_table: z.boolean().default(true),
+    enable_scratchpad: z.boolean().default(true),
     background_image_url: z.string().optional().nullable().or(z.literal('')),
 }).refine(
     (data) => {

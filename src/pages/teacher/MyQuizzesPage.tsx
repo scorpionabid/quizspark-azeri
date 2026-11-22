@@ -18,6 +18,9 @@ import {
   ArrowUpDown,
   Share2,
   FileDown,
+  KeyRound,
+  Lock,
+  Printer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +51,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { QuizStatsSheet } from '@/components/teacher/quiz-stats/QuizStatsSheet';
 import { ShareQuizDialog } from '@/components/teacher/quiz-creation/ShareQuizDialog';
+import { QuizPrintDialog } from '@/components/quiz/print/QuizPrintDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { QuizResultWithProfile } from '@/hooks/useQuizAttempts';
+import { exportQuizResultsToExcel } from '@/utils/exportQuizResultsExcel';
 import { toast } from 'sonner';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -106,6 +113,7 @@ export default function MyQuizzesPage() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareQuizId, setShareQuizId] = useState<string | null>(null);
   const [shareQuizTitle, setShareQuizTitle] = useState('');
+  const [printQuiz, setPrintQuiz] = useState<Quiz | null>(null);
 
   // ── debounce search ──
   useEffect(() => {
@@ -197,9 +205,48 @@ export default function MyQuizzesPage() {
     setShareDialogOpen(true);
   };
 
-  const handleExport = (quizId: string) => {
-    // Placeholder - Export logic exists in Question Bank, can be imported later
-    toast.info('İxrac modulu yaxın zamanda aktivləşdiriləcək.');
+  const handleExport = async (quizId: string) => {
+    const targetQuiz = quizzes.find((q) => q.id === quizId);
+    const quizTitle = targetQuiz?.title || 'Quiz';
+    const toastId = toast.loading('Şagird nəticələri hazırlanır...');
+
+    try {
+      const [resultsRes, attemptsRes] = await Promise.all([
+        supabase
+          .from('quiz_results')
+          .select(`*, profiles:user_id (full_name, avatar_url, utis_code, school, grade, fin)`)
+          .eq('quiz_id', quizId)
+          .order('completed_at', { ascending: false }),
+        supabase
+          .from('quiz_attempts')
+          .select('id, user_id, completed_at, answers')
+          .eq('quiz_id', quizId)
+          .not('completed_at', 'is', null),
+      ]);
+
+      if (resultsRes.error) throw resultsRes.error;
+      const data = resultsRes.data;
+
+      if (!data || data.length === 0) {
+        toast.dismiss(toastId);
+        toast.info('Bu quiz üzrə hələ heç bir nəticə yoxdur.');
+        return;
+      }
+
+      const fileName = exportQuizResultsToExcel({
+        quizTitle,
+        results: data as unknown as QuizResultWithProfile[],
+        passPercentage: targetQuiz?.pass_percentage || 60,
+        attempts: (attemptsRes.data || []) as import('@/utils/exportQuizResultsExcel').AttemptAnswersRecord[],
+      });
+
+      toast.dismiss(toastId);
+      toast.success(`Excel protokol endirildi: ${fileName}`);
+    } catch (err: unknown) {
+      toast.dismiss(toastId);
+      const msg = err instanceof Error ? err.message : 'İxrac zamanı xəta baş verdi.';
+      toast.error(msg);
+    }
   };
 
   // ── loading / error ──
@@ -456,7 +503,7 @@ export default function MyQuizzesPage() {
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <BookOpen className="h-3 w-3" />
-                          {meta?.question_count ?? '—'} sual
+                          {(meta?.question_count && meta.question_count > 0 ? meta.question_count : quiz.question_count) || '—'} sual
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="h-3 w-3" />
@@ -519,6 +566,10 @@ export default function MyQuizzesPage() {
                               Tələbələrlə Paylaş
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => setPrintQuiz(quiz)}>
+                            <Printer className="mr-2 h-4 w-4 text-blue-600" />
+                            Test Kitabçası Çap Et (PDF)
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleExport(quiz.id)}>
                             <FileDown className="mr-2 h-4 w-4" />
                             Formatda İxrac Et
@@ -608,7 +659,16 @@ export default function MyQuizzesPage() {
         onOpenChange={setShareDialogOpen}
         quizId={shareQuizId}
         quizTitle={shareQuizTitle}
+        quiz={quizzes.find((q) => q.id === shareQuizId) || null}
       />
+
+      {printQuiz && (
+        <QuizPrintDialog
+          open={!!printQuiz}
+          onOpenChange={(open) => !open && setPrintQuiz(null)}
+          quiz={printQuiz}
+        />
+      )}
     </div>
   );
 }

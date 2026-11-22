@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
 import { QUESTION_TYPES } from '@/types/question';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 interface QuestionBankCardProps {
   question: QuestionBankItem;
@@ -88,7 +89,7 @@ export function QuestionBankCard({ question, isSelected, onSelect, onSimilar }: 
             htmlFor={`q-${question.id}`}
             className="block text-base font-bold leading-tight text-foreground line-clamp-2 mb-3 cursor-pointer group-hover:text-primary transition-colors"
           >
-            {question.question_text}
+            <MathRenderer text={question.question_text} />
           </Label>
 
           <div className="flex items-center justify-between">
@@ -151,7 +152,7 @@ export function QuestionBankCard({ question, isSelected, onSelect, onSimilar }: 
           >
             <div className="mt-5 pt-5 border-t border-border/50 space-y-4 animate-in fade-in duration-500">
                {/* Options if multiple choice */}
-               {Array.isArray(question.options) && (
+               {['multiple_choice', 'single_choice', 'multiple_select', 'true_false'].includes(question.question_type) && Array.isArray(question.options) && (
                  <div className="space-y-2">
                    <p className="font-black text-muted-foreground uppercase tracking-widest text-[9px] px-1">Seçimlər</p>
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -165,7 +166,7 @@ export function QuestionBankCard({ question, isSelected, onSelect, onSimilar }: 
                             }`}
                         >
                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-background border border-border/50 mr-3 text-[10px] font-black">{String.fromCharCode(65 + i)}</span>
-                           {opt}
+                           <MathRenderer text={opt} />
                         </div>
                         ))}
                    </div>
@@ -173,10 +174,30 @@ export function QuestionBankCard({ question, isSelected, onSelect, onSimilar }: 
                )}
 
                {/* Correct Answer for other types */}
-               {!Array.isArray(question.options) && question.correct_answer && (
-                 <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
-                    <p className="font-black text-emerald-700/70 uppercase tracking-widest text-[9px] mb-1">Düzgün Cavab</p>
-                    <p className="text-emerald-700 font-bold text-sm">{question.correct_answer}</p>
+               {(!['multiple_choice', 'single_choice', 'multiple_select', 'true_false'].includes(question.question_type) || !Array.isArray(question.options)) && question.correct_answer && (
+                 <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl space-y-2">
+                    <p className="font-black text-emerald-700/70 uppercase tracking-widest text-[9px]">Düzgün Cavab</p>
+                    <div className="text-emerald-700 font-bold text-sm">
+                      <MathRenderer text={question.correct_answer.split('|')[0]?.trim() || question.correct_answer} />
+                    </div>
+                    {question.correct_answer.includes('|') && (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-emerald-500/10">
+                        <span className="text-[10px] font-semibold text-muted-foreground">Qəbul edilən variantlar:</span>
+                        {question.correct_answer
+                          .split('|')
+                          .slice(1)
+                          .map(v => v.trim())
+                          .filter(Boolean)
+                          .map((variant, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-mono"
+                            >
+                              {variant}
+                            </span>
+                          ))}
+                      </div>
+                    )}
                  </div>
                )}
 

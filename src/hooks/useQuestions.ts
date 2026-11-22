@@ -34,6 +34,11 @@ export interface Question {
   option_images?: Record<string, string> | null;
   media_type?: string | null;
   media_url?: string | null;
+  bank_question_id?: string | null;
+  base_options?: string[] | null;
+  base_correct_answer?: string | null;
+  translation_options?: string[] | null;
+  translation_correct_answer?: string | null;
 }
 
 export function computeWeightedScore(answers: QuestionAnswer[], questions: Question[]) {
@@ -46,22 +51,87 @@ export function computeWeightedScore(answers: QuestionAnswer[], questions: Quest
   return { weightedScore, maxPossibleScore, percentage };
 }
 
-export function useQuestions(quizId: string | undefined) {
-  return useQuery({
-    queryKey: ['questions', quizId],
-    queryFn: async () => {
-      if (!quizId) return [];
-      const { data, error } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('quiz_id', quizId)
-        .order('order_index', { ascending: true });
+interface QuestionTranslationItem {
+  language_code?: string;
+  question_text?: string;
+  options?: string[];
+  correct_answer?: string;
+  explanation?: string | null;
+  hint?: string | null;
+}
 
-      if (error) throw error;
-      return data as Question[];
-    },
-    enabled: !!quizId,
-    staleTime: 10 * 60 * 1000, // 10 minutes cache
+interface QuestionDbRow extends Question {
+  question_translations?: QuestionTranslationItem[];
+}
+
+export async function fetchQuestionsWithTranslations(quizId: string, currentLang: string = 'az'): Promise<Question[]> {
+  if (!quizId) return [];
+
+  let queryData: QuestionDbRow[] | null = null;
+  const { data, error } = await supabase
+    .from('questions')
+    .select('*, question_translations(*)')
+    .eq('quiz_id', quizId)
+    .order('order_index', { ascending: true });
+
+  if (error) {
+    console.warn('Could not join question_translations, falling back to base questions:', error);
+    const fallback = await supabase
+      .from('questions')
+      .select('*')
+      .eq('quiz_id', quizId)
+      .order('order_index', { ascending: true });
+    if (fallback.error) throw fallback.error;
+    queryData = fallback.data as QuestionDbRow[];
+  } else {
+    queryData = data as QuestionDbRow[];
+  }
+
+  if (!queryData) return [];
+
+  return queryData.map((q) => {
+    const transList = Array.isArray(q.question_translations) ? q.question_translations : [];
+    const trans = transList.find((t) => t.language_code === currentLang);
+    const transOptions = trans?.options || null;
+    const transCorrectAnswer = trans?.correct_answer || null;
+
+    if (currentLang !== 'az' && trans) {
+      return {
+        ...q,
+        question_text: trans.question_text || q.question_text,
+        options: transOptions || q.options,
+        correct_answer: transCorrectAnswer || q.correct_answer,
+        explanation: trans.explanation ?? q.explanation,
+        hint: trans.hint ?? q.hint,
+        base_options: q.options,
+        base_correct_answer: q.correct_answer,
+        translation_options: transOptions,
+        translation_correct_answer: transCorrectAnswer,
+      };
+    }
+
+    return {
+      ...q,
+      base_options: q.options,
+      base_correct_answer: q.correct_answer,
+      translation_options: transOptions,
+      translation_correct_answer: transCorrectAnswer,
+    };
+  });
+}
+
+export function useQuestions(quizId: string | undefined, options?: { enabled?: boolean; language?: string }) {
+  const currentLang =
+    options?.language ||
+    (typeof window !== 'undefined' ? localStorage.getItem('quiz_language') : 'az') ||
+    'az';
+
+  return useQuery({
+    queryKey: ['questions', quizId, currentLang],
+    queryFn: () => fetchQuestionsWithTranslations(quizId!, currentLang),
+    enabled: !!quizId && (options?.enabled ?? true),
+    staleTime: 30 * 1000, // 30 saniyə (redaktələr dərhal əks olunsun)
+    refetchOnMount: 'always',
   });
 }
 
@@ -154,27 +224,53 @@ export function useReplaceQuestions() {
     }: {
       quizId: string;
       oldQuestionIds: string[];
-      newQuestions: Omit<Question, 'id' | 'created_at'>[];
+      newQuestions: (Omit<Question, 'id' | 'created_at'> & { id?: string })[];
     }) => {
-      // Step 1: Insert new questions first (safe — old ones still exist)
-      const { data: inserted, error: insertError } = await supabase
-        .from('questions')
-        .insert(newQuestions)
-        .select();
+      const oldSet = new Set(oldQuestionIds);
+      const toUpdate: (Omit<Question, 'created_at'> & { id: string })[] = [];
+      const toInsert: Omit<Question, 'id' | 'created_at'>[] = [];
+      const keptIds = new Set<string>();
 
-      if (insertError) throw insertError;
+      for (const q of newQuestions) {
+        if (q.id && oldSet.has(q.id)) {
+          toUpdate.push(q as (Omit<Question, 'created_at'> & { id: string }));
+          keptIds.add(q.id);
+        } else {
+          const { id: _ignoreId, ...rest } = q;
+          toInsert.push(rest);
+        }
+      }
 
-      // Step 2: Delete old questions only after successful insert
-      if (oldQuestionIds.length > 0) {
+      const toDelete = oldQuestionIds.filter(qId => !keptIds.has(qId));
+
+      // 1. Update existing questions (preserves ID and FKs)
+      for (const item of toUpdate) {
+        const { id: qId, ...fields } = item;
+        const { error: updateError } = await supabase
+          .from('questions')
+          .update(fields)
+          .eq('id', qId);
+        if (updateError) throw updateError;
+      }
+
+      // 2. Insert new questions
+      if (toInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('questions')
+          .insert(toInsert);
+        if (insertError) throw insertError;
+      }
+
+      // 3. Delete only questions that were removed
+      if (toDelete.length > 0) {
         const { error: deleteError } = await supabase
           .from('questions')
           .delete()
-          .in('id', oldQuestionIds);
-
+          .in('id', toDelete);
         if (deleteError) throw deleteError;
       }
 
-      return inserted as Question[];
+      return true;
     },
     onSuccess: (_data, { quizId }) => {
       queryClient.invalidateQueries({ queryKey: ['questions', quizId] });

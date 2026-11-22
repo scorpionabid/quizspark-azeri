@@ -1,46 +1,58 @@
 <!doctype html>
-<html lang="en">
+<html lang="az" class="notranslate" translate="no">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TODO: Set the document title to the name of your application -->
-    <title>Sınaq</title>
-    <meta name="description" content="Lovable Generated Project" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <meta name="google" content="notranslate" />
+    <title>Sınaq - Onlayn İmtahan və Quiz Platforması</title>
+    <meta name="description" content="İnteraktiv təhsil, onlayn sınaq imtahanları və bilik yarışması platforması" />
     <meta name="author" content="Sınaq" />
 
-    <!-- TODO: Update og:title to match your application name -->
-    <meta property="og:title" content="Sınaq" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
+
+    <meta property="og:title" content="Sınaq - Onlayn İmtahan və Quiz Platforması" />
+    <meta property="og:description" content="İnteraktiv təhsil, onlayn sınaq imtahanları və bilik yarışması platforması" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:image" content="/pwa-512x512.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:title" content="Sınaq - Onlayn İmtahan və Quiz Platforması" />
+    <meta name="twitter:description" content="İnteraktiv təhsil, onlayn sınaq imtahanları və bilik yarışması platforması" />
+    <meta name="twitter:image" content="/pwa-512x512.png" />
 
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#8B5CF6" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Sınaq" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-    <!-- Stale service worker cleanup: köhnə SW-ləri sil ki precache 404 xətası verməsin -->
+    <!-- Stale service worker cleanup: köhnə SW və precache-ləri dərhal sil -->
     <script>
       (function () {
-        var SW_VERSION = '2';
-        var key = 'sw_version';
-        if ('serviceWorker' in navigator && localStorage.getItem(key) !== SW_VERSION) {
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            var unregisterAll = regs.map(function (r) { return r.unregister(); });
-            return Promise.all(unregisterAll);
-          }).then(function () {
-            return caches.keys();
-          }).then(function (names) {
-            return Promise.all(names.map(function (n) { return caches.delete(n); }));
-          }).then(function () {
-            localStorage.setItem(key, SW_VERSION);
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            if (registrations && registrations.length > 0) {
+              var unregisters = registrations.map(function (reg) {
+                return reg.unregister();
+              });
+              var cacheDeletions = ('caches' in window)
+                ? caches.keys().then(function (names) {
+                    return Promise.all(names.map(function (name) { return caches.delete(name); }));
+                  })
+                : Promise.resolve();
+
+              Promise.all([Promise.all(unregisters), cacheDeletions]).then(function () {
+                if (!sessionStorage.getItem('sw_purged_v3')) {
+                  sessionStorage.setItem('sw_purged_v3', '1');
+                  window.location.reload();
+                }
+              });
+            }
           });
         }
       })();

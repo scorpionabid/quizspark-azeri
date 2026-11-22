@@ -1,13 +1,13 @@
 export const TEMPLATES: Record<string, string> = {
   aiken: `Sual mətni bura yazılır\nA) Birinci variant\nB) İkinci variant\nC) Üçüncü variant\nANSWER: A\nCATEGORY: Riyaziyyat\nDIFFICULTY: orta\nEXPLANATION: Sualın izahı bura yazılır\nTAGS: cəbr, tənliklər\nBLOOM: anlama`,
   gift: `// Sualın adı vacib deyil\n::Sualın Adı:: Sual mətni bura yazılır {\n  =Düzgün variant #İzah bura yazılır\n  ~Səhv variant 1\n  ~Səhv variant 2\n}`,
-  markdown: `# ═══════════════════════════════════════════════════
-# MARKDOWN SUAL ŞABLONU — tam bələdçi
-# ═══════════════════════════════════════════════════
-# QAYDA: Hər sual "---" ilə ayrılmalıdır.
-# Metadata sətirləri (Cavab, Kateqoriya…) hər sualın
-# altında yazılır. Tiplər üçün "Tip:" açar sözü lazımdır.
-# ═══════════════════════════════════════════════════
+  markdown: `## ═══════════════════════════════════════════════════
+## MARKDOWN SUAL ŞABLONU — tam bələdçi
+## ═══════════════════════════════════════════════════
+## QAYDA: Hər sual "---" ilə ayrılmalıdır.
+## Metadata sətirləri (Cavab, Kateqoriya, İpucu, İzahat…) hər sualın
+## altında yazılır. Tiplər üçün "Tip:" açar sözü lazımdır.
+## ═══════════════════════════════════════════════════
 
 ## ── FORMAT 1: Çoxseçimli — tək düzgün cavab ─────────
 
@@ -20,6 +20,7 @@ D) Lənkəran
 Cavab: B
 Kateqoriya: Coğrafiya
 Çətinlik: asan
+İpucu: Xəzər dənizinin sahilində yerləşən ən böyük liman şəhəridir.
 İzahat: Bakı 1918-ci ildən Azərbaycanın paytaxtıdır.
 Bloom: bilmə
 Taqlar: paytaxt, coğrafiya

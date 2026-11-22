@@ -5,8 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 import { QuestionAnswer, QUESTION_TYPES } from "@/types/question";
 import { Question } from "@/hooks/useQuestions";
+import { MathRenderer } from "@/components/common/MathRenderer";
+import { getQuizBackgroundStyle, isPatternBackground } from "@/lib/constants/quizBackground";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 
 interface QuizResultProps {
   score: number;
@@ -20,6 +25,10 @@ interface QuizResultProps {
   timeSpent?: number;
   answers?: QuestionAnswer[];
   questions?: Question[];
+  showDetailedReview?: boolean;
+  backgroundImageUrl?: string | null;
+  canRetry?: boolean;
+  isOfficialExam?: boolean;
   onRetry: () => void;
   onHome: () => void;
 }
@@ -44,45 +53,47 @@ const ConfettiCanvas: React.FC = () => {
     canvas.height = window.innerHeight;
 
     const pieces = Array.from({ length: 120 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * -canvas.height,
-      w: Math.random() * 10 + 5,
-      h: Math.random() * 6 + 3,
-      color: ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'][Math.floor(Math.random() * 5)],
-      speed: Math.random() * 3 + 1.5,
-      angle: Math.random() * 360,
-      spin: (Math.random() - 0.5) * 4,
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * -window.innerHeight,
+      r: Math.random() * 6 + 3,
+      d: Math.random() * 120,
+      color: ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'][Math.floor(Math.random() * 6)],
+      tilt: Math.floor(Math.random() * 10) - 10,
+      tiltAngleIncremental: Math.random() * 0.07 + 0.05,
+      tiltAngle: 0,
     }));
 
-    let raf: number;
-    let elapsed = 0;
-    const draw = () => {
+    let animationFrameId: number;
+    const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      elapsed++;
       pieces.forEach(p => {
-        p.y += p.speed;
-        p.angle += p.spin;
-        if (p.y > canvas.height) { p.y = -20; p.x = Math.random() * canvas.width; }
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate((p.angle * Math.PI) / 180);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = elapsed > 120 ? Math.max(0, 1 - (elapsed - 120) / 60) : 1;
-        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-        ctx.restore();
+        p.tiltAngle += p.tiltAngleIncremental;
+        p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2;
+        p.tilt = Math.sin(p.tiltAngle - p.d / 3) * 15;
+
+        ctx.beginPath();
+        ctx.lineWidth = p.r;
+        ctx.strokeStyle = p.color;
+        ctx.moveTo(p.x + p.tilt + p.r / 4, p.y);
+        ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 4);
+        ctx.stroke();
       });
-      if (elapsed < 180) raf = requestAnimationFrame(draw);
+      animationFrameId = requestAnimationFrame(render);
     };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+
+    render();
+    const timer = setTimeout(() => {
+      cancelAnimationFrame(animationFrameId);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }, 4000);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      clearTimeout(timer);
+    };
   }, []);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-50"
-    />
-  );
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />;
 };
 
 export const QuizResult: React.FC<QuizResultProps> = ({
@@ -92,18 +103,108 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   earnedXP,
   passThreshold,
   pendingReviews = 0,
-  earnedPoints,
-  maxPoints,
+  earnedPoints = 0,
+  maxPoints = 0,
   timeSpent = 0,
   answers = [],
   questions = [],
+  showDetailedReview = true,
+  backgroundImageUrl,
+  canRetry = true,
+  isOfficialExam = false,
   onRetry,
   onHome,
 }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { t } = useLanguage();
   const showWeighted = earnedPoints !== undefined && maxPoints !== undefined && maxPoints !== totalQuestions;
   const hasPassed = score >= passThreshold;
   const [reviewOpen, setReviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const unansweredCount = questions.length > 0
+    ? questions.filter((q) => {
+        const a = answers.find((ans) => ans.questionId === q.id);
+        return !a || !a.textAnswer || a.textAnswer.trim().length === 0;
+      }).length
+    : Math.max(0, totalQuestions - answers.filter((a) => Boolean(a.textAnswer && a.textAnswer.trim().length > 0)).length);
+
+  const actualWrongCount = questions.length > 0
+    ? questions.filter((q) => {
+        const a = answers.find((ans) => ans.questionId === q.id);
+        return a && a.textAnswer && a.textAnswer.trim().length > 0 && !a.isCorrect && !a.needsReview;
+      }).length
+    : Math.max(0, totalQuestions - correctAnswers - pendingReviews - unansweredCount);
+
+  // Minimal and clean layout for official exams
+  if (isOfficialExam) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-8 flex flex-col items-center justify-center">
+        <div className="max-w-md w-full mb-3 flex justify-end">
+          <LanguageSwitcher />
+        </div>
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-lg text-center space-y-5">
+          <div className="mx-auto w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+              {t('exam_completed')}
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {t('exam_completed_desc')}
+            </p>
+          </div>
+
+          {/* Score circle */}
+          <div className="mx-auto flex h-28 w-28 flex-col items-center justify-center rounded-full border-4 border-blue-600 bg-blue-50/60 dark:bg-blue-950/30">
+            <div className="text-3xl font-black text-blue-600 dark:text-blue-400">{score}%</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('result')}</div>
+          </div>
+
+          {/* Metrics grid */}
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 p-2.5">
+              <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{correctAnswers}</div>
+              <div className="text-[10px] text-slate-500">{t('correct_count')}</div>
+            </div>
+            <div className="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 p-2.5">
+              <div className="text-lg font-bold text-rose-600 dark:text-rose-400">{actualWrongCount}</div>
+              <div className="text-[10px] text-slate-500">{t('wrong_count')}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-2.5">
+              <div className="text-lg font-bold text-slate-600 dark:text-slate-400">{unansweredCount}</div>
+              <div className="text-[10px] text-slate-500">{t('unanswered_filter', 'Boş')}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 p-2.5">
+              <div className="text-lg font-bold text-slate-800 dark:text-slate-200">{formatTime(timeSpent)}</div>
+              <div className="text-[10px] text-slate-500">{t('duration')}</div>
+            </div>
+          </div>
+
+          {/* Total score / Points gathered */}
+          <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 text-xs flex justify-between items-center">
+            <span className="text-slate-600 dark:text-slate-400 font-medium">Topladığınız ümumi bal:</span>
+            <span className="font-bold text-blue-700 dark:text-blue-300 text-sm">
+              {earnedPoints !== undefined && maxPoints !== undefined && maxPoints > 0 ? earnedPoints : correctAnswers} / {maxPoints || totalQuestions} bal
+            </span>
+          </div>
+
+          <Button
+            className="w-full h-10 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm"
+            onClick={() => navigate('/imtahan')}
+          >
+            {t('exit_btn')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const isPattern = isPatternBackground(backgroundImageUrl);
+  const bgStyle = getQuizBackgroundStyle(backgroundImageUrl);
 
   const handleShare = () => {
     const text = `Quiz nəticəm: ${score}% (${correctAnswers} düzgün)\n\nSən də sına: ${window.location.href.split('?')[0]}`;
@@ -120,40 +221,49 @@ export const QuizResult: React.FC<QuizResultProps> = ({
   };
 
   return (
-    <div className="flex-1 bg-gradient-hero p-4 sm:p-8 pb-32 sm:pb-8">
-      {hasPassed && <ConfettiCanvas />}
+    <div 
+      className="flex-1 bg-gradient-hero p-3 sm:p-8 pb-[max(2rem,env(safe-area-inset-bottom))] relative min-h-screen"
+      style={bgStyle}
+    >
+      {backgroundImageUrl && !isPattern && (
+        <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] pointer-events-none" />
+      )}
+      {score >= 50 && <ConfettiCanvas />}
 
-      <div className="mx-auto max-w-2xl">
-        <div className="animate-scale-in rounded-3xl bg-gradient-card border border-border/50 p-8 shadow-elevated text-center">
+      <div className="mx-auto max-w-2xl relative z-10">
+        <div className={cn(
+          "animate-scale-in rounded-3xl border border-border/50 p-8 shadow-elevated text-center",
+          backgroundImageUrl
+            ? isPattern
+              ? "bg-card/95 backdrop-blur-md border-border/80"
+              : "bg-card/90 backdrop-blur-md border-border/70"
+            : "bg-gradient-card"
+        )}>
           <div className="relative mx-auto mb-6 inline-block">
             <div className={cn(
               "flex h-24 w-24 items-center justify-center rounded-full",
-              hasPassed ? "bg-success/20" : score >= 40 ? "bg-warning/20" : "bg-destructive/20"
+              score >= 70 ? "bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400" :
+              score >= 40 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
             )}>
-              <Trophy className={cn(
-                "h-12 w-12",
-                hasPassed ? "text-success" : score >= 40 ? "text-warning" : "text-destructive"
-              )} />
+              <Trophy className="h-12 w-12" />
             </div>
-            {hasPassed && (
+            {score >= 50 && (
               <div className="absolute -right-2 -top-2 text-3xl animate-float">🎉</div>
             )}
           </div>
 
-          <h1 className="mb-1 font-display text-3xl font-bold text-foreground">
-            {hasPassed ? 'Əla Nəticə!' : score >= 40 ? 'Yaxşı Cəhd!' : 'Davam Et!'}
+          <h1 className="mb-2 font-display text-3xl font-bold text-foreground">
+            Sınaq Tamamlandı!
           </h1>
 
-          <div className="mb-4 flex justify-center">
-            <Badge variant={hasPassed ? 'success' : 'destructive'} className="text-sm px-4 py-1">
-              {hasPassed ? '✓ Keçdiniz' : `✗ Keçid balı: ${passThreshold}%`}
+          <div className="mb-3 flex justify-center">
+            <Badge variant="outline" className="text-sm px-4 py-1.5 font-bold bg-primary/10 border-primary/30 text-primary">
+              Topladığınız bal: {earnedPoints !== undefined && maxPoints !== undefined && maxPoints > 0 ? earnedPoints : correctAnswers} / {maxPoints || totalQuestions} bal
             </Badge>
           </div>
 
-          <p className="mb-8 text-muted-foreground">
-            {hasPassed ? 'Möhtəşəm! Sən bu mövzunu çox yaxşı bilirsən.' :
-              score >= 40 ? 'Yaxşı iş! Bir az daha təcrübə ilə daha yaxşı olacaq.' :
-                'Narahat olma, hər uğursuzluq öyrənmək üçün bir şansdır.'}
+          <p className="mb-8 text-muted-foreground text-sm sm:text-base">
+            Siz bu sınaq üzrə mümkün {maxPoints || totalQuestions} baldan <span className="font-bold text-foreground">{earnedPoints !== undefined && maxPoints !== undefined && maxPoints > 0 ? earnedPoints : correctAnswers} bal</span> ({score}%) topladınız.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-6 mb-8">
@@ -161,12 +271,10 @@ export const QuizResult: React.FC<QuizResultProps> = ({
               <div className="text-5xl font-black text-primary">{score}%</div>
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nəticə</div>
             </div>
-            {showWeighted && (
-              <div className="text-xs text-muted-foreground font-medium">
-                <span className="text-foreground font-bold">{earnedPoints}</span>
-                <span> / {maxPoints} bal (ağırlıqlı)</span>
-              </div>
-            )}
+            <div className="text-xs text-muted-foreground font-medium">
+              <span className="text-foreground font-bold">{earnedPoints !== undefined && maxPoints !== undefined && maxPoints > 0 ? earnedPoints : correctAnswers}</span>
+              <span> / {maxPoints || totalQuestions} bal</span>
+            </div>
 
             {earnedXP > 0 && (
               <motion.div
@@ -183,11 +291,15 @@ export const QuizResult: React.FC<QuizResultProps> = ({
           <div className="mb-8 flex flex-wrap justify-center gap-3">
             <div className="rounded-xl bg-success/10 p-4 min-w-[80px] flex-1 text-center">
               <div className="text-2xl font-bold text-success">{correctAnswers}</div>
-              <div className="text-xs text-muted-foreground">Düzgün</div>
+              <div className="text-xs text-muted-foreground">{t('correct_count', 'Düzgün')}</div>
             </div>
             <div className="rounded-xl bg-destructive/10 p-4 min-w-[80px] flex-1 text-center">
-              <div className="text-2xl font-bold text-destructive">{totalQuestions - correctAnswers - pendingReviews}</div>
-              <div className="text-xs text-muted-foreground">Yanlış</div>
+              <div className="text-2xl font-bold text-destructive">{actualWrongCount}</div>
+              <div className="text-xs text-muted-foreground">{t('wrong_count', 'Yanlış')}</div>
+            </div>
+            <div className="rounded-xl bg-muted/50 border border-muted-foreground/15 p-4 min-w-[80px] flex-1 text-center">
+              <div className="text-2xl font-bold text-muted-foreground">{unansweredCount}</div>
+              <div className="text-xs text-muted-foreground">{t('unanswered_filter', 'Boş')}</div>
             </div>
             {pendingReviews > 0 && (
               <div className="rounded-xl bg-muted/50 border border-muted-foreground/20 p-4 min-w-[80px] flex-1 text-center">
@@ -197,7 +309,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
             )}
             <div className="rounded-xl bg-muted/50 p-4 min-w-[80px] flex-1 text-center">
               <div className="text-2xl font-bold text-foreground">{totalQuestions}</div>
-              <div className="text-xs text-muted-foreground">Ümumi</div>
+              <div className="text-xs text-muted-foreground">{t('total', 'Ümumi')}</div>
             </div>
             {timeSpent > 0 && (
               <div className="rounded-xl bg-primary/5 border border-primary/10 p-4 min-w-[80px] flex-1 text-center">
@@ -205,7 +317,7 @@ export const QuizResult: React.FC<QuizResultProps> = ({
                   <Clock className="h-4 w-4" />
                   {formatTime(timeSpent)}
                 </div>
-                <div className="text-xs text-muted-foreground">Vaxt</div>
+                <div className="text-xs text-muted-foreground">{t('duration', 'Vaxt')}</div>
               </div>
             )}
           </div>
@@ -221,10 +333,17 @@ export const QuizResult: React.FC<QuizResultProps> = ({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row mb-4">
-            <Button variant="game" className="flex-1" onClick={onRetry}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Yenidən Başla
-            </Button>
+            {canRetry ? (
+              <Button variant="game" className="flex-1" onClick={onRetry}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Yenidən Başla
+              </Button>
+            ) : (
+              <Button variant="outline" className="flex-1 opacity-60 cursor-not-allowed" disabled>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Cəhd Limiti Dolub
+              </Button>
+            )}
             <Button variant="outline" className="flex-1" onClick={onHome}>
               <Home className="mr-2 h-4 w-4" />
               Ana Səhifə
@@ -234,10 +353,32 @@ export const QuizResult: React.FC<QuizResultProps> = ({
               {copied ? 'Kopyalandı!' : 'Nəticəni Paylaş'}
             </Button>
           </div>
+
+          {/* Guest Onboarding Banner */}
+          {!user && (
+            <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-primary/15 via-secondary/15 to-amber-500/15 border-2 border-primary/25 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+              <div className="space-y-1">
+                <p className="font-black text-sm text-foreground flex items-center justify-center sm:justify-start gap-1.5">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  Nəticənizi və {earnedXP} XP xalınızı yadda saxlayın!
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Hesab yaradaraq liderlər lövhəsində yarışın və şəxsi statistikanızı izləyin.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="rounded-xl font-bold px-4 shrink-0 shadow-md"
+                onClick={() => navigate('/auth')}
+              >
+                Qeydiyyatdan Keç
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Question-by-question review */}
-        {questions.length > 0 && answers.length > 0 && (
+        {showDetailedReview && questions.length > 0 && answers.length > 0 && (
           <div className="mt-6 animate-scale-in rounded-2xl bg-gradient-card border border-border/50 shadow-elevated overflow-hidden">
             <button
               className="w-full flex items-center justify-between p-5 text-left hover:bg-muted/30 transition-colors"
@@ -262,8 +403,10 @@ export const QuizResult: React.FC<QuizResultProps> = ({
                   <div className="p-4 pt-0 space-y-3">
                     {questions.map((q, idx) => {
                       const ans = answers.find(a => a.questionId === q.id);
-                      const isCorrect = ans?.isCorrect ?? false;
-                      const needsReview = ans?.needsReview ?? false;
+                      const isUnanswered = !ans || !ans.textAnswer || ans.textAnswer.trim().length === 0;
+                      const isCorrect = !isUnanswered && (ans?.isCorrect ?? false);
+                      const needsReview = !isUnanswered && (ans?.needsReview ?? false);
+                      const isWrong = !isUnanswered && !isCorrect && !needsReview;
                       const typeLabel = QUESTION_TYPES.find(t => t.value === q.question_type)?.label ?? q.question_type;
 
                       return (
@@ -275,36 +418,47 @@ export const QuizResult: React.FC<QuizResultProps> = ({
                               ? 'border-muted-foreground/20 bg-muted/20'
                               : isCorrect
                                 ? 'border-green-500/30 bg-green-50/50 dark:bg-green-900/10'
-                                : 'border-red-400/30 bg-red-50/50 dark:bg-red-900/10'
+                                : isUnanswered
+                                  ? 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/20'
+                                  : 'border-red-400/30 bg-red-50/50 dark:bg-red-900/10'
                           )}
                         >
                           <div className="flex items-start gap-3">
                             <div className={cn(
                               'shrink-0 flex items-center justify-center h-6 w-6 rounded-full text-[10px] font-bold mt-0.5',
                               needsReview ? 'bg-muted text-muted-foreground' :
-                              isCorrect ? 'bg-green-100 text-green-700 dark:bg-green-900/30' : 'bg-red-100 text-red-700 dark:bg-red-900/30'
+                              isCorrect ? 'bg-green-100 text-green-700 dark:bg-green-900/30' :
+                              isUnanswered ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' :
+                              'bg-red-100 text-red-700 dark:bg-red-900/30'
                             )}>
-                              {needsReview ? '?' : isCorrect ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                              {needsReview ? '?' : isCorrect ? <Check className="h-3 w-3" /> : isUnanswered ? <Minus className="h-3 w-3" /> : <X className="h-3 w-3" />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <span className="font-semibold text-foreground">{idx + 1}.</span>
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">{typeLabel}</Badge>
                                 {needsReview && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Gözlənilir</Badge>}
+                                {isCorrect && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-emerald-600 border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20">Düzgün</Badge>}
+                                {isWrong && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-rose-600 border-rose-300 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/20">Yanlış</Badge>}
+                                {isUnanswered && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-slate-500 border-slate-300 dark:border-slate-700 bg-slate-100/50 dark:bg-slate-800/40">Boş</Badge>}
                               </div>
-                              <p className="text-foreground/80 leading-snug line-clamp-2">{q.question_text}</p>
-                              {ans && !needsReview && (
+                              <p className="text-foreground/80 leading-snug line-clamp-2"><MathRenderer text={q.question_text} /></p>
+                              {!needsReview && (
                                 <div className="mt-2 space-y-1">
                                   <div className="flex gap-1 text-[11px] items-start">
                                     <span className="text-muted-foreground shrink-0 mt-0.5">Cavabınız:</span>
-                                    <span className={cn('font-medium leading-snug', (!ans || !ans.textAnswer) ? 'text-muted-foreground italic' : (isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'))}>
-                                      {(!ans || !ans.textAnswer) ? 'Cavablandırılmayıb' : ans.textAnswer}
+                                    <span className={cn(
+                                      'font-medium leading-snug',
+                                      isUnanswered ? 'text-slate-500 italic' :
+                                      isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+                                    )}>
+                                      {isUnanswered ? 'Cavablandırılmayıb' : <MathRenderer text={ans?.textAnswer || ''} />}
                                     </span>
                                   </div>
                                   {!isCorrect && q.correct_answer && (
                                     <div className="flex gap-1 text-[11px]">
                                       <span className="text-muted-foreground shrink-0">Düzgün:</span>
-                                      <span className="font-medium text-green-700 dark:text-green-400">{q.correct_answer.split('|')[0]}</span>
+                                      <span className="font-medium text-green-700 dark:text-green-400"><MathRenderer text={q.correct_answer.split('|')[0]} /></span>
                                     </div>
                                   )}
                                 </div>

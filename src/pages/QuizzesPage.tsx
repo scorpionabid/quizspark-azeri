@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Filter, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { QuizCard } from "@/components/quiz/QuizCard";
 import { CategoryFilter } from "@/components/quiz/CategoryFilter";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { usePublicQuizzes, useQuizzesMeta, Quiz as DbQuiz } from "@/hooks/useQuizzes";
+import { getSubjectIcon } from "@/lib/constants/subjects";
 import { PageLoader } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -20,6 +21,7 @@ import {
 export default function QuizzesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState<string>("all");
@@ -34,24 +36,25 @@ export default function QuizzesPage() {
   const dynamicCategories = React.useMemo(() => {
     const counts: Record<string, number> = {};
     quizzes.forEach(q => {
-      const subj = q.subject || 'Digər';
+      const subj = q.subject?.trim() || t('category_all', 'Ümumi');
       counts[subj] = (counts[subj] || 0) + 1;
     });
-    return Object.entries(counts).map(([name, count], index) => ({
-      id: `cat-${index}`,
+    return Object.entries(counts).map(([name, count]) => ({
+      id: name,
       name,
-      icon: '📚', // Default icon, could map further if needed
+      icon: getSubjectIcon(name),
       count
     })).sort((a, b) => b.count - a.count);
-  }, [quizzes]);
+  }, [quizzes, t]);
 
-  // No mapping needed since DbQuiz satisfies QuizCard
+  // Filter and sort
   const filteredQuizzes = quizzes
     .filter((quiz) => {
       const matchesSearch = quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (quiz.description && quiz.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesCategory = !selectedCategory ||
+        (quiz.subject?.trim().toLowerCase() === selectedCategory.trim().toLowerCase()) ||
         (quiz.subject && quiz.subject.toLowerCase().includes(selectedCategory.toLowerCase()));
 
       const matchesDifficulty = difficulty === "all" || quiz.difficulty === difficulty;
@@ -66,28 +69,33 @@ export default function QuizzesPage() {
           return (Number(b.rating) || 0) - (Number(a.rating) || 0);
         case "newest":
           return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-        case "questions": {
-          const qb = quizzesMeta?.[b.id]?.question_count || 0;
-          const qa = quizzesMeta?.[a.id]?.question_count || 0;
-          return qb - qa;
-        }
+        case "questions":
+          return (b.question_count || 0) - (a.question_count || 0);
         default:
           return 0;
       }
     });
 
   const handlePlayQuiz = (quiz: DbQuiz) => {
+    if (quiz.exam_category === 'official_exam') {
+      navigate('/imtahan');
+      return;
+    }
     navigate(`/quiz/${quiz.id}`);
   };
 
   const handlePreviewQuiz = (quiz: DbQuiz) => {
+    if (quiz.exam_category === 'official_exam') {
+      navigate('/imtahan');
+      return;
+    }
     navigate(`/quiz/${quiz.id}?preview=true`);
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
-        <PageLoader text="Quizlər yüklənir..." />
+        <PageLoader text={t('quizzes_loading', 'Quizlər yüklənir...')} />
       </div>
     );
   }
@@ -98,10 +106,10 @@ export default function QuizzesPage() {
         <div className="mx-auto max-w-7xl">
           <EmptyState
             icon="❌"
-            title="Xəta baş verdi"
-            description="Quizlər yüklənərkən xəta baş verdi. Zəhmət olmasa yenidən cəhd edin."
+            title={t('error_title', 'Xəta baş verdi')}
+            description={t('error_desc', 'Quizlər yüklənərkən xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.')}
             action={{
-              label: "Yenidən cəhd et",
+              label: t('retry_btn', 'Yenidən cəhd et'),
               onClick: () => window.location.reload(),
             }}
           />
@@ -115,8 +123,12 @@ export default function QuizzesPage() {
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="mb-2 font-display text-3xl font-bold text-foreground">Quizlər</h1>
-          <p className="text-muted-foreground">Müxtəlif fənlər üzrə quizləri kəşf et</p>
+          <h1 className="mb-2 font-display text-3xl font-bold text-foreground">
+            {t('quizzes_page_title', 'Quizlər və Kurslar')}
+          </h1>
+          <p className="text-muted-foreground">
+            {t('quizzes_page_subtitle', 'Müxtəlif fənlər və ixtisaslar üzrə sınaq və imtahan kurslarını kəşf et')}
+          </p>
         </div>
 
         {/* Filters */}
@@ -127,7 +139,7 @@ export default function QuizzesPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Quiz axtar..."
+                placeholder={t('quizzes_search_placeholder', 'Quiz axtar...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -137,25 +149,25 @@ export default function QuizzesPage() {
               <Select value={difficulty} onValueChange={setDifficulty}>
                 <SelectTrigger className="w-[140px]">
                   <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Çətinlik" />
+                  <SelectValue placeholder={t('filter_difficulty', 'Çətinlik')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Hamısı</SelectItem>
-                  <SelectItem value="easy">Asan</SelectItem>
-                  <SelectItem value="medium">Orta</SelectItem>
-                  <SelectItem value="hard">Çətin</SelectItem>
+                  <SelectItem value="all">{t('diff_all', 'Hamısı')}</SelectItem>
+                  <SelectItem value="easy">{t('diff_easy', 'Asan')}</SelectItem>
+                  <SelectItem value="medium">{t('diff_medium', 'Orta')}</SelectItem>
+                  <SelectItem value="hard">{t('diff_hard', 'Çətin')}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-[140px]">
                   <SlidersHorizontal className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Sırala" />
+                  <SelectValue placeholder={t('filter_sort', 'Sırala')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="popular">Populyarlıq</SelectItem>
-                  <SelectItem value="rating">Reytinq</SelectItem>
-                  <SelectItem value="newest">Ən Yeni</SelectItem>
-                  <SelectItem value="questions">Sual Sayı</SelectItem>
+                  <SelectItem value="popular">{t('sort_popular', 'Populyarlıq')}</SelectItem>
+                  <SelectItem value="rating">{t('sort_rating', 'Reytinq')}</SelectItem>
+                  <SelectItem value="newest">{t('sort_newest', 'Ən Yeni')}</SelectItem>
+                  <SelectItem value="questions">{t('sort_questions', 'Sual Sayı')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -172,7 +184,7 @@ export default function QuizzesPage() {
         {/* Results Count */}
         <div className="mb-4 flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            {filteredQuizzes.length} quiz tapıldı
+            {filteredQuizzes.length} {t('quizzes_found', 'quiz tapıldı')}
           </span>
         </div>
 
@@ -193,10 +205,10 @@ export default function QuizzesPage() {
         ) : (
           <EmptyState
             icon="🔍"
-            title="Quiz tapılmadı"
-            description="Filterləri dəyişdirməyə çalışın"
+            title={t('no_quizzes_found', 'Quiz tapılmadı')}
+            description={t('no_quizzes_match_criteria', 'Filterləri dəyişdirməyə çalışın')}
             action={{
-              label: "Filterləri Sıfırla",
+              label: t('clear_filters', 'Filterləri Sıfırla'),
               onClick: () => {
                 setSearchQuery("");
                 setSelectedCategory(null);

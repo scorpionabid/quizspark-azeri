@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 420" width="100%" height="100%">
+  <defs>
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+    <linearGradient id="sideFaceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.05" />
+    </linearGradient>
+    <filter id="dropShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.06" />
+    </filter>
+  </defs>
+
+  <rect x="10" y="10" width="660" height="400" rx="20" fill="url(#cardBg)" stroke="#cbd5e1" stroke-width="1.5" filter="url(#dropShadow)" />
+
+  <!-- Title Badge -->
+  <g transform="translate(340, 42)">
+    <rect x="-175" y="-16" width="350" height="32" rx="16" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" />
+    <text text-anchor="middle" y="5" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#1e293b">
+      ALTIBUCAQLI PİRAMİDANIN ELEMENTLƏRİ
+    </text>
+  </g>
+
+  <!-- Left: 3D Hexagonal Pyramid Wireframe -->
+  <g transform="translate(210, 230)">
+    <!-- Apex: (0, -135) -->
+    <!-- Base vertices (perspective hexagon centered at (0, 40)):
+         B0 (left): (-110, 30)
+         B1 (back-left): (-60, -5)
+         B2 (back-right): (60, -5)
+         B3 (right): (110, 30)
+         B4 (front-right): (65, 75)
+         B5 (front-left): (-65, 75)
+    -->
+
+    <!-- Base fill -->
+    <polygon points="-110,30 -60,-5 60,-5 110,30 65,75 -65,75" fill="#f0fdf4" stroke="none" />
+
+    <!-- Hidden Back Edges (dashed) -->
+    <line x1="-110" y1="30" x2="-60" y2="-5" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4" />
+    <line x1="-60" y1="-5" x2="60" y2="-5" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4" />
+    <line x1="60" y1="-5" x2="110" y2="30" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4" />
+    <line x1="0" y1="-135" x2="-60" y2="-5" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4" />
+    <line x1="0" y1="-135" x2="60" y2="-5" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4" />
+
+    <!-- Visible Faces (front) -->
+    <polygon points="0,-135 -110,30 -65,75" fill="url(#sideFaceGrad)" stroke="#2563eb" stroke-width="2" />
+    <polygon points="0,-135 -65,75 65,75" fill="url(#sideFaceGrad)" stroke="#2563eb" stroke-width="2" />
+    <polygon points="0,-135 65,75 110,30" fill="url(#sideFaceGrad)" stroke="#2563eb" stroke-width="2" />
+
+    <!-- Base Front Edges -->
+    <line x1="-110" y1="30" x2="-65" y2="75" stroke="#16a34a" stroke-width="2.5" />
+    <line x1="-65" y1="75" x2="65" y2="75" stroke="#16a34a" stroke-width="2.5" />
+    <line x1="65" y1="75" x2="110" y2="30" stroke="#16a34a" stroke-width="2.5" />
+
+    <!-- Apex Point -->
+    <circle cx="0" cy="-135" r="5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5" />
+    <text x="0" y="-145" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#b91c1c">Təpə Nöqtəsi (1)</text>
+
+    <!-- Base label -->
+    <text x="0" y="45" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#15803d">Oturacaq (Altıbucaqlı)</text>
+  </g>
+
+  <!-- Right: Breakdown cards -->
+  <g transform="translate(490, 110)">
+    <text x="0" y="0" text-anchor="middle" font-family="system-ui, sans-serif" font-size="15" font-weight="700" fill="#1e293b">Elementlərin Sayı (n = 6):</text>
+
+    <!-- Card 1: Üzlər (Faces) -->
+    <g transform="translate(-110, 25)">
+      <rect x="0" y="0" width="230" height="52" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5" />
+      <text x="16" y="22" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#1d4ed8">Cəmi Üzlər (F) = 7</text>
+      <text x="16" y="40" font-family="system-ui, sans-serif" font-size="11" fill="#3b82f6">6 yan üçbucaq üz + 1 altıbucaqlı oturacaq</text>
+    </g>
+
+    <!-- Card 2: Təpələr (Vertices) -->
+    <g transform="translate(-110, 90)">
+      <rect x="0" y="0" width="230" height="52" rx="10" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5" />
+      <text x="16" y="22" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#b91c1c">Təpə Nöqtələri (V) = 7</text>
+      <text x="16" y="40" font-family="system-ui, sans-serif" font-size="11" fill="#ef4444">6 oturacaq təpəsi + 1 zirvə təpəsi</text>
+    </g>
+
+    <!-- Card 3: Tillər (Edges) -->
+    <g transform="translate(-110, 155)">
+      <rect x="0" y="0" width="230" height="52" rx="10" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5" />
+      <text x="16" y="22" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#15803d">Cəmi Tillər (E) = 12</text>
+      <text x="16" y="40" font-family="system-ui, sans-serif" font-size="11" fill="#16a34a">6 oturacaq tili + 6 yan til (2n = 12)</text>
+    </g>
+  </g>
+
+  <!-- Formula Banner -->
+  <g transform="translate(340, 365)">
+    <rect x="-250" y="-14" width="500" height="28" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" />
+    <text text-anchor="middle" y="5" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#334155">
+      Ümumi Düstur: n-bucaqlı piramida üçün  Üzlər = n + 1,  Təpələr = n + 1,  Tillər = 2n
+    </text>
+  </g>
+</svg>

@@ -5,6 +5,7 @@ import { GlobalSearch } from "./GlobalSearch";
 import { NotificationsDropdown } from "./NotificationsDropdown";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 import { useRouteInfo } from "@/hooks/useRouteInfo";
 import { useAuth } from "@/contexts/AuthContext";
 import { StudentGamificationHeader } from "../student/gamification/StudentGamificationHeader";
@@ -26,7 +27,7 @@ export function Header() {
       </div>
 
       {/* Right Section */}
-      <div className="ml-auto flex items-center gap-2 md:gap-4">
+      <div className="ml-auto flex items-center gap-2 md:gap-3">
         {isAuthenticated && role === 'student' && (
           <div className="hidden sm:block">
             <StudentGamificationHeader />
@@ -36,6 +37,7 @@ export function Header() {
           <GlobalSearch />
         </div>
         {isAuthenticated && <NotificationsDropdown />}
+        <LanguageSwitcher variant="dropdown" />
         <div className="hidden sm:flex">
           <ThemeToggle />
         </div>

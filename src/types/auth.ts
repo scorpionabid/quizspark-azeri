@@ -10,4 +10,8 @@ export interface Profile {
     status: ProfileStatus | null;
     isProfileComplete: boolean;
     subscription_tier: SubscriptionTier;
+    utis_code?: string | null;
+    fin?: string | null;
+    school?: string | null;
+    grade?: string | null;
 }

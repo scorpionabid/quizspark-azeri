@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 440" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+
+    <!-- Hexagon Gradient -->
+    <linearGradient id="hexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.05" />
+    </linearGradient>
+
+    <!-- Drop Shadow -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.06" />
+    </filter>
+  </defs>
+
+  <!-- Container Box -->
+  <rect x="10" y="10" width="520" height="420" rx="24" fill="url(#cardBg)" stroke="#e2e8f0" stroke-width="1.5" filter="url(#dropShadow)" />
+
+  <!-- Badge / Title -->
+  <g transform="translate(270, 48)">
+    <rect x="-115" y="-16" width="230" height="32" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="1" />
+    <text text-anchor="middle" y="5" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="#334155" letter-spacing="0.3">
+      Düzgün Altıbucaqlı (n = 6)
+    </text>
+  </g>
+
+  <!-- Center = (270, 235), R = 140 -->
+  <!-- Vertices:
+       V0 (top): (270, 95) - Angle -90° (Pointy Top)
+       V1 (top-right): (391.24, 165) - Angle -30°
+       V2 (bottom-right): (391.24, 305) - Angle 30°
+       V3 (bottom): (270, 375) - Angle 90°
+       V4 (bottom-left): (148.76, 305) - Angle 150°
+       V5 (top-left): (148.76, 165) - Angle 210°
+  -->
+
+  <!-- Dashed diagonals (Fəza/Simmetriya xətləri) -->
+  <g stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,5" opacity="0.6">
+    <line x1="270" y1="95" x2="270" y2="375" />
+    <line x1="391.24" y1="165" x2="148.76" y2="305" />
+    <line x1="391.24" y1="305" x2="148.76" y2="165" />
+  </g>
+
+  <!-- Central point -->
+  <circle cx="270" cy="235" r="4" fill="#64748b" />
+  <text x="282" y="240" font-family="system-ui, sans-serif" font-size="13" font-style="italic" fill="#64748b">O</text>
+
+  <!-- Interior Angle Sector & Arc at V5 (148.76, 165) -->
+  <!-- Edges from V5 go to V0 (270, 95) [angle -30° / 330°] and V4 (148.76, 305) [angle 90°].
+       Arc radius r = 40.
+       Start point on edge V5->V4: (148.76, 165 + 40) = (148.76, 205)
+       End point on edge V5->V0: (148.76 + 40*cos(-30°), 165 + 40*sin(-30°)) = (148.76 + 34.64, 165 - 20) = (183.4, 145)
+  -->
+  <path d="M 148.76 165 L 148.76 205 A 40 40 0 0 0 183.4 145 Z" fill="#ef4444" fill-opacity="0.15" stroke="#dc2626" stroke-width="2.2" />
+
+  <!-- Angle Question Label -->
+  <g transform="translate(198, 195)">
+    <rect x="-28" y="-16" width="56" height="30" rx="8" fill="#ffffff" stroke="#f87171" stroke-width="1.5" filter="url(#dropShadow)" />
+    <text text-anchor="middle" y="5" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" fill="#dc2626">
+      α = ?
+    </text>
+  </g>
+
+  <!-- Hexagon Shape -->
+  <polygon points="270,95 391.24,165 391.24,305 270,375 148.76,305 148.76,165"
+           fill="url(#hexGrad)" stroke="#2563eb" stroke-width="3.5" stroke-linejoin="round" />
+
+  <!-- Equal side markers (Tick marks on all 6 sides) -->
+  <!-- Top-right edge center: (330.6, 130) -->
+  <line x1="328" y1="125" x2="333" y2="135" stroke="#2563eb" stroke-width="2" />
+  <!-- Right edge center: (391.24, 235) -->
+  <line x1="386" y1="235" x2="396" y2="235" stroke="#2563eb" stroke-width="2" />
+  <!-- Bottom-right edge center: (330.6, 340) -->
+  <line x1="328" y1="345" x2="333" y2="335" stroke="#2563eb" stroke-width="2" />
+  <!-- Bottom-left edge center: (209.4, 340) -->
+  <line x1="207" y1="335" x2="212" y2="345" stroke="#2563eb" stroke-width="2" />
+  <!-- Left edge center: (148.76, 235) -->
+  <line x1="143" y1="235" x2="153" y2="235" stroke="#2563eb" stroke-width="2" />
+  <!-- Top-left edge center: (209.4, 130) -->
+  <line x1="207" y1="135" x2="212" y2="125" stroke="#2563eb" stroke-width="2" />
+
+  <!-- Vertices Dots -->
+  <circle cx="270" cy="95" r="4.5" fill="#1d4ed8" />
+  <circle cx="391.24" cy="165" r="4.5" fill="#1d4ed8" />
+  <circle cx="391.24" cy="305" r="4.5" fill="#1d4ed8" />
+  <circle cx="270" cy="375" r="4.5" fill="#1d4ed8" />
+  <circle cx="148.76" cy="305" r="4.5" fill="#1d4ed8" />
+  <circle cx="148.76" cy="165" r="5" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+
+  <!-- Side length label 'a' -->
+  <text x="406" y="240" font-family="system-ui, sans-serif" font-size="14" font-weight="600" font-style="italic" fill="#1e40af">a</text>
+  <text x="338" y="358" font-family="system-ui, sans-serif" font-size="14" font-weight="600" font-style="italic" fill="#1e40af">a</text>
+  <text x="190" y="358" font-family="system-ui, sans-serif" font-size="14" font-weight="600" font-style="italic" fill="#1e40af">a</text>
+  <text x="128" y="240" font-family="system-ui, sans-serif" font-size="14" font-weight="600" font-style="italic" fill="#1e40af">a</text>
+  <text x="190" y="120" font-family="system-ui, sans-serif" font-size="14" font-weight="600" font-style="italic" fill="#1e40af">a</text>
+  <text x="338" y="120" font-family="system-ui, sans-serif" font-size="14" font-weight="600" font-style="italic" fill="#1e40af">a</text>
+
+  <!-- Bottom Tip / Formula Prompt -->
+  <text text-anchor="middle" x="270" y="412" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#64748b">
+    Daxili bucaqların cəmi = (n - 2) × 180°
+  </text>
+</svg>

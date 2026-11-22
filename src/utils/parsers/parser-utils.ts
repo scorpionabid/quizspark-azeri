@@ -1,4 +1,5 @@
 import { ParsedQuestion } from './types';
+import { MATCHING_ANSWER_RE } from './markdown-utils';
 
 /**
  * Faylı oxuyarkən BOM marker-ə görə encoding aşkar edir.
@@ -70,8 +71,8 @@ export function detectFormat(
 export function extractMedia(target: Partial<ParsedQuestion>) {
   if (!target.question_text) return;
   
-  // Look for ![alt](url) or just (url) if it looks like an image
-  const imgRegex = /!\[.*?\]\((https?:\/\/[^\s)]+\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^)]+)?)\)/i;
+  // Look for ![alt](url) or image URL in markdown
+  const imgRegex = /!\[.*?\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/i;
   const match = target.question_text.match(imgRegex);
   
   if (match) {
@@ -90,17 +91,17 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
   for (const line of lines) {
     const clean = line.trim();
     const metaMatch = clean.match(
-      /^(İzahat\s*\(?[A-Z\d]\)?|Izahat\s*\(?[A-Z\d]\)?|Explanation\s*\(?[A-Z\d]\)?|Açıqlama\s*\(?[A-Z\d]\)?|İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language)\s*[-:]?\s*(.+)$/i,
+      /^(İzahat(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Izahat(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|İzah(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Izah(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Explanation(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Açıqlama(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|İzahat|Izahat|İzah|Izah|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language|Şəkil|Sekil|Image|Photo|Video|Model|3D|3d_model|Audio|Media)\s*[-:]?\s*(.+)$/i,
     );
     if (!metaMatch) continue;
     const keyRaw = metaMatch[1];
-    const key = keyRaw.toLowerCase();
+    const key = keyRaw.replace(/[\u0130\u0131]/g, 'i').toLowerCase();
     const value = metaMatch[2].trim();
 
-    // Check for per-option explanation: "İzahat A", "İzahat (B)", etc.
-    const perOptMatch = keyRaw.match(/^(?:İzahat|Izahat|Explanation|Açıqlama)\s*\(?([A-Z\d])\)?$/i);
+    // Check for per-option explanation: "İzah A", "İzahat A", "İzah (B)", etc.
+    const perOptMatch = keyRaw.match(/^(?:İzahat|Izahat|İzah|Izah|Explanation|Açıqlama)(?:\s+\(?|\()([A-Za-z\d])\)?$/i);
     if (perOptMatch) {
-      const optionRef = perOptMatch[1].toUpperCase();
+      const optionRef = (perOptMatch[1] || '').toUpperCase();
       let indexKey = '';
       if (/^[A-Z]$/.test(optionRef)) {
         indexKey = (optionRef.charCodeAt(0) - 65).toString();
@@ -115,8 +116,10 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
       }
     }
 
-    if (['izahat', 'açıqlama', 'explanation'].includes(key)) {
+    if (['izah', 'izahat', 'açıqlama', 'explanation'].includes(key)) {
       target.explanation = value;
+    } else if (['ipucu', 'hint'].includes(key)) {
+      target.hint = value;
     } else if (['kateqoriya', 'category'].includes(key)) {
       target.category = value;
     } else if (['çətinlik', 'difficulty'].includes(key)) {
@@ -133,9 +136,22 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
       if (!isNaN(tol)) target.numerical_tolerance = tol;
     } else if (['dil', 'language'].includes(key)) {
       target.hint = `lang:${value.toLowerCase()}`;
+    } else if (['şəkil', 'sekil', 'image', 'photo'].includes(key)) {
+      // Strip markdown image syntax if user wrote `Şəkil: ![alt](url)`
+      const imgUrlMatch = value.match(/\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/i) || [null, value];
+      target.question_image_url = (imgUrlMatch[1] || value).trim();
+    } else if (['video'].includes(key)) {
+      target.video_url = value;
+      target.media_type = 'video';
+    } else if (['model', '3d', '3d_model'].includes(key)) {
+      target.model_3d_url = value;
+    } else if (['audio', 'media'].includes(key)) {
+      target.media_url = value;
+      if (key === 'audio') target.media_type = 'audio';
     } else if (['answer', 'düzgün', 'cavab', 'doğru', 'doğru cavab', 'düzgün cavab'].includes(key)) {
       // Matching suallarında Cavab dəyərini `,` və ya `;` ilə kəsmirik
-      if (target.question_type === 'matching') {
+      if (target.question_type === 'matching' || MATCHING_ANSWER_RE.test(value)) {
+        target.question_type = 'matching';
         target.correct_answer = value;
         continue;
       }

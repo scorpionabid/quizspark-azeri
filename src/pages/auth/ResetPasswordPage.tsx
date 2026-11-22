@@ -11,6 +11,9 @@ import { toast } from 'sonner';
 import { GraduationCap, Loader2, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { useAuth } from '@/contexts/AuthContext';
+import { translateAuthError } from '@/utils/auth-error-translator';
+
 const resetSchema = z
   .object({
     password: z.string().min(6, 'Parol ən azı 6 simvol olmalıdır'),
@@ -25,6 +28,7 @@ type ResetFormData = z.infer<typeof resetSchema>;
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  const { isPasswordRecovery, signOut } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
@@ -35,8 +39,23 @@ export default function ResetPasswordPage() {
   });
 
   useEffect(() => {
-    // Supabase detects the recovery token from the URL hash automatically
-    // and fires a PASSWORD_RECOVERY event on auth state change
+    // 1. If context already captured recovery event or hash contains recovery token
+    const hash = window.location.hash || '';
+    if (isPasswordRecovery || hash.includes('type=recovery') || hash.includes('access_token')) {
+      setIsValidSession(true);
+      setIsChecking(false);
+      return;
+    }
+
+    // 2. Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setIsValidSession(true);
+        setIsChecking(false);
+      }
+    });
+
+    // 3. Supabase listener as fallback
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsValidSession(true);
@@ -44,27 +63,29 @@ export default function ResetPasswordPage() {
       }
     });
 
-    // Give Supabase time to process the URL hash token
     const timer = setTimeout(() => {
       setIsChecking(false);
-    }, 2000);
+    }, 1500);
 
     return () => {
       subscription.unsubscribe();
       clearTimeout(timer);
     };
-  }, []);
+  }, [isPasswordRecovery]);
 
   const handleSubmit = async (data: ResetFormData) => {
     setIsSubmitting(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: data.password });
       if (error) {
-        toast.error(error.message);
+        toast.error(translateAuthError(error));
       } else {
-        toast.success('Parol uğurla yeniləndi! Zəhmət olmasa daxil olun.');
+        toast.success('Parol uğurla yeniləndi! Yeni parolunuzla daxil olun.');
+        await signOut();
         navigate('/auth');
       }
+    } catch (err) {
+      toast.error(translateAuthError(err as Error));
     } finally {
       setIsSubmitting(false);
     }

@@ -3,6 +3,28 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+export interface SafeExamConfig {
+  enabled: boolean;
+  enforce_fullscreen?: boolean;
+  max_violations?: number; // 0 = unlimited / warning only, 3 or 5 = auto-submit
+  prevent_copy_paste?: boolean;
+  blur_on_leave?: boolean;
+  watermark_enabled?: boolean;
+}
+
+export function getSafeExamConfig(quiz?: Partial<Quiz> | null): SafeExamConfig {
+  const fromConfig = quiz?.seb_config;
+  const isEnabled = Boolean(fromConfig?.enabled || quiz?.strict_mode);
+  return {
+    enabled: isEnabled,
+    enforce_fullscreen: fromConfig?.enforce_fullscreen ?? true,
+    max_violations: fromConfig?.max_violations ?? 3,
+    prevent_copy_paste: fromConfig?.prevent_copy_paste ?? true,
+    blur_on_leave: fromConfig?.blur_on_leave ?? true,
+    watermark_enabled: fromConfig?.watermark_enabled ?? true,
+  };
+}
+
 export interface Quiz {
   id: string;
   creator_id: string;
@@ -23,8 +45,10 @@ export interface Quiz {
   updated_at: string;
   shuffle_questions?: boolean;
   show_feedback?: boolean;
+  feedback_timing?: 'end_of_quiz' | 'instant' | 'never';
   pass_percentage?: number;
   attempts_limit?: number;
+  question_count?: number;
   cover_image_url?: string | null;
   available_from?: string | null;
   available_to?: string | null;
@@ -33,11 +57,17 @@ export interface Quiz {
   auto_advance?: boolean;
   access_password?: string | null;
   strict_mode?: boolean;
+  seb_config?: SafeExamConfig | null;
   allow_backtracking?: boolean;
   questions_per_page?: number;
   allow_bookmarks?: boolean;
   show_question_nav?: boolean;
+  enable_calculator?: boolean;
+  enable_periodic_table?: boolean;
+  enable_scratchpad?: boolean;
   background_image_url?: string | null;
+  share_code?: string | null;
+  has_password?: boolean;
 }
 
 export interface QuizFilters {
@@ -49,6 +79,7 @@ export interface QuizFilters {
   isPublished?: boolean;
   isArchived?: boolean;
   creatorId?: string;
+  limit?: number;
 }
 
 export interface QuizMeta {
@@ -92,6 +123,9 @@ export function useQuizzes(filters?: QuizFilters) {
       if (filters?.search) {
         query = query.ilike('title', `%${filters.search}%`);
       }
+      if (filters?.limit) {
+        query = query.limit(filters.limit);
+      }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -106,26 +140,127 @@ export function usePublicQuizzes(filters?: Omit<QuizFilters, 'isPublic' | 'isPub
 }
 
 export function useMyQuizzes(filters?: Omit<QuizFilters, 'creatorId'>) {
-  const { user } = useAuth();
-  // Default: hide archived quizzes; pass isArchived: true to show only archived
-  return useQuizzes({ isArchived: false, ...filters, creatorId: user?.id });
-}
+  const { user, role } = useAuth();
+  const isOlympiadEditor =
+    (user?.email && [
+      'scorpionabid82@gmail.com',
+      'gunel.hadjiyeva@gmail.com',
+      'alqish82@gmail.com',
+      'zuleykha.zakili@gmail.com'
+    ].includes(user.email)) ||
+    role === 'admin';
 
-export function useQuiz(quizId: string | undefined) {
   return useQuery({
-    queryKey: ['quiz', quizId],
+    queryKey: ['quizzes', 'my-quizzes', user?.id, isOlympiadEditor, filters],
     queryFn: async () => {
-      if (!quizId) return null;
-      const { data, error } = await supabase
+      if (!user) return [];
+      let query = supabase
         .from('quizzes')
         .select('*')
-        .eq('id', quizId)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
+
+      if (filters?.subject) {
+        query = query.eq('subject', filters.subject);
+      }
+      if (filters?.grade) {
+        query = query.eq('grade', filters.grade);
+      }
+      if (filters?.difficulty) {
+        query = query.eq('difficulty', filters.difficulty);
+      }
+      if (filters?.isPublic !== undefined) {
+        query = query.eq('is_public', filters.isPublic);
+      }
+      if (filters?.isPublished !== undefined) {
+        query = query.eq('is_published', filters.isPublished);
+      }
+      if (filters?.isArchived !== undefined) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        query = (query as any).eq('is_archived', filters.isArchived);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        query = (query as any).eq('is_archived', false);
+      }
+      if (filters?.search) {
+        query = query.ilike('title', `%${filters.search}%`);
+      }
+      if (filters?.limit) {
+        query = query.limit(filters.limit);
+      }
+
+      if (isOlympiadEditor) {
+        query = query.or(`creator_id.eq.${user.id},exam_category.eq.Olimpiada`);
+      } else {
+        query = query.eq('creator_id', user.id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      return data as Quiz | null;
+      return data as Quiz[];
     },
-    enabled: !!quizId,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useQuiz(quizIdOrCode: string | undefined) {
+  return useQuery({
+    queryKey: ['quiz', quizIdOrCode],
+    queryFn: async () => {
+      if (!quizIdOrCode) return null;
+      const clean = quizIdOrCode.trim();
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean);
+
+      let query = supabase
+        .from('quizzes')
+        .select('*');
+
+      if (isUUID) {
+        query = query.eq('id', clean);
+      } else {
+        query = query.eq('share_code', clean);
+      }
+
+      const { data, error } = await query.maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+
+      const quiz = data as Quiz;
+      quiz.has_password = Boolean(quiz.access_password && quiz.access_password.trim().length > 0);
+      return quiz;
+    },
+    enabled: !!quizIdOrCode,
+    staleTime: 10 * 1000,
+    refetchInterval: 15 * 1000, // Real-time duration & status sync every 15s
+    refetchOnMount: 'always',
+  });
+}
+
+export function useVerifyQuizPassword() {
+  return useMutation({
+    mutationFn: async ({ quizId, password }: { quizId: string; password: string }) => {
+      const { data, error } = await supabase.rpc('verify_quiz_password', {
+        p_quiz_id: quizId,
+        p_password: password,
+      });
+      if (error) throw error;
+      return Boolean(data);
+    },
+  });
+}
+
+export function useQuizByCode(code: string | undefined) {
+  return useQuery({
+    queryKey: ['quiz-by-code', code],
+    queryFn: async () => {
+      if (!code) return null;
+      const { data, error } = await supabase.rpc('get_quiz_by_pin_or_code', {
+        p_code: code.trim(),
+      });
+      if (error) throw error;
+      return (data?.[0] as Quiz) || null;
+    },
+    enabled: !!code,
   });
 }
 
@@ -228,25 +363,29 @@ export function useQuizzesMeta(quizIds: string[]) {
     queryFn: async (): Promise<Record<string, QuizMeta>> => {
       if (!quizIds.length) return {};
 
-      const [{ data: questionData, error: qError }, { data: resultData, error: rError }] =
-        await Promise.all([
-          supabase.from('questions').select('quiz_id').in('quiz_id', quizIds),
-          supabase
-            .from('quiz_results')
-            .select('quiz_id, percentage, completed_at')
-            .in('quiz_id', quizIds),
-        ]);
+      const [rRes, qRes] = await Promise.all([
+        supabase
+          .from('quiz_results')
+          .select('quiz_id, percentage, completed_at')
+          .in('quiz_id', quizIds),
+        supabase
+          .from('questions')
+          .select('quiz_id')
+          .in('quiz_id', quizIds),
+      ]);
 
-      if (qError) throw qError;
-      if (rError) throw rError;
+      const resultData = rRes.data;
+      const questionsData = qRes.data;
 
       const meta: Record<string, QuizMeta> = {};
       quizIds.forEach(id => {
         meta[id] = { question_count: 0, attempt_count: 0, avg_score: null, last_played: null };
       });
 
-      (questionData ?? []).forEach(q => {
-        if (meta[q.quiz_id]) meta[q.quiz_id].question_count++;
+      (questionsData ?? []).forEach(q => {
+        if (meta[q.quiz_id]) {
+          meta[q.quiz_id].question_count++;
+        }
       });
 
       const scoreMap: Record<string, number[]> = {};
@@ -304,7 +443,18 @@ export function useDuplicateQuiz() {
         .single();
       if (sourceError) throw sourceError;
 
-      const { id: _id, created_at: _ca, updated_at: _ua, play_count: _pc, rating: _r, is_popular: _ip, is_new: _in, ...rest } = source;
+      const {
+        id: _id,
+        created_at: _ca,
+        updated_at: _ua,
+        play_count: _pc,
+        rating: _r,
+        is_popular: _ip,
+        is_new: _in,
+        share_code: _sc,
+        question_count: _qc,
+        ...rest
+      } = source;
       const { data: newQuiz, error: createError } = await supabase
         .from('quizzes')
         .insert({
@@ -315,6 +465,7 @@ export function useDuplicateQuiz() {
           play_count: 0,
           available_from: null,
           available_to: null,
+          share_code: null,
         })
         .select()
         .single();

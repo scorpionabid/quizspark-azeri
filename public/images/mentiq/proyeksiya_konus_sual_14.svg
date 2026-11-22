@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 340" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+    <filter id="shadow2" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.06" />
+    </filter>
+  </defs>
+  <rect width="580" height="340" rx="20" fill="url(#bgGrad2)" stroke="#e2e8f0" stroke-width="1.5" />
+  
+  <text x="290" y="38" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#1e293b">Ortoqonal Proyeksiyalar (3 Görünüş)</text>
+
+  <!-- View 1: Öndən (Front) -->
+  <g transform="translate(40, 70)">
+    <rect width="140" height="180" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#shadow2)" />
+    <text x="70" y="30" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#2563eb">Öndən Görünüş</text>
+    <!-- Triangle -->
+    <polygon points="70,55 120,145 20,145" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round" />
+    <line x1="70" y1="55" x2="70" y2="145" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3,3" />
+    <text x="70" y="168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748b">Üçbucaq</text>
+  </g>
+
+  <!-- View 2: Soldan (Left) -->
+  <g transform="translate(220, 70)">
+    <rect width="140" height="180" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#shadow2)" />
+    <text x="70" y="30" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#2563eb">Soldan Görünüş</text>
+    <!-- Triangle -->
+    <polygon points="70,55 120,145 20,145" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round" />
+    <line x1="70" y1="55" x2="70" y2="145" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3,3" />
+    <text x="70" y="168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748b">Üçbucaq</text>
+  </g>
+
+  <!-- View 3: Üstdən (Top) -->
+  <g transform="translate(400, 70)">
+    <rect width="140" height="180" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#shadow2)" />
+    <text x="70" y="30" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="700" fill="#2563eb">Üstdən Görünüş</text>
+    <!-- Circle with apex dot -->
+    <circle cx="70" cy="100" r="45" fill="#dbeafe" stroke="#2563eb" stroke-width="2.5" />
+    <circle cx="70" cy="100" r="4" fill="#dc2626" />
+    <text x="70" y="168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#64748b">Dairə (təpə nöqtəsi ilə)</text>
+  </g>
+
+  <!-- Bottom prompt -->
+  <rect x="90" y="275" width="400" height="42" rx="12" fill="#ffffff" stroke="#dc2626" stroke-width="1.5" />
+  <text x="290" y="301" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#dc2626">
+    Bu 3 proyeksiyaya malik fəza fiquru hansıdır?
+  </text>
+</svg>

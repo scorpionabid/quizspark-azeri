@@ -6,15 +6,19 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { QuestionBankItem } from '@/hooks/useQuestionBank';
-import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box, ListChecks, GitMerge, ListOrdered, Underline, Hash } from 'lucide-react';
+import { Check, X, Image, Video, Music, Lightbulb, Clock, MonitorPlay, Box, ListChecks, GitMerge, ListOrdered, Underline, Hash, Star, Flag, MessageSquare, BookOpen, Eye } from 'lucide-react';
+import { ImageViewerDialog } from '@/components/common/ImageViewerDialog';
 import { QUESTION_TYPES } from '@/types/question';
 import { QuestionVideoPlayer } from './QuestionVideoPlayer';
 import { Question3DViewer } from './Question3DViewer';
 import { normalizePairs, parseMatchingValue } from '../quiz/renderers/utils';
+import { useQuestionFeedbacks } from '@/hooks/useQuizFeedback';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 interface QuestionViewDialogProps {
   open: boolean;
@@ -54,6 +58,9 @@ export function QuestionViewDialog({
   onOpenChange,
   question,
 }: QuestionViewDialogProps) {
+  const { data: feedbacks = [] } = useQuestionFeedbacks(question?.id, true);
+  const [isViewerOpen, setIsViewerOpen] = React.useState(false);
+
   if (!question) return null;
 
   const options = parseOptions(question.options);
@@ -62,7 +69,7 @@ export function QuestionViewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Sual Detalları</DialogTitle>
           <DialogDescription className="sr-only">
@@ -98,37 +105,71 @@ export function QuestionViewDialog({
             )}
           </div>
 
+          {/* Quizzes it belongs to */}
+          {question.quizzes && question.quizzes.length > 0 && (
+            <div className="p-2.5 rounded-lg border border-primary/20 bg-primary/5 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Daxil Olduğu Quizlər ({question.quizzes.length})</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {question.quizzes.map((qz) => (
+                  <Badge key={qz.id} variant="secondary" className="text-xs bg-card border border-border/70">
+                    {qz.title}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           <Separator />
 
           {/* Question Text */}
           <div>
-            {question.title && <h3 className="font-semibold text-primary mb-1">{question.title}</h3>}
+            {question.title && <h3 className="font-semibold text-primary mb-1"><MathRenderer text={question.title} /></h3>}
             <h4 className="font-medium mb-2">Sual</h4>
-            <p className="text-muted-foreground whitespace-pre-wrap">
-              {question.question_text}
-            </p>
+            <div className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+              <MathRenderer text={question.question_text} />
+            </div>
           </div>
 
           {/* Hint */}
           {question.hint && (
             <div className="p-3 bg-muted/40 border rounded-md flex items-start gap-2 text-sm text-muted-foreground">
               <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <p><strong>İpucu:</strong> {question.hint}</p>
+              <div><strong>İpucu:</strong> <MathRenderer text={question.hint} /></div>
             </div>
           )}
 
           {/* Question Image */}
           {question.question_image_url && (
             <div>
-              <h4 className="font-medium mb-2 flex items-center gap-2">
-                <Image className="h-4 w-4" />
-                Sual Şəkili
-              </h4>
-              <img
-                src={question.question_image_url}
-                alt="Sual şəkili"
-                className="max-h-64 rounded-lg border object-contain"
-              />
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Image className="h-4 w-4" />
+                  Sual Şəkli
+                </h4>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => setIsViewerOpen(true)}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Böyüt
+                </Button>
+              </div>
+              <div
+                className="max-w-md rounded-lg border overflow-hidden cursor-pointer hover:opacity-95 transition-opacity bg-muted/20 p-1"
+                onClick={() => setIsViewerOpen(true)}
+              >
+                <img
+                  src={question.question_image_url}
+                  alt="Sual şəkili"
+                  className="max-h-64 w-full rounded object-contain"
+                />
+              </div>
             </div>
           )}
 
@@ -221,7 +262,7 @@ export function QuestionViewDialog({
                       )}
                     >
                       <span className="font-medium w-6 text-xs text-muted-foreground">{optionLetter}.</span>
-                      <span className="flex-1 text-sm">{option}</span>
+                      <span className="flex-1 text-sm"><MathRenderer text={option} /></span>
                       {isCorrect && (
                         <Check className="h-4 w-4 text-green-600" />
                       )}
@@ -241,9 +282,13 @@ export function QuestionViewDialog({
               <div className="space-y-2">
                 {Object.entries(parseMatchingValue(question.correct_answer)).map(([left, rights], idx) => (
                   <div key={idx} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg border border-dashed text-sm">
-                    <div className="flex-1 font-medium">{left}</div>
+                    <div className="flex-1 font-medium"><MathRenderer text={left} /></div>
                     <div className="text-muted-foreground">→</div>
-                    <div className="flex-1 text-primary">{rights.join(', ')}</div>
+                    <div className="flex-1 text-primary">
+                      {rights.map((r, ri) => (
+                        <span key={ri} className="inline-block mr-1.5"><MathRenderer text={r} />{ri < rights.length - 1 ? ',' : ''}</span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -262,7 +307,7 @@ export function QuestionViewDialog({
                     <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-xs font-bold text-green-700">
                       {idx + 1}
                     </span>
-                    <span>{item}</span>
+                    <span><MathRenderer text={item} /></span>
                   </div>
                 ))}
               </div>
@@ -281,10 +326,10 @@ export function QuestionViewDialog({
                   const answers = question.correct_answer.split('|');
                   return parts.map((part, i) => (
                     <React.Fragment key={i}>
-                      {part}
+                      <MathRenderer text={part} />
                       {i < parts.length - 1 && (
                         <span className="px-2 py-0.5 mx-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded font-bold not-italic border-b-2 border-green-500">
-                          {answers[i] || '___'}
+                          <MathRenderer text={answers[i] || '___'} />
                         </span>
                       )}
                     </React.Fragment>
@@ -302,7 +347,7 @@ export function QuestionViewDialog({
               </h4>
               <div className="flex items-center gap-4 p-3 bg-green-50/50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-                  {question.numerical_answer || question.correct_answer}
+                  <MathRenderer text={String(question.numerical_answer || question.correct_answer)} />
                 </div>
                 {question.numerical_tolerance !== undefined && (
                   <div className="text-xs text-muted-foreground">
@@ -315,10 +360,27 @@ export function QuestionViewDialog({
 
           {/* Correct Answer (for other types like short_answer, essay, code) */}
           {!showStandardOptions && !['matching', 'ordering', 'fill_blank', 'numerical'].includes(question.question_type) && (
-            <div>
-              <h4 className="font-medium mb-2">Düzgün Cavab</h4>
-              <div className="p-3 bg-green-50/50 dark:bg-green-900/10 rounded-md border border-green-200 dark:border-green-800 font-mono text-sm">
-                {question.correct_answer}
+            <div className="space-y-2">
+              <h4 className="font-medium">Düzgün Cavab</h4>
+              <div className="p-3 bg-green-50/50 dark:bg-green-900/10 rounded-md border border-green-200 dark:border-green-800 space-y-2">
+                <div className="font-mono text-sm font-bold text-green-700 dark:text-green-400">
+                  <MathRenderer text={question.correct_answer?.split('|')[0]?.trim() || question.correct_answer} />
+                </div>
+                {question.correct_answer?.includes('|') && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-green-200/60 dark:border-green-800/60">
+                    <span className="text-xs font-medium text-muted-foreground">Alternativ yazılışlar:</span>
+                    {question.correct_answer
+                      .split('|')
+                      .slice(1)
+                      .map(v => v.trim())
+                      .filter(Boolean)
+                      .map((variant, idx) => (
+                        <Badge key={idx} variant="secondary" className="font-mono text-xs">
+                          {variant}
+                        </Badge>
+                      ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -327,9 +389,9 @@ export function QuestionViewDialog({
           {question.explanation && (
             <div>
               <h4 className="font-medium mb-2">İzahat</h4>
-              <p className="text-muted-foreground whitespace-pre-wrap p-3 bg-muted/30 rounded-md">
-                {question.explanation}
-              </p>
+              <div className="text-muted-foreground whitespace-pre-wrap p-3 bg-muted/30 rounded-md">
+                <MathRenderer text={question.explanation} />
+              </div>
             </div>
           )}
 
@@ -347,6 +409,48 @@ export function QuestionViewDialog({
             </div>
           )}
 
+          {/* Student Feedbacks & Reports */}
+          {feedbacks.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium flex items-center gap-2 text-sm">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  <span>Şagird Rəyləri və Bildirişlər</span>
+                </h4>
+                <Badge variant="secondary" className="text-xs">
+                  {feedbacks.length} rəy
+                </Badge>
+              </div>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {feedbacks.map((f) => (
+                  <div key={f.id} className="p-2.5 rounded-lg border border-border/70 bg-card/60 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-medium text-foreground">
+                        <span className="h-4 w-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">
+                          {f.student_name?.[0]?.toUpperCase() || 'U'}
+                        </span>
+                        <span>{f.student_name}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-yellow-500 font-bold">
+                        <Star className="h-3 w-3 fill-current" />
+                        <span>{f.rating}</span>
+                      </div>
+                    </div>
+                    {f.issue_type && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/20">
+                        {f.issue_type === 'error' ? '🚩 Xəta Bildirilib' : f.issue_type === 'confusing' ? '❓ Anlaşılmaz' : f.issue_type}
+                      </Badge>
+                    )}
+                    {f.comment && (
+                      <p className="text-muted-foreground italic mt-0.5">&quot;{f.comment}&quot;</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <Separator />
 
           {/* Metadata */}
@@ -356,6 +460,15 @@ export function QuestionViewDialog({
           </div>
         </div>
       </DialogContent>
+
+      {/* Fullscreen Image Lightbox */}
+      {question.question_image_url && (
+        <ImageViewerDialog
+          open={isViewerOpen}
+          onOpenChange={setIsViewerOpen}
+          imageUrl={question.question_image_url}
+        />
+      )}
     </Dialog>
   );
 }

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DragEndEvent } from '@dnd-kit/core';
@@ -11,6 +11,7 @@ import { useCreateQuiz, useQuiz, useUpdateQuiz } from '@/hooks/useQuizzes';
 import { useBulkCreateQuestions, useReplaceQuestions, useQuestions } from '@/hooks/useQuestions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveQuizAttempts, useClearActiveAttempts } from '@/hooks/useQuizAttempts';
+import { saveStoredCustomSubject } from '@/hooks/useSubjects';
 
 // UI
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -37,9 +38,26 @@ import { DraftQuestion } from '@/components/teacher/quiz-creation/SortableQuesti
 import { PreviewQuestion } from '@/utils/parsers/types';
 
 // ─── Adapter Functions ─────────────────────────────────────────────────────────
+function formatForDateTimeLocal(isoString: string | null | undefined): string {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch {
+    return '';
+  }
+}
+
 function draftToDialogQuestion(d: DraftQuestion): QuestionBankItem {
   return {
-    id: d.localId,
+    id: d.bank_question_id || d.localId,
     question_text: d.question_text,
     question_type: d.question_type,
     options: d.options,
@@ -87,7 +105,7 @@ function dialogSaveToDraft(saved: Partial<QuestionBankItem>, existing: DraftQues
     question_type: (saved.question_type as QuestionType) ?? existing.question_type,
     options: (saved.options as string[] | null) ?? existing.options,
     correct_answer: saved.correct_answer ?? existing.correct_answer,
-    correct_option_indices: saved.correct_option_indices ?? existing.correct_option_indices,
+    correct_option_indices: saved.correct_option_indices !== undefined ? saved.correct_option_indices : existing.correct_option_indices,
     explanation: saved.explanation ?? existing.explanation,
     title: saved.title ?? existing.title,
     weight: saved.weight ?? existing.weight,
@@ -99,6 +117,8 @@ function dialogSaveToDraft(saved: Partial<QuestionBankItem>, existing: DraftQues
     video_end_time: saved.video_end_time ?? existing.video_end_time,
     model_3d_url: saved.model_3d_url ?? existing.model_3d_url,
     model_3d_type: saved.model_3d_type ?? existing.model_3d_type,
+    hotspot_data: saved.hotspot_data !== undefined ? saved.hotspot_data : existing.hotspot_data,
+    matching_pairs: saved.matching_pairs !== undefined ? saved.matching_pairs : existing.matching_pairs,
     sequence_items: saved.sequence_items ?? existing.sequence_items,
     fill_blank_template: saved.fill_blank_template ?? existing.fill_blank_template,
     numerical_answer: saved.numerical_answer ?? existing.numerical_answer,
@@ -106,6 +126,11 @@ function dialogSaveToDraft(saved: Partial<QuestionBankItem>, existing: DraftQues
     question_image_url: saved.question_image_url ?? existing.question_image_url,
     media_type: saved.media_type ?? existing.media_type,
     media_url: saved.media_url ?? existing.media_url,
+    shuffle_options: saved.shuffle_options !== undefined ? saved.shuffle_options : existing.shuffle_options,
+    bank_question_id:
+      existing.bank_question_id && existing.bank_question_id !== existing.localId
+        ? existing.bank_question_id
+        : null,
   };
 }
 
@@ -129,6 +154,8 @@ function bankItemToDraft(item: QuestionBankItem, orderIndex: number): DraftQuest
     video_end_time: item.video_end_time,
     model_3d_url: item.model_3d_url,
     model_3d_type: item.model_3d_type,
+    hotspot_data: item.hotspot_data ?? null,
+    matching_pairs: item.matching_pairs ?? null,
     sequence_items: item.sequence_items,
     fill_blank_template: item.fill_blank_template,
     numerical_answer: item.numerical_answer,
@@ -136,15 +163,37 @@ function bankItemToDraft(item: QuestionBankItem, orderIndex: number): DraftQuest
     question_image_url: item.question_image_url,
     media_type: item.media_type,
     media_url: item.media_url,
+    bank_question_id: item.id,
+    shuffle_options: item.shuffle_options,
   };
 }
 
 function draftToDbInsert(q: DraftQuestion, quizId: string, index: number) {
-  const { localId: _localId, hotspot_data, matching_pairs, ...rest } = q;
+  const { localId, hotspot_data, matching_pairs, ...rest } = q;
+  
+  // Normalize matching_pairs: If array format, convert to Record<string, string>
+  let normalizedPairs: Record<string, string> | null = null;
+  if (Array.isArray(matching_pairs)) {
+    normalizedPairs = Object.fromEntries(
+      (matching_pairs as Array<{ left?: string; right?: string }>)
+        .filter(p => p && (p.left?.trim() || p.right?.trim()))
+        .map(p => [(p.left || '').trim(), (p.right || '').trim()])
+    );
+  } else if (matching_pairs && typeof matching_pairs === 'object') {
+    normalizedPairs = matching_pairs as Record<string, string>;
+  }
+
+  const safeBankQuestionId =
+    rest.bank_question_id && rest.bank_question_id !== localId
+      ? rest.bank_question_id
+      : null;
+
   return {
     ...rest,
+    id: localId,
+    bank_question_id: safeBankQuestionId,
     hotspot_data: hotspot_data as Record<string, unknown> | null | undefined,
-    matching_pairs: matching_pairs as Record<string, string> | null | undefined,
+    matching_pairs: normalizedPairs,
     quiz_id: quizId,
     order_index: index,
   };
@@ -154,7 +203,9 @@ const DRAFT_KEY = 'quiz_draft__new';
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function CreateQuizPage() {
-  const { id } = useParams();
+  const { id: paramId } = useParams();
+  const [searchParams] = useSearchParams();
+  const id = paramId || searchParams.get('edit') || searchParams.get('id') || undefined;
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -181,7 +232,9 @@ export default function CreateQuizPage() {
       duration: 20,
       is_public: true,
       shuffle_questions: false,
+      shuffle_options: false,
       show_feedback: true,
+      feedback_timing: 'end_of_quiz',
       pass_percentage: 60,
       attempts_limit: 1,
       available_from: '',
@@ -191,10 +244,21 @@ export default function CreateQuizPage() {
       auto_advance: false,
       access_password: '',
       strict_mode: false,
+      seb_config: {
+        enabled: false,
+        enforce_fullscreen: true,
+        max_violations: 3,
+        prevent_copy_paste: true,
+        blur_on_leave: true,
+        watermark_enabled: true,
+      },
       allow_backtracking: true,
       questions_per_page: 1,
       allow_bookmarks: true,
       show_question_nav: true,
+      enable_calculator: true,
+      enable_periodic_table: true,
+      enable_scratchpad: true,
       background_image_url: '',
     },
   });
@@ -214,24 +278,37 @@ export default function CreateQuizPage() {
         duration: existingQuiz.duration,
         is_public: existingQuiz.is_public,
         shuffle_questions: existingQuiz.shuffle_questions ?? false,
+        shuffle_options: Boolean(existingQuestions?.[0]?.shuffle_options),
         show_feedback: existingQuiz.show_feedback ?? true,
+        feedback_timing: existingQuiz.feedback_timing || (existingQuiz.show_feedback === false ? 'never' : 'end_of_quiz'),
         pass_percentage: existingQuiz.pass_percentage ?? 60,
         attempts_limit: existingQuiz.attempts_limit ?? 1,
-        available_from: existingQuiz.available_from || '',
-        available_to: existingQuiz.available_to || '',
+        available_from: formatForDateTimeLocal(existingQuiz.available_from),
+        available_to: formatForDateTimeLocal(existingQuiz.available_to),
         time_bonus_enabled: existingQuiz.time_bonus_enabled ?? false,
         time_penalty_enabled: existingQuiz.time_penalty_enabled ?? false,
         auto_advance: existingQuiz.auto_advance ?? false,
         access_password: existingQuiz.access_password || '',
-        strict_mode: existingQuiz.strict_mode ?? false,
+        strict_mode: Boolean(existingQuiz.seb_config?.enabled || existingQuiz.strict_mode),
+        seb_config: {
+          enabled: Boolean(existingQuiz.seb_config?.enabled || existingQuiz.strict_mode),
+          enforce_fullscreen: existingQuiz.seb_config?.enforce_fullscreen ?? true,
+          max_violations: existingQuiz.seb_config?.max_violations ?? 3,
+          prevent_copy_paste: existingQuiz.seb_config?.prevent_copy_paste ?? true,
+          blur_on_leave: existingQuiz.seb_config?.blur_on_leave ?? true,
+          watermark_enabled: existingQuiz.seb_config?.watermark_enabled ?? true,
+        },
         allow_backtracking: existingQuiz.allow_backtracking ?? true,
         questions_per_page: existingQuiz.questions_per_page ?? 1,
         allow_bookmarks: existingQuiz.allow_bookmarks ?? true,
         show_question_nav: existingQuiz.show_question_nav ?? true,
+        enable_calculator: existingQuiz.enable_calculator ?? true,
+        enable_periodic_table: existingQuiz.enable_periodic_table ?? true,
+        enable_scratchpad: existingQuiz.enable_scratchpad ?? true,
         background_image_url: existingQuiz.background_image_url || '',
       });
     }
-  }, [id, existingQuiz, form]);
+  }, [id, existingQuiz, existingQuestions, form]);
 
   useEffect(() => {
     if (id && existingQuestions) {
@@ -241,6 +318,7 @@ export default function CreateQuizPage() {
         question_type: q.question_type as QuestionType,
         options: q.options,
         correct_answer: q.correct_answer,
+        correct_option_indices: q.correct_option_indices ?? null,
         explanation: q.explanation,
         order_index: q.order_index,
         title: q.title,
@@ -262,6 +340,8 @@ export default function CreateQuizPage() {
         question_image_url: q.question_image_url,
         media_type: q.media_type,
         media_url: q.media_url,
+        bank_question_id: q.bank_question_id ?? null,
+        shuffle_options: q.shuffle_options,
       }));
       setQuestions(drafts);
     }
@@ -296,63 +376,77 @@ export default function CreateQuizPage() {
   const [draftRecoveryInfo, setDraftRecoveryInfo] = useState<{ raw: string; mins: number } | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const createdQuizIdRef = useRef<string | null>(null);
+
+  const isFormDirty = form.formState.isDirty;
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isFormDirty && !isSubmitting) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isFormDirty, isSubmitting]);
 
   // ── Auto-save ────────────────────────────────────────────────────────────────
   const formValues = form.watch();
+  const draftKey = id ? `quiz_draft_edit_${id}` : DRAFT_KEY;
 
   const saveDraftNow = useCallback(() => {
-    if (id) return;
+    if (id && (!existingQuiz || questions.length === 0)) return;
     localStorage.setItem(
-      DRAFT_KEY,
+      draftKey,
       JSON.stringify({ metadata: form.getValues(), questions, savedAt: Date.now() })
     );
-  }, [id, questions, form]);
+  }, [id, existingQuiz, questions, form, draftKey]);
 
   useEffect(() => {
-    if (id) return; // Edit mode: data lives in DB, no need to auto-save locally
+    if (id && (!existingQuiz || questions.length === 0)) return;
     const timeout = setTimeout(() => {
       localStorage.setItem(
-        DRAFT_KEY,
+        draftKey,
         JSON.stringify({ metadata: formValues, questions, savedAt: Date.now() })
       );
     }, 1500);
     return () => clearTimeout(timeout);
-  }, [questions, formValues, id]);
+  }, [questions, formValues, id, existingQuiz, draftKey]);
 
   // Draft recovery
   useEffect(() => {
-    if (id) return; // Never offer draft recovery when editing an existing quiz
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = localStorage.getItem(draftKey);
     if (!raw) return;
     try {
-        const draft = JSON.parse(raw);
-        const mins = Math.round((Date.now() - draft.savedAt) / 60000);
-        if (mins < 60 * 24) {
-          setDraftRecoveryInfo({ raw, mins });
-        }
-      } catch {
-        // ignore
+      const draft = JSON.parse(raw);
+      const mins = Math.round((Date.now() - draft.savedAt) / 60000);
+      if (mins < 60 * 24) {
+        setDraftRecoveryInfo({ raw, mins });
       }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  
-    const handleRestoreDraft = () => {
-      if (!draftRecoveryInfo) return;
-      try {
-        const draft = JSON.parse(draftRecoveryInfo.raw);
-        form.reset(draft.metadata);
-        setQuestions(draft.questions ?? []);
-        localStorage.removeItem(DRAFT_KEY);
-        setDraftRecoveryInfo(null);
-        toast.success('Qaralama uğurla bərpa edildi');
-      } catch {
-        toast.error('Qaralamanı bərpa etmək mümkün olmadı');
-      }
-    };
-  
-    const handleDiscardDraft = () => {
-      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+  }, [draftKey]);
+
+  const handleRestoreDraft = () => {
+    if (!draftRecoveryInfo) return;
+    try {
+      const draft = JSON.parse(draftRecoveryInfo.raw);
+      form.reset(draft.metadata);
+      setQuestions(draft.questions ?? []);
+      localStorage.removeItem(draftKey);
       setDraftRecoveryInfo(null);
-    };
+      toast.success('Qaralama uğurla bərpa edildi');
+    } catch {
+      toast.error('Qaralamanı bərpa etmək mümkün olmadı');
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(draftKey);
+    setDraftRecoveryInfo(null);
+  };
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const addQuestion = useCallback((type: QuestionType) => {
@@ -384,6 +478,8 @@ export default function CreateQuizPage() {
           video_end_time: saved.video_end_time ?? null,
           model_3d_url: saved.model_3d_url ?? null,
           model_3d_type: saved.model_3d_type ?? null,
+          hotspot_data: saved.hotspot_data ?? null,
+          matching_pairs: saved.matching_pairs ?? null,
           sequence_items: saved.sequence_items ?? null,
           fill_blank_template: saved.fill_blank_template ?? null,
           numerical_answer: saved.numerical_answer ?? null,
@@ -506,7 +602,10 @@ export default function CreateQuizPage() {
 
     const valid = await form.trigger();
     if (!valid) {
-      toast.error('Forma məlumatlarını düzgün doldurun');
+      const errs = form.formState.errors;
+      const firstKey = Object.keys(errs)[0];
+      const firstMsg = (errs[firstKey as keyof typeof errs]?.message as string) || 'Forma məlumatlarını düzgün doldurun';
+      toast.error(`Forma xətası: ${firstMsg}`);
       return;
     }
 
@@ -530,7 +629,7 @@ export default function CreateQuizPage() {
     setIsSubmitting(true);
     try {
       const metadata = form.getValues();
-      let quizId = id;
+      let quizId = id || createdQuizIdRef.current || undefined;
 
       const quizPayload = {
         title: metadata.title.trim(),
@@ -543,34 +642,61 @@ export default function CreateQuizPage() {
         is_published: publish,
         shuffle_questions: metadata.shuffle_questions,
         show_feedback: metadata.show_feedback,
+        feedback_timing: metadata.feedback_timing,
         pass_percentage: metadata.pass_percentage,
         attempts_limit: metadata.attempts_limit,
-        available_from: metadata.available_from || null,
-        available_to: metadata.available_to || null,
+        available_from: metadata.available_from ? new Date(metadata.available_from).toISOString() : null,
+        available_to: metadata.available_to ? new Date(metadata.available_to).toISOString() : null,
         time_bonus_enabled: metadata.time_bonus_enabled,
         time_penalty_enabled: metadata.time_penalty_enabled,
         auto_advance: metadata.auto_advance,
         access_password: metadata.access_password || null,
-        strict_mode: metadata.strict_mode,
+        strict_mode: Boolean(metadata.seb_config?.enabled || metadata.strict_mode),
+        seb_config: {
+          enabled: Boolean(metadata.seb_config?.enabled || metadata.strict_mode),
+          enforce_fullscreen: metadata.seb_config?.enforce_fullscreen ?? true,
+          max_violations: Number(metadata.seb_config?.max_violations ?? 3),
+          prevent_copy_paste: metadata.seb_config?.prevent_copy_paste ?? true,
+          blur_on_leave: metadata.seb_config?.blur_on_leave ?? true,
+          watermark_enabled: metadata.seb_config?.watermark_enabled ?? true,
+        },
         allow_backtracking: metadata.allow_backtracking,
         questions_per_page: metadata.questions_per_page,
         allow_bookmarks: metadata.allow_bookmarks,
         show_question_nav: metadata.show_question_nav,
+        enable_calculator: metadata.enable_calculator,
+        enable_periodic_table: metadata.enable_periodic_table,
+        enable_scratchpad: metadata.enable_scratchpad,
         background_image_url: metadata.background_image_url || null,
       };
 
-      if (id) {
-        await updateQuiz.mutateAsync({ id, ...quizPayload });
-        const newQuestions = questions.map((q, i) => draftToDbInsert(q, id, i));
-        const oldQuestionIds = (existingQuestions ?? []).map((q) => q.id);
-        await replaceQuestions.mutateAsync({ quizId: id, oldQuestionIds, newQuestions });
+      if (quizId) {
+        await updateQuiz.mutateAsync({ id: quizId, ...quizPayload });
+        const newQuestions = questions.map((q, i) => ({
+          ...draftToDbInsert(q, quizId!, i),
+          shuffle_options: q.shuffle_options !== undefined ? q.shuffle_options : Boolean(metadata.shuffle_options),
+        }));
+        const oldQuestionIds = id ? (existingQuestions ?? []).map((q) => q.id) : [];
+        await replaceQuestions.mutateAsync({ quizId, oldQuestionIds, newQuestions });
       } else {
         const quiz = await createQuiz.mutateAsync(quizPayload);
         quizId = quiz.id;
-        const questionsToCreate = questions.map((q, i) => draftToDbInsert(q, quizId!, i));
+        createdQuizIdRef.current = quiz.id;
+        const questionsToCreate = questions.map((q, i) => {
+          const { id: _ignoreId, ...rest } = draftToDbInsert(q, quizId!, i);
+          return {
+            ...rest,
+            shuffle_options: q.shuffle_options !== undefined ? q.shuffle_options : Boolean(metadata.shuffle_options),
+          };
+        });
         await createQuestions.mutateAsync(questionsToCreate);
       }
 
+      if (quizPayload.subject) {
+        saveStoredCustomSubject(quizPayload.subject);
+      }
+
+      localStorage.removeItem(draftKey);
       localStorage.removeItem(DRAFT_KEY);
       toast.success(id
         ? 'Quiz uğurla yeniləndi'
@@ -579,7 +705,8 @@ export default function CreateQuizPage() {
       navigate('/teacher/my-quizzes');
     } catch (error) {
       console.error('Error saving quiz:', error);
-      toast.error('Quiz yadda saxlanılarkən xəta baş verdi');
+      const msg = error instanceof Error ? error.message : 'Quiz yadda saxlanılarkən xəta baş verdi';
+      toast.error(`Xəta: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -601,6 +728,7 @@ export default function CreateQuizPage() {
           onSave={handleSave}
           isSubmitting={isSubmitting || isLocked}
           questionCount={questions.length}
+          isAlreadyPublished={Boolean(id && existingQuiz?.is_published)}
         />
 
         {isLocked && (
@@ -617,7 +745,13 @@ export default function CreateQuizPage() {
                   variant="outline"
                   size="sm"
                   className="bg-background/50 hover:bg-background border-destructive/30 text-destructive hover:text-destructive"
-                  onClick={() => id && clearAttempts.mutate(id)}
+                  onClick={() => {
+                    if (window.confirm('Diqqət! Quizi məcburi açdıqda, hazırda imtahan verən şagirdlərin sessiyaları dərhal başa çatdırılacaq. Davam etmək istəyirsiniz?')) {
+                      if (id) {
+                        clearAttempts.mutate(id);
+                      }
+                    }
+                  }}
                   disabled={clearAttempts.isPending}
                 >
                   <Unlock className="mr-2 h-4 w-4" />

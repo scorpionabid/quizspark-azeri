@@ -1,3 +1,4 @@
+import React, { useMemo } from "react";
 import {
   Home,
   BookOpen,
@@ -22,6 +23,8 @@ import {
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useUserUnreadMessagesCount } from "@/hooks/useChat";
 import {
   Sidebar,
   SidebarContent,
@@ -91,19 +94,58 @@ const navigationGroups: NavGroup[] = [
 
 export function AppSidebar() {
   const { user, role, profile, signOut, isAuthenticated } = useAuth();
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { data: unreadSupportCount } = useUserUnreadMessagesCount();
 
   const currentRole: NavRole = role || 'guest';
 
-  const filteredGroups = navigationGroups
-    .map(group => ({
-      ...group,
-      items: group.items.filter(item => item.roles.includes(currentRole)),
-    }))
-    .filter(group => group.items.length > 0);
+  const navigationGroups: NavGroup[] = useMemo(() => [
+    {
+      label: t('nav_group_main', 'Əsas'),
+      items: [
+        { title: t('nav_home', 'Ana Səhifə'), url: "/", icon: Home, roles: ['admin', 'teacher', 'student', 'guest'] },
+        { title: t('nav_quizzes', 'Quizlər və Kurslar'), url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
+        { title: t('nav_official_exam', 'Rəsmi İmtahan Portalı'), url: "/imtahan", icon: Award, roles: ['admin', 'teacher', 'student', 'guest'] },
+        { title: t('nav_leaderboard', 'Liderlik Lövhəsi'), url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student'] },
+        { title: t('nav_support', 'Dəstək'), url: "/support", icon: MessageCircle, roles: ['teacher', 'student'] },
+      ],
+    },
+    {
+      label: t('nav_group_teacher', 'Müəllim'),
+      items: [
+        { title: t('nav_teacher_dashboard', 'İdarə Paneli'), url: "/teacher/dashboard", icon: LayoutDashboard, roles: ['admin', 'teacher'] },
+        { title: t('nav_my_quizzes', 'Quizlərim'), url: "/teacher/my-quizzes", icon: FileText, roles: ['admin', 'teacher'] },
+        { title: t('nav_question_bank', 'Sual Bankı'), url: "/teacher/question-bank", icon: Database, roles: ['admin', 'teacher'] },
+        { title: t('nav_ai_assistant', 'AI Köməkçi'), url: "/teacher/ai-assistant", icon: Sparkles, roles: ['admin', 'teacher'] },
+      ],
+    },
+    {
+      label: t('nav_group_admin', 'Admin'),
+      items: [
+        { title: t('nav_admin_dashboard', 'Admin Panel'), url: "/admin/dashboard", icon: Shield, roles: ['admin'] },
+        { title: t('nav_admin_exams', 'Rəsmi İmtahanlar & İxrac'), url: "/admin/exams", icon: Award, roles: ['admin'] },
+        { title: t('nav_users', 'İstifadəçilər'), url: "/admin/users", icon: Users, roles: ['admin'] },
+        { title: t('nav_messages', 'Mesajlar'), url: "/admin/chat", icon: MessageCircle, roles: ['admin'] },
+        { title: t('nav_permissions', 'İcazələr'), url: "/admin/permissions", icon: Key, roles: ['admin'] },
+        { title: t('nav_ai_config', 'AI Konfiqurasiya'), url: "/admin/ai-config", icon: Cpu, roles: ['admin'] },
+        { title: t('nav_audit_logs', 'Audit və Loglar'), url: "/admin/audit-logs", icon: ShieldAlert, roles: ['admin'] },
+        { title: t('nav_system_settings', 'Sistem Ayarları'), url: "/admin/settings", icon: Settings, roles: ['admin'] },
+      ],
+    },
+  ], [t]);
+
+  const filteredGroups = useMemo(() => {
+    return navigationGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter(item => item.roles.includes(currentRole)),
+      }))
+      .filter(group => group.items.length > 0);
+  }, [navigationGroups, currentRole]);
 
   const getRoleIcon = (r: NavRole) => {
     switch (r) {
@@ -125,8 +167,8 @@ export function AppSidebar() {
 
   const getRoleLabel = (r: NavRole) => {
     switch (r) {
-      case 'admin': return 'Administrator';
-      case 'teacher': return 'Müəllim';
+      case 'admin': return t('nav_group_admin', 'Administrator');
+      case 'teacher': return t('nav_group_teacher', 'Müəllim');
       case 'student': return 'Tələbə';
       default: return 'Qonaq';
     }
@@ -170,7 +212,7 @@ export function AppSidebar() {
                 {group.items.map((item) => {
                   const isActive = location.pathname === item.url;
                   return (
-                    <SidebarMenuItem key={item.title}>
+                    <SidebarMenuItem key={item.url}>
                       <SidebarMenuButton
                         asChild
                         tooltip={collapsed ? item.title : undefined}
@@ -186,6 +228,11 @@ export function AppSidebar() {
                         >
                           <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
                           {!collapsed && <span>{item.title}</span>}
+                          {!collapsed && (item.url === '/support' || item.url === '/admin/chat') && Boolean(unreadSupportCount && unreadSupportCount > 0) && (
+                            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-white shadow-sm">
+                              {unreadSupportCount}
+                            </span>
+                          )}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -224,7 +271,7 @@ export function AppSidebar() {
           !collapsed && (
             <Button variant="default" className="w-full" onClick={() => navigate('/auth')}>
               <LogIn className="mr-2 h-4 w-4" />
-              Daxil Ol
+              {t('login', 'Daxil Ol')}
             </Button>
           )
         )}

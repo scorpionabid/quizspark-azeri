@@ -12,6 +12,25 @@ function parseOptions(options: string[] | Record<string, string> | null): string
   return Object.values(options);
 }
 
+function normalizeMatchingForForm(mp: unknown): Array<{ left: string; right: string }> {
+  if (!mp) return [{ left: '', right: '' }];
+  if (Array.isArray(mp)) {
+    const list = mp.map(p => ({
+      left: typeof p === 'object' && p !== null ? String((p as { left?: unknown }).left ?? '') : '',
+      right: typeof p === 'object' && p !== null ? String((p as { right?: unknown }).right ?? '') : '',
+    }));
+    return list.length > 0 ? list : [{ left: '', right: '' }];
+  }
+  if (typeof mp === 'object') {
+    const list = Object.entries(mp as Record<string, unknown>).map(([left, right]) => ({
+      left,
+      right: String(right ?? ''),
+    }));
+    return list.length > 0 ? list : [{ left: '', right: '' }];
+  }
+  return [{ left: '', right: '' }];
+}
+
 export function useQuestionEditForm(
   question: QuestionBankItem | null,
   mode: 'create' | 'edit',
@@ -96,12 +115,21 @@ export function useQuestionEditForm(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const q = question as any;
     if (question && mode === 'edit') {
+      let initialCorrectAnswer = question.correct_answer || '';
+      if (question.question_type === 'multiple_select') {
+        if (Array.isArray(question.correct_option_indices) && question.correct_option_indices.length > 0) {
+          initialCorrectAnswer = question.correct_option_indices
+            .map((idx: number) => String.fromCharCode(65 + idx))
+            .join(',');
+        }
+      }
+
       setFormData({
         title: question.title || '',
         question_text: question.question_text,
         question_type: question.question_type,
         options: question.question_type === 'true_false' ? ['Doğru', 'Yanlış'] : parseOptions(question.options),
-        correct_answer: question.correct_answer,
+        correct_answer: initialCorrectAnswer,
         explanation: question.explanation || '',
         category: question.category || '',
         difficulty: question.difficulty || 'orta',
@@ -121,7 +149,7 @@ export function useQuestionEditForm(
         fill_blank_template: question.fill_blank_template || '',
         numerical_answer: question.numerical_answer ?? '',
         numerical_tolerance: question.numerical_tolerance ?? 0,
-        matching_pairs: q.matching_pairs || [],
+        matching_pairs: normalizeMatchingForForm(q.matching_pairs),
         sequence_items: q.sequence_items || [],
         accepted_answers: q.accepted_answers || [],
         answer_case_sensitive: q.answer_case_sensitive ?? false,
@@ -222,25 +250,25 @@ export function useQuestionEditForm(
     if (qt === 'multiple_choice' || qt === 'video') {
       const filled = (formData.options as string[]).filter(o => o.trim() !== '');
       if (filled.length < 2) errors.options = 'Ən azı 2 variant daxil edilməlidir';
-      if (!formData.correct_answer) errors.correct_answer = 'Düzgün cavab seçilməlidir';
+      if (!formData.correct_answer) errors.correct_answer = 'Düzgün cavab seçilməlidir (A, B, C...)';
     } else if (qt === 'multiple_select') {
       const filled = (formData.options as string[]).filter(o => o.trim() !== '');
       if (filled.length < 2) errors.options = 'Ən azı 2 variant daxil edilməlidir';
       if (!formData.correct_answer) errors.correct_answer = 'Ən azı bir düzgün cavab seçilməlidir';
     } else if (qt === 'true_false' && !formData.correct_answer) {
-      errors.correct_answer = 'Doğru/Yanlış seçilməlidir';
+      errors.correct_answer = 'Doğru və ya Yanlış seçilməlidir';
     } else if (qt === 'fill_blank' && !formData.correct_answer.trim()) {
       errors.correct_answer = 'Ən azı bir boşluq cavabı daxil edilməlidir';
     } else if (qt === 'matching') {
-      const pairs = formData.matching_pairs as Array<{ left: string; right: string }>;
-      if (!pairs || pairs.length < 2) errors.matching_pairs = 'Ən azı 2 cüt daxil edilməlidir';
-      else if (pairs.some(p => !p.left.trim() || !p.right.trim())) errors.matching_pairs = 'Bütün cütlər doldurulmalıdır';
+      const pairs = (formData.matching_pairs as Array<{ left: string; right: string }>) || [];
+      const filledPairs = pairs.filter(p => p.left?.trim() && p.right?.trim());
+      if (filledPairs.length < 2) errors.matching_pairs = 'Ən azı 2 uyğunlaşdırma cütü daxil edilməlidir';
     } else if (qt === 'ordering') {
       const items = formData.sequence_items as string[];
-      if (!items || items.length < 2) errors.sequence_items = 'Ən azı 2 element daxil edilməlidir';
-      else if (items.some(it => !it.trim())) errors.sequence_items = 'Bütün elementlər doldurulmalıdır';
+      if (!items || items.length < 2) errors.sequence_items = 'Ən azı 2 ardıcıllıq elementi daxil edilməlidir';
+      else if (items.some(it => !it.trim())) errors.sequence_items = 'Bütün ardıcıllıq elementləri doldurulmalıdır';
     } else if (qt === 'numerical' && (formData.numerical_answer === '' || isNaN(Number(formData.numerical_answer)))) {
-      errors.numerical_answer = 'Rəqəmsal cavab daxil edilməlidir';
+      errors.numerical_answer = 'Rəqəmsal düzgün cavab daxil edilməlidir';
     } else if (qt === 'code') {
       if (!formData.code_language) errors.code_language = 'Proqramlaşdırma dili seçilməlidir';
     } else if (qt === 'essay') {
@@ -287,12 +315,13 @@ export function useQuestionEditForm(
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = (): boolean => {
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-      toast.error('Zəhmət olmasa xətaları düzəldin');
-      return;
+      const firstError = Object.values(errors)[0];
+      toast.error(firstError || 'Zəhmət olmasa xətaları düzəldin');
+      return false;
     }
     setValidationErrors({});
 
@@ -361,7 +390,41 @@ export function useQuestionEditForm(
       data.options = null;
     }
 
-    if (formData.matching_pairs && formData.matching_pairs.length > 0) {
+    if (formData.question_type === 'multiple_select') {
+      const selected = (formData.correct_answer || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+      const indices: number[] = [];
+      const opts = (data.options as string[]) || [];
+
+      selected.forEach((s: string) => {
+        if (/^[A-Za-z]$/.test(s)) {
+          const idx = s.toUpperCase().charCodeAt(0) - 65;
+          if (idx >= 0 && idx < opts.length && !indices.includes(idx)) {
+            indices.push(idx);
+          }
+        } else {
+          const idx = opts.findIndex((o: string) => o.trim().toLowerCase() === s.toLowerCase());
+          if (idx !== -1 && !indices.includes(idx)) {
+            indices.push(idx);
+          }
+        }
+      });
+      data.correct_option_indices = indices.sort((a, b) => a - b);
+    } else {
+      data.correct_option_indices = null;
+    }
+
+    if (formData.question_type === 'matching') {
+      const pairs = (formData.matching_pairs as Array<{ left: string; right: string }>) || [];
+      const validPairs = pairs.filter(p => p.left?.trim() || p.right?.trim());
+      if (validPairs.length > 0) {
+        data.matching_pairs = Object.fromEntries(validPairs.map(p => [(p.left || '').trim(), (p.right || '').trim()]));
+        if (!data.correct_answer || !data.correct_answer.includes(':')) {
+          data.correct_answer = validPairs.map(p => `${(p.left || '').trim()}:${(p.right || '').trim()}`).join('|||');
+        }
+      } else {
+        data.matching_pairs = null;
+      }
+    } else if (formData.matching_pairs && formData.matching_pairs.length > 0) {
       data.matching_pairs = formData.matching_pairs as unknown as Record<string, string>;
     }
     if (formData.sequence_items && formData.sequence_items.length > 0) {
@@ -370,12 +433,15 @@ export function useQuestionEditForm(
 
     if (mode === 'edit' && question) data.id = question.id;
     onSave(data);
+    return true;
   };
 
   return {
     formData,
     setFormData,
     validationErrors,
+    setValidationErrors,
+    validateForm,
     isUploading,
     is3DUploading,
     setIs3DUploading,

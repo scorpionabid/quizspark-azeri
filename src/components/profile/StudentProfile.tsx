@@ -103,6 +103,11 @@ export function StudentProfile({ stats }: StudentProfileProps) {
                 </motion.div>
             </div>
 
+            {/* Güclü və Zəif Mövzular üzrə Analitika Bölməsi */}
+            <motion.div variants={item}>
+                <StudentMasteryAnalytics />
+            </motion.div>
+
             {/* Main Content Areas */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Activity */}

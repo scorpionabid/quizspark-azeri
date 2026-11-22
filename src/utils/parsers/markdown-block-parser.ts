@@ -6,6 +6,9 @@ import {
   warnIfMissingText,
   extractInlineOptions,
   parseInlineLine,
+  buildMetaRE,
+  ANSWER_META,
+  isMatchingBlock,
 } from './markdown-utils';
 import {
   parseMatchingBlock,
@@ -45,10 +48,9 @@ function isSectionLabel(line: string): boolean {
  * MCQ, true_false, multiple_select və short_answer növlərini avtomatik aşkarlayır.
  */
 function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
-  const META_RE =
-    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans)\s*[:-]/iu;
+  const META_RE = buildMetaRE(ANSWER_META);
   const ANSWER_LINE_RE = /^(ANSWER|Düzgün cavab|Doğru cavab|Cavab|Doğru)\s*[:-]/i;
-  const QUESTION_START_RE = /^(?:#{1,6}|Sual|Q|Question)\s*[:.]?\s*/i;
+  const QUESTION_START_RE = /^(?:#{1,6}\s*|(?:Sual|Q|Question)\s*(?:\d+\s*)?[:.-]\s*)/i;
 
   const allQuestions: ParsedQuestion[] = [];
   const allWarnings: ParseWarning[] = [];
@@ -65,10 +67,11 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
     const label = sectionLabel;
     sectionLabel = '';
 
-    let questionText = currentQuestionLines.join('\n').trim();
+    const rawQuestionText = currentQuestionLines.join('\n').trim();
 
     // Sual mətni Q: və ya # ilə başlayırsa, onu təmizlə
-    questionText = questionText.replace(QUESTION_START_RE, '').trim();
+    const cleanedQuestionText = rawQuestionText.replace(QUESTION_START_RE, '').trim();
+    let questionText = cleanedQuestionText || rawQuestionText;
 
     // Yalnızca tamamilə boş blokları ignore et
     if (!questionText && currentOptions.length === 0 && currentMetaLines.length === 0) {
@@ -150,14 +153,14 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
       continue;
     }
 
-    const aikenOpt = line.match(/^([A-Za-z\d]+)\s*[).]\s+(.+)/);
+    const aikenOpt = line.match(/^([A-Ha-h]|\d+)\s*[).]\s+(.+)/);
     const bulletOpt = line.match(/^[-•*]\s+(?!\[)(.+)/);
     const isMeta = META_RE.test(line);
 
     let remainingAfterMeta = '';
     if (!isMeta) {
       const inlineMetaMatch = line.match(
-        /(.+?)\s*((?:İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[:-].+)$/iu,
+        /(.+?)\s*((?:İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru)\s*[:-].+)$/iu,
       );
       if (inlineMetaMatch) {
         line = inlineMetaMatch[1];
@@ -191,6 +194,10 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
           sectionLabel = '';
         }
         extractMetadata(inlineParsed.metaLines, inlineResult);
+        while (i + 1 < lines.length && META_RE.test(lines[i + 1])) {
+          i++;
+          extractMetadata([lines[i]], inlineResult);
+        }
         // inline metaLines-da cavab tapılmasa warning
         if (!inlineResult.correct_answer) {
           allWarnings.push({
@@ -201,6 +208,10 @@ function parseGenericBlock(lines: string[], lineOffset: number): BlockResult {
           });
         }
         allQuestions.push(inlineResult as ParsedQuestion);
+        currentQuestionLines = [];
+        currentOptions = [];
+        currentMetaLines = [];
+        parsingOptions = false;
         continue;
       }
 
@@ -277,16 +288,13 @@ export function parseSingleBlock(block: string, lineOffset: number): BlockResult
     }
   }
 
-  // 2 — Arrow cütlər → matching
-  const META_RE_LIGHT =
-    /^(İzahat|Izahat|Explanation|Açıqlama|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Cavab|Düzgün|Düzgün cavab|Doğru cavab|ANSWER|Tolerans|Dil)\s*[-:]/iu;
-  const PAIR_RE = /^.+\s*(?:→|->|::)\s*.+$/;
-  const pairLines = lines.filter((l) => PAIR_RE.test(l) && !META_RE_LIGHT.test(l));
-  if (pairLines.length >= 2) {
+  // 2 — Matching yoxlanışı
+  if (isMatchingBlock(lines)) {
     return parseMatchingBlock(lines, lineOffset);
   }
 
   // 3 — Boşluq işarəsi → fill_blank
+  const META_RE_LIGHT = buildMetaRE(ANSWER_META);
   if (lines.some((l) => /___/.test(l) && !META_RE_LIGHT.test(l))) {
     return parseFillBlankBlock(lines, lineOffset);
   }
@@ -300,6 +308,33 @@ export function parseSingleBlock(block: string, lineOffset: number): BlockResult
   if (/^[-*]\s*\[[ xX]\]/.test(block)) {
     const wrapped = '# ' + lines[0] + '\n' + lines.slice(1).join('\n');
     return parseMarkdownFormat1(wrapped);
+  }
+
+  // 5.5 — Inline sual formatı (yalnız tək sətirlik olduqda)
+  if (lines.length === 1) {
+    const inlineParsed = parseInlineLine(lines[0]);
+    if (inlineParsed) {
+      const isTrueFalse =
+        inlineParsed.options.length === 2 &&
+        inlineParsed.options.every((o) => TRUE_FALSE_RE.test(o.trim()));
+      const result: Partial<ParsedQuestion> = {
+        question_text: inlineParsed.questionText,
+        question_type: isTrueFalse ? 'true_false' : 'multiple_choice',
+        difficulty: 'orta',
+        options: inlineParsed.options,
+      };
+      extractMetadata(inlineParsed.metaLines, result);
+      const warnings: ParseWarning[] = [];
+      if (!result.correct_answer) {
+        warnings.push({
+          line: lineOffset + 1,
+          type: 'missing_answer',
+          message: `"${inlineParsed.questionText.slice(0, 30)}..." — cavab tapılmadı`,
+          severity: 'error',
+        });
+      }
+      return { questions: [result as ParsedQuestion], warnings };
+    }
   }
 
   // 6 — Generic MCQ / short_answer
@@ -379,6 +414,15 @@ export function parseMarkdownOneLinePerQuestion(content: string): ParseResult {
         options: inlineParsed.options,
       };
       extractMetadata(inlineParsed.metaLines, result);
+
+      // Əgər cavab sıradakı sətirdədirsə, onu oxu
+      while (
+        i + 1 < rawLines.length &&
+        /^(?:Düzgün cavab|Doğru cavab|Cavab|ANSWER)\s*:/i.test(rawLines[i + 1].trim())
+      ) {
+        i++;
+        extractMetadata([rawLines[i].trim()], result);
+      }
 
       if (!result.correct_answer) {
         allWarnings.push({

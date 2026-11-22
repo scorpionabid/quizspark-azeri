@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { RendererProps } from './types';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 export const MultipleSelectRenderer: React.FC<RendererProps> = ({
   question,
@@ -12,33 +13,61 @@ export const MultipleSelectRenderer: React.FC<RendererProps> = ({
   disabled,
   showFeedback,
 }) => {
-  const selected = value ? value.split(',').map(s => s.trim()) : [];
+  const options = question.options || [];
+
+  // Parse selected options safely (handles potential commas inside option texts)
+  const selected = React.useMemo(() => {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.map(String);
+    } catch {}
+
+    const rawTokens = value.split(',').map(s => s.trim());
+    const matched: string[] = [];
+    for (const opt of options) {
+      if (rawTokens.includes(opt) || value.includes(opt)) {
+        matched.push(opt);
+      }
+    }
+    return matched.length > 0 ? matched : rawTokens;
+  }, [value, options]);
   
   const handleToggle = (opt: string, checked: boolean) => {
     if (disabled) return;
-    let next;
+    let next: string[];
     if (checked) {
-      next = [...selected, opt];
+      next = [...selected.filter(s => s !== opt), opt];
     } else {
       next = selected.filter(s => s !== opt);
     }
     onChange(next.join(','));
   };
 
-  const getCorrectAnswers = () => (question.correct_answer || '').split(',').map(s => s.trim().toLowerCase());
+  const isOptCorrect = (opt: string, index: number) => {
+    const rawCorrect = (question.correct_answer || '').trim();
+    const correctTokens = rawCorrect.split(',').map(s => s.trim().toLowerCase());
+    const optLower = opt.trim().toLowerCase();
+    const letter = String.fromCharCode(65 + index).toLowerCase();
+
+    return (
+      correctTokens.includes(optLower) ||
+      correctTokens.includes(letter) ||
+      (Array.isArray(question.correct_option_indices) && question.correct_option_indices.includes(index))
+    );
+  };
 
   return (
     <div className="space-y-3">
-      {question.options?.map((opt, i) => {
+      {options.map((opt, i) => {
         const isSelected = selected.includes(opt);
-        const correctAnswers = getCorrectAnswers();
-        const isOptCorrect = correctAnswers.includes(opt.toLowerCase());
+        const optIsCorrect = isOptCorrect(opt, i);
         
         let statusClass = "border-border/40 bg-muted/20";
         if (showFeedback) {
-          if (isSelected && isOptCorrect) statusClass = "border-green-500 bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-300";
-          else if (isSelected && !isOptCorrect) statusClass = "border-red-500 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-300";
-          else if (!isSelected && isOptCorrect) statusClass = "border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 text-amber-700";
+          if (isSelected && optIsCorrect) statusClass = "border-green-500 bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-300";
+          else if (isSelected && !optIsCorrect) statusClass = "border-red-500 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-300";
+          else if (!isSelected && optIsCorrect) statusClass = "border-amber-400 bg-amber-50/50 dark:bg-amber-900/10 text-amber-700";
         } else if (isSelected) {
           statusClass = "border-primary/50 bg-primary/5 shadow-sm";
         }
@@ -67,10 +96,22 @@ export const MultipleSelectRenderer: React.FC<RendererProps> = ({
             />
             <Label 
               htmlFor={`${question.id}-ms-opt-${i}`} 
-              className="flex-1 cursor-pointer font-medium text-sm"
+              className="flex-1 cursor-pointer font-medium text-sm md:text-base flex items-center"
               onClick={(e) => e.stopPropagation()}
             >
-              {opt}
+              {!/^[A-Z][).]\s+/i.test(opt) && (
+                <span className={cn(
+                  "inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-bold mr-3 shrink-0 border transition-colors",
+                  isSelected 
+                    ? "bg-primary text-primary-foreground border-primary" 
+                    : "bg-muted/60 text-muted-foreground border-border/60"
+                )}>
+                  {String.fromCharCode(65 + i)}
+                </span>
+              )}
+              <span className="flex-1">
+                <MathRenderer text={opt} />
+              </span>
             </Label>
             
             {showFeedback && (

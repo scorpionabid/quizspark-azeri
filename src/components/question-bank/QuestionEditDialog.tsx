@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -19,10 +20,20 @@ import {
   Crosshair,
   AlertCircle,
   BookMarked,
+  Star,
+  MessageSquare,
+  Flag,
+  Crop,
+  Eye,
+  RefreshCw,
 } from 'lucide-react';
+import { ImageEditorDialog } from '@/components/common/ImageEditorDialog';
+import { ImageViewerDialog } from '@/components/common/ImageViewerDialog';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { QuestionBankItem, useCreateQuestionBank } from '@/hooks/useQuestionBank';
 import { useQuestionCategories, useCreateQuestionCategory } from '@/hooks/useQuestionCategories';
+import { useQuestionFeedbacks } from '@/hooks/useQuizFeedback';
 import {
   Tabs,
   TabsList,
@@ -67,14 +78,19 @@ export function QuestionEditDialog({
   const { data: dbCategories = [] } = useQuestionCategories();
   const createCategory = useCreateQuestionCategory();
   const createQuestionBank = useCreateQuestionBank();
+  const { data: feedbacks = [] } = useQuestionFeedbacks(question?.id, true);
   const [newCategory, setNewCategory] = useState('');
   const [pasteMode, setPasteMode] = useState(false);
   const [saveToBank, setSaveToBank] = useState(false);
+  const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 
   const {
     formData,
     setFormData,
     validationErrors,
+    setValidationErrors,
+    validateForm,
     isUploading,
     is3DUploading,
     setIs3DUploading,
@@ -161,6 +177,44 @@ export function QuestionEditDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Feedback & Error Reports Callout Banner */}
+          {mode === 'edit' && feedbacks.length > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-amber-800 dark:text-amber-400 font-semibold">
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+                  <span>Bu suala bildirilən tələbə rəy və qüsurları ({feedbacks.length})</span>
+                </div>
+                <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/30 text-[10px]">
+                  Düzəliş tələb edə bilər
+                </Badge>
+              </div>
+              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                {feedbacks.map((f) => (
+                  <div key={f.id} className="rounded-lg border border-border/70 bg-card p-2 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-foreground">{f.student_name}</span>
+                      <div className="flex items-center gap-1 text-yellow-500 font-bold text-[11px]">
+                        <Star className="h-3 w-3 fill-current" />
+                        <span>{f.rating}</span>
+                        {f.issue_type && (
+                          <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0 border-red-200 text-red-600 bg-red-50 dark:bg-red-950/20">
+                            {f.issue_type === 'error' ? '🚩 Xəta Bildirilib' : f.issue_type === 'confusing' ? '❓ Anlaşılmaz' : f.issue_type}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    {f.comment && (
+                      <p className="italic text-muted-foreground bg-muted/40 p-1.5 rounded text-[11px]">
+                        &quot;{f.comment}&quot;
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {pasteMode ? (
             <QuestionImportSection onParse={handleParse} isParsing={isParsing} />
           ) : (
@@ -257,13 +311,31 @@ export function QuestionEditDialog({
                   <Textarea
                     id="question_text"
                     value={formData.question_text}
-                    onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, question_text: e.target.value });
+                      if (validationErrors.question_text) {
+                        setValidationErrors(prev => {
+                          const next = { ...prev };
+                          delete next.question_text;
+                          return next;
+                        });
+                      }
+                    }}
                     placeholder="Sualı daxil edin..."
                     rows={3}
-                    className="pr-12"
+                    className={cn(
+                      "pr-12",
+                      validationErrors.question_text && "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
+                  {validationErrors.question_text && (
+                    <p className="text-xs text-destructive font-medium mt-1 flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      {validationErrors.question_text}
+                    </p>
+                  )}
                   <QuestionAISection onAnalyze={handleAIAnalysis} isEnhancing={isEnhancing} disabled={!formData.question_text} />
-                  {formData.question_text.includes('$') && (
+                  {(formData.question_text.includes('$') || formData.question_text.includes('\\(') || formData.question_text.includes('\\[')) && (
                     <div className="mt-2 p-2 rounded-md border border-dashed bg-muted/30">
                       <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wide">Önizləmə</p>
                       <MathRenderer text={formData.question_text} className="text-sm" />
@@ -272,15 +344,89 @@ export function QuestionEditDialog({
                 </div>
 
                 {formData.question_image_url && (
-                  <div className="relative w-full max-w-md aspect-video rounded-lg overflow-hidden border bg-muted/30 group">
-                    <img src={formData.question_image_url} alt="Sual şəkli" className="w-full h-full object-contain" />
-                    <Button
-                      type="button" variant="destructive" size="icon"
-                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => setFormData({ ...formData, question_image_url: '' })}
+                  <div className="relative w-full max-w-lg rounded-xl overflow-hidden border bg-muted/20 p-2 space-y-2 shadow-xs">
+                    {/* Image Preview Box with Hover Hint */}
+                    <div
+                      className="relative w-full aspect-video rounded-lg overflow-hidden border bg-background flex items-center justify-center cursor-pointer group"
+                      onClick={() => setIsImageViewerOpen(true)}
                     >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                      <img
+                        src={formData.question_image_url}
+                        alt="Sual şəkli"
+                        className="w-full h-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-medium">
+                        <Eye className="h-4 w-4" /> Tam ekranda bax
+                      </div>
+                    </div>
+
+                    {/* Image Action Controls */}
+                    <div className="flex items-center justify-between gap-2 pt-1 px-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5 font-medium shadow-xs"
+                          onClick={() => setIsImageEditorOpen(true)}
+                        >
+                          <Crop className="h-3.5 w-3.5 text-primary" />
+                          Şəkli Redaktə Et (Kəs / Döndər)
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5"
+                          onClick={() => setIsImageViewerOpen(true)}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Böyüt
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1.5 cursor-pointer"
+                          asChild
+                        >
+                          <label htmlFor="q-img-replace">
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Dəyişdir
+                          </label>
+                        </Button>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          id="q-img-replace"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const url = await uploadImage(file);
+                              if (url) {
+                                setFormData((prev) => ({ ...prev, question_image_url: url }));
+                                toast.success('Şəkil dəyişdirildi!');
+                              }
+                            }
+                          }}
+                          disabled={isUploading}
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive gap-1 px-2"
+                        onClick={() => setFormData({ ...formData, question_image_url: '' })}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Sil
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -335,59 +481,96 @@ export function QuestionEditDialog({
             </label>
           )}
           {Object.keys(validationErrors).length > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-destructive mr-auto">
-              <AlertCircle className="h-3.5 w-3.5" />
-              <span>Formdakı xətaları düzəldin</span>
+            <div className="flex flex-col gap-1 text-xs text-destructive mr-auto bg-destructive/10 border border-destructive/20 p-2.5 rounded-lg max-w-md animate-in fade-in">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
+                <span>Zəhmət olmasa aşağıdakı çatışmazlıqları aradan qaldırın:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 text-destructive/90 pl-1">
+                {Object.values(validationErrors).map((msg, idx) => (
+                  <li key={idx}>{msg}</li>
+                ))}
+              </ul>
             </div>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Ləğv et</Button>
           <Button
             onClick={async () => {
+              const errors = validateForm();
+              if (Object.keys(errors).length > 0) {
+                handleSubmit();
+                return;
+              }
               if (saveToBank && showSaveToBank && mode === 'create') {
-                await createQuestionBank.mutateAsync({
-                  question_text: formData.question_text,
-                  question_type: formData.question_type,
-                  options: formData.options ?? null,
-                  correct_answer: formData.correct_answer ?? '',
-                  explanation: formData.explanation ?? null,
-                  title: formData.title ?? null,
-                  weight: formData.weight ?? null,
-                  hint: formData.hint ?? null,
-                  time_limit: formData.time_limit ?? null,
-                  difficulty: formData.difficulty ?? null,
-                  category: formData.category ?? null,
-                  bloom_level: formData.bloom_level ?? null,
-                  tags: formData.tags ?? null,
-                  per_option_explanations: formData.per_option_explanations ?? null,
-                  question_image_url: formData.question_image_url ?? null,
-                  option_images: formData.option_images ?? null,
-                  media_type: formData.media_type ?? null,
-                  media_url: formData.media_url ?? null,
-                  video_url: formData.video_url ?? null,
-                  video_start_time: formData.video_start_time ?? null,
-                  video_end_time: formData.video_end_time ?? null,
-                  model_3d_url: formData.model_3d_url ?? null,
-                  model_3d_type: formData.model_3d_type ?? null,
-                  hotspot_data: formData.hotspot_data ?? null,
-                  matching_pairs: formData.matching_pairs ?? null,
-                  sequence_items: formData.sequence_items ?? null,
-                  fill_blank_template: formData.fill_blank_template ?? null,
-                  numerical_answer: formData.numerical_answer ?? null,
-                  numerical_tolerance: formData.numerical_tolerance ?? null,
-                  source_document_id: null,
-                  quality_score: null,
-                  usage_count: null,
-                  feedback_enabled: null,
-                });
+                try {
+                  await createQuestionBank.mutateAsync({
+                    question_text: formData.question_text,
+                    question_type: formData.question_type,
+                    options: formData.options ?? null,
+                    correct_answer: formData.correct_answer ?? '',
+                    explanation: formData.explanation ?? null,
+                    title: formData.title ?? null,
+                    weight: formData.weight ?? null,
+                    hint: formData.hint ?? null,
+                    time_limit: formData.time_limit ?? null,
+                    difficulty: formData.difficulty ?? null,
+                    category: formData.category ?? null,
+                    bloom_level: formData.bloom_level ?? null,
+                    tags: formData.tags ?? null,
+                    per_option_explanations: formData.per_option_explanations ?? null,
+                    question_image_url: formData.question_image_url ?? null,
+                    option_images: formData.option_images ?? null,
+                    media_type: formData.media_type ?? null,
+                    media_url: formData.media_url ?? null,
+                    video_url: formData.video_url ?? null,
+                    video_start_time: formData.video_start_time ?? null,
+                    video_end_time: formData.video_end_time ?? null,
+                    model_3d_url: formData.model_3d_url ?? null,
+                    model_3d_type: formData.model_3d_type ?? null,
+                    hotspot_data: formData.hotspot_data ?? null,
+                    matching_pairs: formData.matching_pairs ?? null,
+                    sequence_items: formData.sequence_items ?? null,
+                    fill_blank_template: formData.fill_blank_template ?? null,
+                    numerical_answer: formData.numerical_answer ?? null,
+                    numerical_tolerance: formData.numerical_tolerance ?? null,
+                    source_document_id: null,
+                    quality_score: null,
+                    usage_count: null,
+                    feedback_enabled: null,
+                  });
+                } catch {
+                  return;
+                }
               }
               handleSubmit();
             }}
-            disabled={!formData.question_text || savingLoading || isUploading || is3DUploading || createQuestionBank.isPending}
+            disabled={savingLoading || isUploading || is3DUploading || createQuestionBank.isPending}
           >
             {(savingLoading || createQuestionBank.isPending) ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Yüklənir...</> : mode === 'create' ? 'Yarat' : 'Yadda saxla'}
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Question Image Editor Modal */}
+      {formData.question_image_url && (
+        <ImageEditorDialog
+          open={isImageEditorOpen}
+          onOpenChange={setIsImageEditorOpen}
+          imageUrl={formData.question_image_url}
+          onSave={(newUrl) => {
+            setFormData((prev) => ({ ...prev, question_image_url: newUrl }));
+          }}
+        />
+      )}
+
+      {/* Question Image Fullscreen Lightbox */}
+      {formData.question_image_url && (
+        <ImageViewerDialog
+          open={isImageViewerOpen}
+          onOpenChange={setIsImageViewerOpen}
+          imageUrl={formData.question_image_url}
+        />
+      )}
     </Dialog>
   );
 }

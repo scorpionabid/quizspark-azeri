@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowUp, ArrowDown, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RendererProps } from './types';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 export const OrderingRenderer: React.FC<RendererProps> = ({
   question,
@@ -18,10 +19,12 @@ export const OrderingRenderer: React.FC<RendererProps> = ({
       if (value) {
         setSequence(value.split('|||'));
       } else {
-        setSequence([...question.sequence_items].sort(() => Math.random() - 0.5));
+        const initial = [...question.sequence_items].sort(() => Math.random() - 0.5);
+        setSequence(initial);
+        onChange(initial.join('|||'));
       }
     }
-  }, [question.id, question.sequence_items, value, sequence.length]);
+  }, [question.id, question.sequence_items, value, sequence.length, onChange]);
 
   const handleMove = (from: number, direction: -1 | 1) => {
     if (disabled || showFeedback) return;
@@ -66,24 +69,24 @@ export const OrderingRenderer: React.FC<RendererProps> = ({
               )}
             >
               {!showFeedback && (
-                <div className="flex flex-col gap-0.5 shrink-0">
+                <div className="flex flex-col gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => handleMove(idx, -1)}
                     disabled={disabled || idx === 0}
-                    className="h-6 w-6 flex items-center justify-center rounded-lg hover:bg-muted disabled:opacity-25 transition-colors border border-transparent hover:border-border"
+                    className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg bg-muted/40 hover:bg-muted active:scale-90 disabled:opacity-25 transition-all border border-border/40"
                     aria-label="Yuxarı"
                   >
-                    <ArrowUp className="h-3.5 w-3.5" />
+                    <ArrowUp className="h-4 w-4 text-foreground/80" />
                   </button>
                   <button
                     type="button"
                     onClick={() => handleMove(idx, 1)}
                     disabled={disabled || idx === sequence.length - 1}
-                    className="h-6 w-6 flex items-center justify-center rounded-lg hover:bg-muted disabled:opacity-25 transition-colors border border-transparent hover:border-border"
+                    className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg bg-muted/40 hover:bg-muted active:scale-90 disabled:opacity-25 transition-all border border-border/40"
                     aria-label="Aşağı"
                   >
-                    <ArrowDown className="h-3.5 w-3.5" />
+                    <ArrowDown className="h-4 w-4 text-foreground/80" />
                   </button>
                 </div>
               )}
@@ -97,7 +100,7 @@ export const OrderingRenderer: React.FC<RendererProps> = ({
                 {idx + 1}
               </div>
               
-              <span className="flex-1 text-sm font-medium leading-snug">{item}</span>
+              <span className="flex-1 text-sm font-medium leading-snug"><MathRenderer text={item} /></span>
 
               {showFeedback && (
                 <div className="shrink-0 ml-2">

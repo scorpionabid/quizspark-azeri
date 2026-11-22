@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -9,18 +9,26 @@ import { useQuestions } from "@/hooks/useQuestions";
 import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt } from "@/hooks/useQuizAttempts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGamification } from "@/hooks/useGamification";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useSidebar } from "@/components/ui/sidebar";
 
-// UI Components
+import { Lock, Shield, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 
 // Quiz Sub-components
 import { QuizIntro } from "@/components/quiz/QuizIntro";
-import { QuizPlaying } from "@/components/quiz/QuizPlaying";
+import { OfficialExamIntro } from "@/components/quiz/OfficialExamIntro";
+import { QuizPlaying, PageNavStatus } from "@/components/quiz/QuizPlaying";
 import { QuizResult } from "@/components/quiz/QuizResult";
 
-// Types
+// Types & Utils
 import { QuestionAnswer, QuestionType } from "@/types/question";
+import { supabase } from "@/integrations/supabase/client";
+import { evaluateAnswer } from "@/components/quiz/renderers/utils";
+import { getSynchronizedServerNow, syncServerClock } from "@/utils/serverTime";
+import { fisherYatesShuffle } from "@/utils/shuffle";
 
 type QuizState = 'intro' | 'playing' | 'result';
 type Answer = QuestionAnswer;
@@ -47,15 +55,84 @@ export default function QuizPage() {
   }, [rosterClassId, rosterStudentId]);
 
   const { data: quiz, isLoading: quizLoading } = useQuiz(id);
-  const { data: questions = [], isLoading: questionsLoading } = useQuestions(id);
+  const { data: questions = [], isLoading: questionsLoading } = useQuestions(quiz?.id, { language });
   const startAttempt = useStartAttempt();
   const updateAttempt = useUpdateAttempt();
   const completeAttempt = useCompleteAttempt();
 
-  const { data: myAttempts } = useMyAttempts(id);
-  const [displayQuestions, setDisplayQuestions] = useState<typeof questions>([]);
+  const { data: myAttempts, isLoading: attemptsLoading } = useMyAttempts(quiz?.id);
+  const [questionOrder, setQuestionOrder] = useState<string[]>([]);
+
+  // Dynamically derive displayQuestions while strictly preserving questionOrder
+  const displayQuestions = useMemo(() => {
+    if (!questions || questions.length === 0) return [];
+    if (questionOrder.length === 0) return questions;
+    const qMap = new Map(questions.map((q) => [q.id, q]));
+    const ordered: Question[] = [];
+    questionOrder.forEach((qId) => {
+      const found = qMap.get(qId);
+      if (found) {
+        ordered.push(found);
+      }
+    });
+    questions.forEach((q) => {
+      if (!ordered.some((o) => o.id === q.id)) {
+        ordered.push(q);
+      }
+    });
+    return ordered;
+  }, [questions, questionOrder]);
 
   const [quizState, setQuizState] = useState<QuizState>('intro');
+  const { open: isSidebarOpen, setOpen: setSidebarOpen } = useSidebar();
+  const isSidebarOpenRef = useRef(isSidebarOpen);
+  const prevSidebarOpenRef = useRef<boolean | null>(null);
+  const hasAutoCollapsedSidebarRef = useRef(false);
+  const setSidebarOpenRef = useRef(setSidebarOpen);
+
+  useEffect(() => {
+    isSidebarOpenRef.current = isSidebarOpen;
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    setSidebarOpenRef.current = setSidebarOpen;
+  }, [setSidebarOpen]);
+
+  // Synchronize client-server clock offset once on page mount
+  useEffect(() => {
+    void syncServerClock();
+  }, []);
+
+  // Auto-collapse sidebar ONCE when quiz enters 'playing' state to maximize question area.
+  // Do not re-collapse if candidate explicitly opens the sidebar via header menu button.
+  useEffect(() => {
+    if (quizState === 'playing') {
+      if (!hasAutoCollapsedSidebarRef.current) {
+        hasAutoCollapsedSidebarRef.current = true;
+        if (prevSidebarOpenRef.current === null) {
+          prevSidebarOpenRef.current = isSidebarOpenRef.current;
+        }
+        setSidebarOpenRef.current(false);
+      }
+    } else if (quizState === 'result') {
+      if (prevSidebarOpenRef.current) {
+        setSidebarOpenRef.current(true);
+      }
+      prevSidebarOpenRef.current = null;
+      hasAutoCollapsedSidebarRef.current = false;
+    } else {
+      hasAutoCollapsedSidebarRef.current = false;
+    }
+  }, [quizState]);
+
+  // Restore sidebar state if component unmounts while in playing state
+  useEffect(() => {
+    return () => {
+      if (prevSidebarOpenRef.current) {
+        setSidebarOpenRef.current(true);
+      }
+    };
+  }, []);
   const [currentPage, setCurrentPage] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [localAnswers, setLocalAnswers] = useState<Record<string, string>>({});
@@ -68,8 +145,27 @@ export default function QuizPage() {
   const [earnedXP, setEarnedXP] = useState(0);
   const [timeSpent, setTimeSpent] = useState(0);
   const [bookmarkedQuestions, setBookmarkedQuestions] = useState<Set<string>>(new Set());
+
+  // Watch for dynamic exam duration extensions from admin in real-time
+  const prevDurationRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (quiz?.duration && prevDurationRef.current !== null && quiz.duration !== prevDurationRef.current) {
+      toast.success(`İmtahan müddəti ${quiz.duration} dəqiqəyə yeniləndi!`, {
+        duration: 8000,
+        id: 'exam-duration-updated',
+      });
+    }
+    if (quiz?.duration) {
+      prevDurationRef.current = quiz.duration;
+    }
+  }, [quiz?.duration]);
   
   const { updateXPAsync } = useGamification();
+
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const autoResumeAttemptedRef = useRef(false);
+  const debouncedSyncRef = useRef<NodeJS.Timeout | null>(null);
+  const examHeartbeat = useExamHeartbeat();
 
   const timeLeftRef = useRef(timeLeft);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -79,13 +175,149 @@ export default function QuizPage() {
   const answersRef = useRef<Answer[]>([]);
   const draftLoadedRef = useRef(false);
   const strictViolationsRef = useRef(0);
+  const localAnswersRef = useRef<Record<string, string>>({});
+  const isCompletingRef = useRef(false);
 
-  // Auto-Save Draft to LocalStorage
   useEffect(() => {
-    if (attemptId && quizState === 'playing' && Object.keys(localAnswers).length > 0) {
-      localStorage.setItem(`quiz_draft_${attemptId}`, JSON.stringify(localAnswers));
+    localAnswersRef.current = localAnswers;
+  }, [localAnswers]);
+
+  // Synchronize localAnswers values into new language when language toggles
+  const prevLangRef = useRef(language);
+  useEffect(() => {
+    if (prevLangRef.current !== language) {
+      prevLangRef.current = language;
+      if (questions.length > 0 && Object.keys(localAnswers).length > 0) {
+        setLocalAnswers((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          questions.forEach((q) => {
+            const currentVal = next[q.id];
+            if (currentVal && q.question_type === 'multiple_choice' && q.options) {
+              let matchIdx = -1;
+              if (q.base_options) {
+                matchIdx = q.base_options.findIndex((b) => b?.trim()?.toLowerCase() === currentVal?.trim()?.toLowerCase());
+              }
+              if (matchIdx === -1 && q.translation_options) {
+                matchIdx = q.translation_options.findIndex((t) => t?.trim()?.toLowerCase() === currentVal?.trim()?.toLowerCase());
+              }
+              if (matchIdx !== -1 && q.options[matchIdx] && q.options[matchIdx] !== currentVal) {
+                next[q.id] = q.options[matchIdx];
+                changed = true;
+              }
+            }
+          });
+          return changed ? next : prev;
+        });
+      }
     }
-  }, [localAnswers, attemptId, quizState]);
+  }, [language, questions, localAnswers]);
+
+  const buildCompleteAnswersFromLocal = useCallback(
+    (overrideMap?: Record<string, string>): Answer[] => {
+      const activeMap = overrideMap || localAnswersRef.current;
+      const activeQs = displayQuestions.length > 0 ? displayQuestions : questions;
+      return activeQs.map((q) => {
+        const val = activeMap[q.id] || '';
+        const evalResult = evaluateAnswer(q, val);
+        return {
+          questionId: q.id,
+          questionType: q.question_type as QuestionType,
+          textAnswer: val,
+          isCorrect: evalResult.isCorrect,
+          pointsEarned: evalResult.pointsEarned,
+          selectedOptionIndex: q.options ? q.options.indexOf(val) : undefined,
+          needsReview: evalResult.needsReview,
+        };
+      });
+    },
+    [displayQuestions, questions]
+  );
+
+  // Online / Offline Detection with instant flush on reconnection
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      toast.success(t('online_resumed'));
+
+      // Instant flush to server on reconnect
+      if (attemptId && Object.keys(localAnswersRef.current).length > 0 && !isPreview) {
+        const answersArray = buildCompleteAnswersFromLocal(localAnswersRef.current);
+        setAnswers(answersArray);
+        updateAttempt.mutate({
+          attemptId,
+          answers: answersArray as unknown as Record<string, string>[],
+          currentQuestionIndex: currentPageRef.current,
+        });
+      }
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast.error(t('offline_warning'));
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [attemptId, isPreview, buildCompleteAnswersFromLocal, updateAttempt, t]);
+
+  const sendHeartbeatRef = useRef(examHeartbeat.mutate);
+  sendHeartbeatRef.current = examHeartbeat.mutate;
+  const updateAttemptMutateRef = useRef(updateAttempt.mutate);
+  updateAttemptMutateRef.current = updateAttempt.mutate;
+  const currentPageRef = useRef(currentPage);
+  currentPageRef.current = currentPage;
+
+  // Auto-Save Draft to LocalStorage + Debounced DB Sync
+  useEffect(() => {
+    if (attemptId && quizState === 'playing' && Object.keys(localAnswers).length > 0 && !isPreview) {
+      // 1. Immediate local backup
+      localStorage.setItem(`quiz_draft_${attemptId}`, JSON.stringify(localAnswers));
+
+      // 2. Debounced DB Sync
+      if (debouncedSyncRef.current) {
+        clearTimeout(debouncedSyncRef.current);
+      }
+      debouncedSyncRef.current = setTimeout(() => {
+        const answersArray = buildCompleteAnswersFromLocal(localAnswers);
+        // Only sync draft to DB, do NOT pollute committed `answers` state with unsubmitted placeholders
+        updateAttemptMutateRef.current({
+          attemptId,
+          answers: answersArray as unknown as Record<string, string>[],
+          currentQuestionIndex: currentPageRef.current,
+        });
+      }, 1500);
+    }
+
+    return () => {
+      if (debouncedSyncRef.current) {
+        clearTimeout(debouncedSyncRef.current);
+      }
+    };
+  }, [localAnswers, attemptId, quizState, isPreview, buildCompleteAnswersFromLocal]);
+
+  // 20-second Heartbeat interval
+  useEffect(() => {
+    if (quizState === 'playing' && attemptId && !isPreview) {
+      sendHeartbeatRef.current({
+        attemptId,
+        questionIndex: currentPageRef.current + 1,
+        tabSwitches: strictViolationsRef.current,
+      });
+
+      const interval = setInterval(() => {
+        sendHeartbeatRef.current({
+          attemptId,
+          questionIndex: currentPageRef.current + 1,
+          tabSwitches: strictViolationsRef.current,
+        });
+      }, 20000);
+
+      return () => clearInterval(interval);
+    }
+  }, [quizState, attemptId, isPreview]);
 
   // Restore Draft on Mount
   useEffect(() => {
@@ -105,37 +337,109 @@ export default function QuizPage() {
     }
   }, [attemptId, quizState, localAnswers]);
 
-  const isLoading = quizLoading || questionsLoading;
-
-  // Moved Strict Mode hook down to avoid block-scoped reference error
+  const isLoading = quizLoading || questionsLoading || (quiz?.exam_category === 'official_exam' && attemptsLoading);
 
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
 
-  const completeQuizWithAnswers = useCallback(async (latestAnswers: Answer[]) => {
+  const completeQuizWithAnswers = useCallback((overrideAnswers?: Answer[]) => {
+    if (isCompletingRef.current) return;
+    isCompletingRef.current = true;
+
+    const latestAnswers = overrideAnswers || buildCompleteAnswersFromLocal();
+    setAnswers(latestAnswers);
+
     if (!isPreview && attemptId && startTime && user && quiz) {
-      const timeSpent = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
+      const nowMs = getSynchronizedServerNow();
+      const timeSpent = Math.max(1, Math.floor((nowMs - startTime.getTime()) / 1000));
       setTimeSpent(timeSpent);
-      const earnedPoints = latestAnswers.reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
-      const maxPoints = displayQuestions.reduce((sum, q) => sum + (q.weight ?? 1), 0);
+
+      // Isolate essay/manual review questions so candidates don't get an immediate false 0%
+      const evaluatableQuestions = displayQuestions.filter(q => q.question_type !== 'essay' && q.question_type !== 'code');
+      const earnedPoints = latestAnswers.filter(a => !a.needsReview).reduce((sum, a) => sum + (a.pointsEarned || 0), 0);
+      const maxPoints = (evaluatableQuestions.length > 0 ? evaluatableQuestions : displayQuestions).reduce((sum, q) => sum + (q.weight ?? 1), 0);
       const weightedScore = maxPoints > 0 ? Math.round((earnedPoints / maxPoints) * 100) : 0;
 
-      try {
-        await completeAttempt.mutateAsync({
-          attemptId,
-          quizId: quiz.id,
-          score: weightedScore,
-          totalQuestions: displayQuestions.length,
-          timeSpent,
-          answers: latestAnswers as unknown as Record<string, string>[],
-        });
-        localStorage.removeItem(`quiz_start_${quiz.id}`);
-        localStorage.removeItem(`quiz_draft_${attemptId}`);
-        const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
-        setEarnedXP(prev => prev + xpGain);
-        if (xpGain > 0) {
-          await updateXPAsync(xpGain);
+      // Emergency local persistence to prevent data loss on network failure
+      localStorage.setItem(`quiz_final_payload_${attemptId}`, JSON.stringify({
+        attemptId,
+        quizId: quiz.id,
+        score: weightedScore,
+        totalQuestions: displayQuestions.length,
+        timeSpent,
+        answers: latestAnswers,
+      }));
+
+      // Execute database persistence
+      (async () => {
+        try {
+          await completeAttempt.mutateAsync({
+            attemptId,
+            quizId: quiz.id,
+            score: weightedScore,
+            totalQuestions: displayQuestions.length,
+            timeSpent,
+            answers: latestAnswers as unknown as Record<string, string>[],
+          });
+          localStorage.removeItem(`quiz_start_${quiz.id}`);
+          localStorage.removeItem(`quiz_draft_${attemptId}`);
+          localStorage.removeItem(`quiz_final_payload_${attemptId}`);
+
+          // Insert pending reviews for open-ended / essay questions
+          const essayAnswers = latestAnswers.filter(a => a.needsReview && a.textAnswer);
+          if (essayAnswers.length > 0) {
+            const reviewsToInsert = essayAnswers.map(ea => ({
+              attempt_id: attemptId,
+              question_id: ea.questionId,
+              student_answer: ea.textAnswer || '',
+              max_score: (displayQuestions.find(q => q.id === ea.questionId)?.weight) ?? 1,
+              status: 'pending',
+            }));
+            try {
+              await supabase.from('answer_reviews').insert(reviewsToInsert);
+            } catch (reviewErr) {
+              console.warn("Could not insert answer_reviews:", reviewErr);
+            }
+          }
+
+          // Audit log for quiz completion
+          try {
+            await supabase.from('audit_logs').insert({
+              user_id: user.id,
+              action: 'quiz_completed',
+              entity_type: 'quiz_attempt',
+              entity_id: attemptId,
+              description: `İmtahan tamamlandı. Nəticə: ${weightedScore}%`,
+              new_values: {
+                score: weightedScore,
+                total_questions: displayQuestions.length,
+                time_spent: timeSpent,
+                completed_at: new Date().toISOString(),
+              },
+            });
+          } catch (logErr) {
+            console.warn("Could not insert completion audit log:", logErr);
+          }
+
+          const xpGain = Math.round(weightedScore * 0.1 * displayQuestions.length) + (weightedScore === 100 ? 50 : 0);
+          setEarnedXP(prev => prev + xpGain);
+          if (xpGain > 0) {
+            await updateXPAsync(xpGain);
+          }
+
+          // Transition to result only after confirmed persistence
+          setQuizState('result');
+        } catch (error) {
+          console.error("Error completing quiz in background:", error);
+          isCompletingRef.current = false;
+          toast.error("İmtahan nəticəsi serverə çatmadı. Zəhmət olmasa internet bağlantınızı yoxlayın və 'Yenidən göndər' düyməsini sıxın.", {
+            duration: 12000,
+            action: {
+              label: 'Yenidən göndər',
+              onClick: () => completeQuizWithAnswers(latestAnswers),
+            },
+          });
         }
 
         // Record online result directly into teacher's class roster (100-point system) if linked
@@ -157,28 +461,42 @@ export default function QuizPage() {
     setQuizState('result');
   }, [isPreview, attemptId, startTime, user, quiz, displayQuestions, completeAttempt, updateXPAsync, rosterClassId, rosterStudentId, selectedRosterStudent]);
 
-  // Strict Mode — tab violations tracked; 3 violations → auto-submit
+  // Soft Strict Mode & Anti-cheat logging (Does NOT cut candidate exam short)
   useEffect(() => {
-    if (quizState === 'playing' && quiz?.strict_mode && !isPreview) {
-      const handleVisibilityChange = () => {
+    if (quizState === 'playing' && !isPreview && attemptId && user) {
+      const handleVisibilityChange = async () => {
         if (document.hidden) {
           strictViolationsRef.current += 1;
           const count = strictViolationsRef.current;
-          if (count >= 3) {
-            toast.error('Qaydalar pozuldu: Səhifəni 3 dəfə tərk etdiniz. Quiz avtomatik tamamlandı.', { duration: 8000 });
-            void completeQuizWithAnswers(answersRef.current);
-          } else {
-            toast.warning(
-              `Xəbərdarlıq (${count}/3): Səhifəni tərk etdiniz. Daha ${3 - count} pozuntu olsa quiz avtomatik bitəcək.`,
-              { duration: 5000 },
-            );
+
+          try {
+            await supabase.from('audit_logs').insert({
+              user_id: user.id,
+              action: 'tab_switch_detected',
+              entity_type: 'quiz_attempt',
+              entity_id: attemptId,
+              description: `İştirakçı imtahan pəncərəsini tərk etdi (${count}-ci dəfə)`,
+              new_values: {
+                violation_count: count,
+                current_page: currentPage + 1,
+                timestamp: new Date().toISOString(),
+              },
+            });
+          } catch (logErr) {
+            console.warn('Could not insert audit log:', logErr);
           }
+
+          toast.warning(
+            `Xəbərdarlıq (${count}): İmtahan pəncərəsini tərk etdiniz! Fəaliyyətiniz sistemdə qeydə alınır və nəzarətçi tərəfindən izlənilir.`,
+            { duration: 6000 }
+          );
         }
       };
+
       document.addEventListener("visibilitychange", handleVisibilityChange);
       return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
     }
-  }, [quizState, quiz, isPreview, completeQuizWithAnswers]);
+  }, [quizState, isPreview, attemptId, user, currentPage]);
 
   const questionsPerPage = quiz?.questions_per_page && quiz.questions_per_page > 0 
     ? quiz.questions_per_page 
@@ -192,90 +510,51 @@ export default function QuizPage() {
       transitionTimeoutRef.current = null;
     }
     if (currentPage < totalPages - 1) {
-      setCurrentPage(prev => prev + 1);
-      setShowFeedback(false);
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      const isInstant = (quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
+      const targetSlice = displayQuestions.slice(nextPage * questionsPerPage, (nextPage + 1) * questionsPerPage);
+      const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => latestAnswers.some(a => a.questionId === q.id && a.textAnswer && a.textAnswer.trim().length > 0));
+      setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
       setShowHint({});
     } else {
       await completeQuizWithAnswers(latestAnswers);
     }
-  }, [currentPage, totalPages, completeQuizWithAnswers]);
+  }, [currentPage, totalPages, completeQuizWithAnswers, displayQuestions, questionsPerPage, quiz]);
 
-  const handlePageSubmit = useCallback(async () => {
+  const handlePageSubmit = useCallback(async (overrideAnswers?: Record<string, string>) => {
     if (showFeedback || pageQuestions.length === 0) return;
 
+    const currentAnswersMap = overrideAnswers || localAnswers;
+    const pageQuestionIds = new Set(pageQuestions.map(q => q.id));
     const newAnswers: Answer[] = [];
     let anyIncorrect = false;
     let anyCorrect = false;
 
     pageQuestions.forEach(currentQ => {
-      // Avoid re-evaluating if already answered (e.g., backtracking or resuming)
-      if (answersRef.current.some(a => a.questionId === currentQ.id)) {
-        return; // Already submitted
-      }
-
-      const finalVal = localAnswers[currentQ.id] || '';
-      let isCorrect = false;
-
-      if (currentQ.question_type === 'essay' || currentQ.question_type === 'code') {
-        isCorrect = false;
-      } else if (currentQ.question_type === 'ordering') {
-        const studentSeq = finalVal.split('|||').map(s => s.trim());
-        const correctSeq = (
-          currentQ.sequence_items?.length
-            ? currentQ.sequence_items
-            : currentQ.correct_answer.split('|||')
-        ).map(s => s.trim());
-        isCorrect = studentSeq.length === correctSeq.length && studentSeq.every((item, i) => item === correctSeq[i]);
-      } else if (currentQ.question_type === 'matching') {
-        const rawPairs = currentQ.matching_pairs;
-        if (rawPairs) {
-          const pairsRecord: Record<string, string> = Array.isArray(rawPairs)
-            ? Object.fromEntries((rawPairs as unknown as Array<{ left: string; right: string }>).map(p => [p.left, p.right]))
-            : rawPairs as Record<string, string>;
-          const studentPairs: Record<string, string> = {};
-          finalVal.split('|||').forEach(m => {
-            const colonIdx = m.indexOf(':');
-            if (colonIdx > -1) studentPairs[m.slice(0, colonIdx)] = m.slice(colonIdx + 1);
-          });
-          isCorrect = Object.entries(pairsRecord).every(([l, r]) => studentPairs[l] === r);
-        } else {
-          const studentMatches = finalVal.split('|||').sort();
-          const correctMatches = currentQ.correct_answer.split('|||').sort();
-          isCorrect = JSON.stringify(studentMatches) === JSON.stringify(correctMatches);
-        }
-      } else if (currentQ.question_type === 'hotspot') {
-        const parts = currentQ.correct_answer.split(':');
-        const cx = parseFloat(parts[0]);
-        const cy = parseFloat(parts[1]);
-        const tolerance = parts[2] ? parseFloat(parts[2]) : 10;
-        const sParts = finalVal.split(':');
-        const sx = parseFloat(sParts[0]);
-        const sy = parseFloat(sParts[1]);
-        isCorrect = !isNaN(cx) && !isNaN(sx) && Math.abs(sx - cx) <= tolerance && Math.abs(sy - cy) <= tolerance;
-      } else {
-        const normalize = (s: string) =>
-          s.trim().toLowerCase().replace(/[\s\u00a0]+/g, ' ').replace(/[.,!?;:'"]/g, '');
-        const normalizedStudent = normalize(finalVal);
-        const acceptedAnswers = currentQ.correct_answer.split('|').map(normalize);
-        isCorrect = acceptedAnswers.some(accepted => accepted === normalizedStudent);
-      }
+      const finalVal = currentAnswersMap[currentQ.id] || '';
+      const evalResult = evaluateAnswer(currentQ, finalVal);
 
       const answer: Answer = {
         questionId: currentQ.id,
         questionType: currentQ.question_type as QuestionType,
         textAnswer: finalVal,
-        isCorrect,
-        pointsEarned: isCorrect ? (currentQ.weight || 1) : 0,
+        isCorrect: evalResult.isCorrect,
+        pointsEarned: evalResult.pointsEarned,
         selectedOptionIndex: currentQ.options ? currentQ.options.indexOf(finalVal) : undefined,
-        needsReview: currentQ.question_type === 'essay' || currentQ.question_type === 'code',
+        needsReview: evalResult.needsReview,
       };
 
       newAnswers.push(answer);
-      if (isCorrect) anyCorrect = true;
+      if (evalResult.isCorrect) anyCorrect = true;
       else anyIncorrect = true;
     });
 
-    setShowFeedback(true);
+    const isInstant = Boolean((quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled);
+
+    if (isInstant) {
+      setShowFeedback(true);
+    }
 
     if (!isPreview && quiz && newAnswers.length > 0) {
       if (anyCorrect && !anyIncorrect && quiz.time_bonus_enabled) {
@@ -285,22 +564,23 @@ export default function QuizPage() {
       }
     }
 
-    const updatedAnswers = [...answers, ...newAnswers];
+    // Upsert: replace any previous answers for questions on the current page
+    const existingOtherAnswers = answersRef.current.filter(a => !pageQuestionIds.has(a.questionId));
+    const updatedAnswers = [...existingOtherAnswers, ...newAnswers];
     setAnswers(updatedAnswers);
 
-    if (attemptId && !isPreview && newAnswers.length > 0) {
-      // Optimizasiya: DB yüklənməməsi üçün yalnız hər 5 sualdan bir aralıq yaddaş (draft) göndəririk.
-      // Sonda onsuz da completeAttempt hamısını birdən göndərir. 
-      // Qısa fasilələrdə local storage ehtiyat kimi çalışır.
-      if (updatedAnswers.length % 5 === 0) {
-        updateAttempt.mutate({
-          attemptId,
-          answers: updatedAnswers as unknown as Record<string, string>[],
-        });
-      }
+    if (attemptId && !isPreview && updatedAnswers.length > 0) {
+      // Real-time davamlı sinxronizasiya: Hər səhifə təsdiqində bazaya yazılır
+      updateAttempt.mutate({
+        attemptId,
+        answers: updatedAnswers as unknown as Record<string, string>[],
+      });
     }
 
-    if (quiz?.auto_advance && quiz.questions_per_page === 1) {
+    if (!isInstant) {
+      // Standart İmtahan və ya Qapalı Rejim: Aralıq feedback olmadan dərhal növbəti səhifəyə / nəticəyə keçir
+      void handleNextPageInternal(updatedAnswers);
+    } else if (quiz?.auto_advance && quiz.questions_per_page === 1) {
       if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
       const delay = pageQuestions[0]?.time_limit ? pageQuestions[0].time_limit * 1000 : 1500;
       transitionTimeoutRef.current = setTimeout(async () => {
@@ -309,84 +589,195 @@ export default function QuizPage() {
         }
       }, delay);
     }
-  }, [showFeedback, pageQuestions, localAnswers, answers, attemptId, quiz, isPreview, updateAttempt, handleNextPageInternal]);
+  }, [showFeedback, pageQuestions, localAnswers, attemptId, quiz, isPreview, updateAttempt, handleNextPageInternal]);
 
   const resumeQuiz = useCallback(async (attempt: import('@/hooks/useQuizAttempts').QuizAttempt) => {
     if (!quiz) return;
-    const orderedQuestions = [...questions];
-    setDisplayQuestions(orderedQuestions);
+
+    const storedOrder = attempt.question_order || (() => {
+      try {
+        const raw = localStorage.getItem(`quiz_order_${attempt.id}`);
+        return raw ? (JSON.parse(raw) as string[]) : null;
+      } catch {
+        return null;
+      }
+    })();
+
+    if (storedOrder && Array.isArray(storedOrder) && storedOrder.length > 0) {
+      setQuestionOrder(storedOrder);
+    } else {
+      setQuestionOrder(questions.map((q) => q.id));
+    }
+
     totalTimeUpRef.current = false;
 
-    const prevAnswers = (attempt.answers || []) as unknown as Answer[];
+    const rawAnswers = (attempt.answers || []) as unknown as Answer[];
+    const prevAnswers = rawAnswers.filter(ans => typeof ans.textAnswer === 'string' && ans.textAnswer.trim().length > 0);
     setAnswers(prevAnswers);
     setAttemptId(attempt.id);
 
+    if (attempt.tab_switch_count) {
+      strictViolationsRef.current = attempt.tab_switch_count;
+    }
+
     const initialLocalAnswers: Record<string, string> = {};
     prevAnswers.forEach(ans => {
-      initialLocalAnswers[ans.questionId] = ans.textAnswer || '';
+      initialLocalAnswers[ans.questionId] = ans.textAnswer;
     });
+    try {
+      const savedDraft = localStorage.getItem(`quiz_draft_${attempt.id}`);
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && typeof parsed === 'object') {
+          Object.assign(initialLocalAnswers, parsed);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load local draft:", e);
+    }
     setLocalAnswers(initialLocalAnswers);
 
     const startedAt = new Date(attempt.started_at);
     setStartTime(startedAt);
 
-    const totalDurationSecs = (quiz.duration || 20) * 60;
-    const elapsed = (Date.now() - startedAt.getTime()) / 1000;
-    const remaining = Math.max(0, Math.floor(totalDurationSecs - elapsed));
+    const isTimeless = !quiz.duration || quiz.duration === 0;
+    const totalDurationSecs = isTimeless ? 0 : quiz.duration * 60;
+    const elapsed = (getSynchronizedServerNow() - startedAt.getTime()) / 1000;
+    const remaining = isTimeless ? 0 : Math.max(0, Math.floor(totalDurationSecs - elapsed));
 
-    if (remaining <= 0) {
+    if (!isTimeless && remaining <= 0) {
       await completeQuizWithAnswers(prevAnswers);
       return;
     }
 
-    const nextIdx = Math.min(prevAnswers.length, orderedQuestions.length - 1);
-    const qPerPage = quiz?.questions_per_page && quiz.questions_per_page > 0 ? quiz.questions_per_page : orderedQuestions.length;
-    setCurrentPage(Math.floor(nextIdx / qPerPage));
+    const qPerPage = quiz?.questions_per_page && quiz.questions_per_page > 0 ? quiz.questions_per_page : (questions.length || 1);
+    let targetPage = 0;
+    if (attempt.current_question_index != null && attempt.current_question_index >= 0) {
+      targetPage = Math.min(attempt.current_question_index, Math.max(0, Math.ceil((storedOrder?.length || questions.length) / qPerPage) - 1));
+    } else {
+      const nextIdx = Math.min(Object.keys(initialLocalAnswers).length, (storedOrder?.length || questions.length) - 1);
+      targetPage = Math.floor(nextIdx / qPerPage);
+    }
+    setCurrentPage(targetPage);
     
     setTotalTimeLeft(remaining);
-    setTimeLeft(remaining); // Optional: calculate per page timeLeft if needed
+    setTimeLeft(remaining);
     setShowFeedback(false);
     setShowHint({});
     setQuizState('playing');
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(`active_playing_${attempt.id}`, 'true');
+      }
+    } catch (_e) {
+      // ignore session storage error
+    }
   }, [quiz, questions, completeQuizWithAnswers]);
 
-  const startQuiz = async () => {
-    if (!quiz || !user) {
-      if (!user) {
-        toast.error("Quiz başlamaq üçün daxil olmalısınız");
-        navigate('/auth');
+  // Seamless Auto-Resume on Page Load / Refresh (yalnız imtahan zamanı F5 / refresh edildikdə)
+  useEffect(() => {
+    if (quizState === 'intro' && myAttempts && questions.length > 0 && !isPreview && !autoResumeAttemptedRef.current) {
+      const incomplete = myAttempts.find(a => a.completed_at === null);
+      if (incomplete) {
+        let isSessionActive = false;
+        try {
+          isSessionActive = typeof sessionStorage !== 'undefined' && sessionStorage.getItem(`active_playing_${incomplete.id}`) === 'true';
+        } catch (_e) {
+          // ignore session storage error
+        }
+        if (isSessionActive) {
+          autoResumeAttemptedRef.current = true;
+          void resumeQuiz(incomplete);
+        }
       }
+    }
+  }, [quizState, myAttempts, questions.length, isPreview, resumeQuiz]);
+
+  const handleViewResult = useCallback((attempt: import('@/hooks/useQuizAttempts').QuizAttempt) => {
+    const rawAnswers = (attempt.answers || []) as unknown as Answer[];
+    const prevAnswers = rawAnswers.filter(ans => typeof ans.textAnswer === 'string' && ans.textAnswer.trim().length > 0);
+
+    setAnswers(prevAnswers);
+    setTimeSpent(attempt.time_spent || 0);
+    setAttemptId(attempt.id);
+    setQuizState('completed');
+  }, []);
+
+  const startQuiz = async () => {
+    if (!quiz) return;
+
+    let activeUser = user;
+    if (!activeUser && !isPreview) {
+      const { data } = await supabase.auth.getUser();
+      activeUser = data?.user ?? null;
+    }
+
+    if (!activeUser && !isPreview) {
+      toast.error("Quiz başlamaq üçün daxil olmalısınız");
+      const redirectUrl = typeof window !== 'undefined'
+        ? encodeURIComponent(window.location.pathname + window.location.search)
+        : '';
+      navigate(redirectUrl ? `/auth?redirect=${redirectUrl}` : '/auth');
       return;
     }
 
-    const attemptsLimit = quiz.attempts_limit ?? 0;
+    let currentAttempts = myAttempts || [];
+    if (!user && activeUser && !isPreview) {
+      const { data: fetchedAttempts } = await supabase
+        .from('quiz_attempts')
+        .select('*')
+        .eq('user_id', activeUser.id)
+        .eq('quiz_id', quiz.id)
+        .order('started_at', { ascending: false });
+      if (fetchedAttempts) {
+        currentAttempts = fetchedAttempts as import('@/hooks/useQuizAttempts').QuizAttempt[];
+        const incomplete = currentAttempts.find((a) => a.completed_at === null);
+        if (incomplete) {
+          await resumeQuiz(incomplete);
+          return;
+        }
+      }
+    }
+
+    const attemptsLimit = isUnlimitedUser ? 0 : (quiz.attempts_limit ?? 0);
     if (attemptsLimit > 0) {
-      const completedCount = (myAttempts || []).filter(a => a.completed_at !== null).length;
+      const completedCount = currentAttempts.filter(a => a.completed_at !== null).length;
       if (completedCount >= attemptsLimit) {
         toast.error(`Cəhd limitiniz dolub (${completedCount}/${attemptsLimit})`);
         return;
       }
     }
 
-    const orderedQuestions = quiz.shuffle_questions
-      ? [...questions].sort(() => Math.random() - 0.5)
+    const shuffled = quiz.shuffle_questions
+      ? fisherYatesShuffle(questions)
       : [...questions];
-    setDisplayQuestions(orderedQuestions);
+    const questionOrderIds = shuffled.map((q) => q.id);
+    setQuestionOrder(questionOrderIds);
     totalTimeUpRef.current = false;
 
     try {
       let newAttemptId: string;
+
       if (isPreview) {
         newAttemptId = `preview-${Date.now()}`;
       } else {
         const attempt = await startAttempt.mutateAsync({
           quizId: quiz.id,
-          totalQuestions: orderedQuestions.length,
+          totalQuestions: questionOrderIds.length,
+          questionOrder: questionOrderIds,
         });
         newAttemptId = attempt.id;
       }
 
       setAttemptId(newAttemptId);
+      try {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(`active_playing_${newAttemptId}`, 'true');
+        }
+      } catch (_e) {
+        // ignore session storage error
+      }
+      localStorage.setItem(`quiz_order_${newAttemptId}`, JSON.stringify(questionOrderIds));
       const now = new Date();
       setStartTime(now);
       if (!isPreview) {
@@ -405,7 +796,8 @@ export default function QuizPage() {
         if (saved) setBookmarkedQuestions(new Set(JSON.parse(saved) as string[]));
         else setBookmarkedQuestions(new Set());
       } catch { setBookmarkedQuestions(new Set()); }
-      const totalDurationSecs = (quiz.duration || 20) * 60;
+      const isTimeless = !quiz.duration || quiz.duration === 0;
+      const totalDurationSecs = isTimeless ? 0 : quiz.duration * 60;
       setTotalTimeLeft(totalDurationSecs);
       setTimeLeft(totalDurationSecs);
     } catch (error) {
@@ -433,19 +825,26 @@ export default function QuizPage() {
 
   useEffect(() => {
     if (quizState !== 'playing' || showFeedback || !startTime || !quiz) return;
-    const totalDuration = (quiz.duration || 20) * 60;
-    const timer = setInterval(() => {
-      const now = Date.now();
-      const elapsed = (now - startTime.getTime()) / 1000;
-      const totalRemaining = Math.max(0, Math.floor(totalDuration - elapsed));
-      setTotalTimeLeft(totalRemaining);
+    const isTimeless = !quiz.duration || quiz.duration === 0;
+    const totalDuration = isTimeless ? 0 : quiz.duration * 60;
 
-      if (totalRemaining <= 0) {
-        if (!totalTimeUpRef.current) {
-          totalTimeUpRef.current = true;
-          void completeQuizWithAnswers(answersRef.current);
+    const timer = setInterval(() => {
+      const now = getSynchronizedServerNow();
+      const elapsed = (now - startTime.getTime()) / 1000;
+      
+      if (!isTimeless) {
+        const totalRemaining = Math.max(0, Math.floor(totalDuration - elapsed));
+        setTotalTimeLeft(totalRemaining);
+
+        if (totalRemaining <= 0) {
+          if (!totalTimeUpRef.current) {
+            totalTimeUpRef.current = true;
+            void completeQuizWithAnswers();
+          }
+          return;
         }
-        return;
+      } else {
+        setTotalTimeLeft(0);
       }
 
       const qTimeLimit = pageQuestions.length === 1 ? pageQuestions[0]?.time_limit : null;
@@ -457,8 +856,11 @@ export default function QuizPage() {
           timeUpTriggeredRef.current = true;
           handleTimeUp();
         }
-      } else {
+      } else if (!isTimeless) {
+        const totalRemaining = Math.max(0, Math.floor(totalDuration - elapsed));
         setTimeLeft(totalRemaining);
+      } else {
+        setTimeLeft(0);
       }
     }, 500);
     return () => clearInterval(timer);
@@ -474,7 +876,15 @@ export default function QuizPage() {
   const score = maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 0;
   const correctCount = answers.filter(a => a.isCorrect).length;
   const pendingReviews = answers.filter(a => a.needsReview).length;
-  const feedbackEnabled = quiz?.show_feedback !== false;
+  const feedbackEnabled = quiz?.exam_category !== 'official_exam' && quiz?.show_feedback !== false && quiz?.feedback_timing !== 'never';
+  const submittedQuestionIds = useMemo(
+    () => new Set(
+      answers
+        .filter(a => typeof a.textAnswer === 'string' && a.textAnswer.trim().length > 0)
+        .map(a => a.questionId)
+    ),
+    [answers]
+  );
 
   const toggleBookmark = (id: string) => {
     setBookmarkedQuestions(prev => {
@@ -488,16 +898,94 @@ export default function QuizPage() {
     });
   };
 
-  const getPageStatus = (pageIdx: number) => {
-    if (pageIdx === currentPage) return 'current';
+  const getPageStatus = (pageIdx: number): PageNavStatus => {
     const pageSlice = displayQuestions.slice(pageIdx * questionsPerPage, (pageIdx + 1) * questionsPerPage);
-    const answeredCount = pageSlice.filter(q => answers.some(a => a.questionId === q.id)).length;
-    if (answeredCount === pageSlice.length) return 'completed';
+    if (pageSlice.length === 0) return 'pending';
+
+    const isAllAnswered = pageSlice.every(q => {
+      const val = localAnswers[q.id];
+      return typeof val === 'string' && val.trim().length > 0;
+    });
+
+    if (pageIdx === currentPage) return 'current';
+
+    if (isAllAnswered) {
+      const isInstant = (quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
+      if (isInstant) {
+        const isPageSubmitted = pageSlice.length > 0 && pageSlice.every(q => submittedQuestionIds.has(q.id));
+        if (!isPageSubmitted) return 'pending';
+
+        const pageAnswers = pageSlice
+          .map(q => answers.find(a => a.questionId === q.id && typeof a.textAnswer === 'string' && a.textAnswer.trim().length > 0))
+          .filter((a): a is Answer => Boolean(a));
+        const allCorrect = pageAnswers.length === pageSlice.length && pageAnswers.every(a => a.isCorrect);
+        return allCorrect ? 'correct' : 'incorrect';
+      }
+      return 'completed';
+    }
+
     return 'pending';
   };
 
   if (isLoading) return <div className="min-h-screen bg-gradient-hero"><PageLoader text="Quiz yüklənir..." /></div>;
   if (!quiz) return <div className="flex-1 bg-background p-8 flex flex-col items-center justify-center"><EmptyState icon="😕" title="Quiz tapılmadı" description="Bu quiz mövcud deyil və ya silinib." action={{ label: "Ana Səhifəyə Qayıt", onClick: () => navigate('/') }} /></div>;
+
+  // Official Exam direct access protection
+  if (quiz.exam_category === 'official_exam') {
+    if (isPreview || !user) {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 flex items-center justify-center">
+          <div className="max-w-md w-full text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-xl space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
+              <Shield className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Rəsmi İmtahan Portalı</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              Bu rəsmi vakant vəzifələr üzrə imtahandır. Suallar yalnız imtahan zalında FİN kod və nəzarətçi kodu ilə portala daxil olduqda açılır.
+            </p>
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 rounded-xl shadow-lg shadow-blue-600/20"
+              onClick={() => navigate('/imtahan')}
+            >
+              Rəsmi İmtahan Portalına Keç
+            </Button>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Check completed official exam attempt
+  const incompleteAttempt = myAttempts?.find((a) => a.completed_at === null);
+  const completedAttempt = myAttempts?.find((a) => a.completed_at !== null);
+
+  if (
+    quiz.exam_category === 'official_exam' &&
+    completedAttempt &&
+    !incompleteAttempt &&
+    quizState === 'intro' &&
+    !isLoading
+  ) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 flex items-center justify-center">
+        <div className="max-w-md w-full text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-lg space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t('already_completed')}</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {t('exam_already_submitted_by_fin')}
+          </p>
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 rounded-xl"
+            onClick={() => navigate('/imtahan')}
+          >
+            {t('exit_btn')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (quizState === 'intro') {
     if (rosterClassId && !rosterStudentId && rosterStudents.length > 0 && !selectedRosterStudent) {
@@ -539,6 +1027,7 @@ export default function QuizPage() {
         user={user}
         onStart={startQuiz}
         onResume={resumeQuiz}
+        onViewResult={handleViewResult}
         onBack={() => navigate('/')}
         isPending={startAttempt.isPending}
         isPreview={isPreview}
@@ -553,8 +1042,10 @@ export default function QuizPage() {
         currentPage={currentPage}
         totalPages={totalPages}
         pageQuestions={pageQuestions}
+        allQuestions={displayQuestions.length > 0 ? displayQuestions : questions}
         totalQuestions={questions.length}
         totalTimeLeft={totalTimeLeft}
+        questionTimeLeft={pageQuestions.length === 1 && pageQuestions[0]?.time_limit ? timeLeft : null}
         localAnswers={localAnswers}
         setLocalAnswers={setLocalAnswers}
         showFeedback={showFeedback}
@@ -563,21 +1054,36 @@ export default function QuizPage() {
         handlePageSubmit={handlePageSubmit}
         handleNextPage={() => handleNextPageInternal(answers)}
         handlePrevPage={() => {
-            setCurrentPage(prev => Math.max(0, prev - 1));
-            setShowFeedback(false);
+            const prevPage = Math.max(0, currentPage - 1);
+            setCurrentPage(prevPage);
+            const isInstant = (quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
+            const targetSlice = displayQuestions.slice(prevPage * questionsPerPage, (prevPage + 1) * questionsPerPage);
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => submittedQuestionIds.has(q.id) && Boolean(localAnswers[q.id]?.trim()?.length));
+            setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
         }}
         jumpToPage={(idx) => {
             setCurrentPage(idx);
-            setShowFeedback(false);
+            const isInstant = (quiz?.feedback_timing === 'instant' || quiz?.feedback_timing === 'immediate') && quiz?.exam_category !== 'official_exam' && !getSafeExamConfig(quiz).enabled;
+            const targetSlice = displayQuestions.slice(idx * questionsPerPage, (idx + 1) * questionsPerPage);
+            const isAlreadyAnswered = targetSlice.length > 0 && targetSlice.every(q => submittedQuestionIds.has(q.id) && Boolean(localAnswers[q.id]?.trim()?.length));
+            setShowFeedback(Boolean(isAlreadyAnswered && isInstant));
         }}
-        onExit={() => navigate('/')}
+        onExit={() => navigate(quiz.exam_category === 'official_exam' ? '/imtahan' : '/')}
         feedbackEnabled={feedbackEnabled}
         bookmarkedQuestions={bookmarkedQuestions}
         toggleBookmark={toggleBookmark}
         getPageStatus={getPageStatus}
+        isOnline={isOnline}
+        isSyncing={updateAttempt.isPending}
+        onFinalSubmit={() => void completeQuizWithAnswers()}
+        submittedQuestionIds={submittedQuestionIds}
       />
     );
   }
+
+  const attemptsLimit = isUnlimitedUser ? 0 : (quiz?.attempts_limit ?? 0);
+  const completedCount = (myAttempts || []).filter(a => a.completed_at !== null).length;
+  const canRetry = attemptsLimit === 0 || completedCount < attemptsLimit;
 
   return (
     <QuizResult
@@ -592,6 +1098,10 @@ export default function QuizPage() {
       timeSpent={timeSpent}
       answers={answers}
       questions={activeQuestions}
+      backgroundImageUrl={quiz?.background_image_url}
+      canRetry={canRetry}
+      isOfficialExam={quiz?.exam_category === 'official_exam'}
+      showDetailedReview={(quiz?.feedback_timing || (quiz?.show_feedback === false ? 'never' : 'end_of_quiz')) !== 'never'}
       onRetry={() => {
         setQuizState('intro');
         setAttemptId(null);
@@ -603,7 +1113,7 @@ export default function QuizPage() {
         setBookmarkedQuestions(new Set());
         totalTimeUpRef.current = false;
       }}
-      onHome={() => navigate('/')}
+      onHome={() => navigate(quiz?.exam_category === 'official_exam' ? '/imtahan' : '/')}
     />
   );
 }

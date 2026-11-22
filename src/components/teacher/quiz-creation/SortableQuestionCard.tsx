@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { QUESTION_TYPES, QuestionType } from '@/types/question';
+import { MathRenderer } from '@/components/common/MathRenderer';
 
 export interface DraftQuestion {
     localId: string;
@@ -33,6 +34,8 @@ export interface DraftQuestion {
     question_image_url?: string | null;
     media_type?: string | null;
     media_url?: string | null;
+    bank_question_id?: string | null;
+    shuffle_options?: boolean;
 }
 
 export function getAnswerSummary(q: DraftQuestion): string {
@@ -43,17 +46,36 @@ export function getAnswerSummary(q: DraftQuestion): string {
             return q.numerical_answer != null
                 ? `${q.numerical_answer}${q.numerical_tolerance ? ` ± ${q.numerical_tolerance}` : ''}`
                 : 'Rəqəm daxil edilməyib';
-        case 'matching':
-            return Array.isArray(q.matching_pairs)
-                ? `${q.matching_pairs.length} cütlük`
-                : 'Cütlər yoxdur';
+        case 'matching': {
+            const pairs = q.matching_pairs;
+            if (Array.isArray(pairs)) {
+                const count = pairs.filter(p => p && (typeof p === 'object' ? Boolean(p.left || p.right) : true)).length;
+                return count > 0 ? `${count} cütlük` : 'Cütlər yoxdur';
+            }
+            if (pairs && typeof pairs === 'object') {
+                const count = Object.keys(pairs).length;
+                return count > 0 ? `${count} cütlük` : 'Cütlər yoxdur';
+            }
+            if (q.correct_answer && (q.correct_answer.includes(':') || q.correct_answer.includes('-'))) {
+                const count = q.correct_answer.split(/\|\|\||;/).filter(Boolean).length;
+                return count > 0 ? `${count} cütlük` : 'Cütlər yoxdur';
+            }
+            return 'Cütlər yoxdur';
+        }
         case 'ordering':
             return q.sequence_items ? `${q.sequence_items.length} element` : 'Elementlər yoxdur';
         case 'fill_blank':
             return q.fill_blank_template ?? 'Şablon yoxdur';
         case 'essay':
-        case 'short_answer':
             return q.correct_answer ? q.correct_answer.substring(0, 60) : 'Açıq cavab';
+        case 'short_answer': {
+            if (!q.correct_answer) return 'Açıq cavab';
+            const variants = q.correct_answer.split('|').map(v => v.trim()).filter(Boolean);
+            if (variants.length > 1) {
+                return `${variants[0]} (+${variants.length - 1} variant)`;
+            }
+            return variants[0]?.substring(0, 60) || 'Açıq cavab';
+        }
         default:
             return q.correct_answer ? q.correct_answer.substring(0, 60) : 'Cavab seçilməyib';
     }
@@ -119,14 +141,14 @@ export function SortableQuestionCard({ question, index, onEdit, onRemove, onDupl
                     </div>
 
                     {/* Question text */}
-                    <p className="text-sm font-medium text-foreground line-clamp-2 mb-1">
-                        {question.question_text || <span className="text-muted-foreground italic">Sual mətni yoxdur</span>}
-                    </p>
+                    <div className="text-sm font-medium text-foreground line-clamp-2 mb-1">
+                        {question.question_text ? <MathRenderer text={question.question_text} /> : <span className="text-muted-foreground italic">Sual mətni yoxdur</span>}
+                    </div>
 
                     {/* Answer summary */}
-                    <p className="text-xs text-muted-foreground truncate">
-                        ✓ {getAnswerSummary(question)}
-                    </p>
+                    <div className="text-xs text-muted-foreground truncate">
+                        ✓ <MathRenderer text={getAnswerSummary(question)} />
+                    </div>
 
                     {/* Hint */}
                     {question.hint && (

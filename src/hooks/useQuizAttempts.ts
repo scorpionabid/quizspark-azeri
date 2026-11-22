@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { syncStudentMasteryAfterQuiz } from './useStudentMastery';
 
 export interface QuizAttempt {
   id: string;
@@ -13,6 +14,20 @@ export interface QuizAttempt {
   total_questions: number | null;
   time_spent: number | null;
   answers: Record<string, string>[];
+  question_order?: string[] | null;
+  last_heartbeat_at?: string | null;
+  current_question_index?: number | null;
+  tab_switch_count?: number | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  quizzes?: {
+    id: string;
+    title: string;
+    duration?: number | null;
+    question_count?: number | null;
+    pass_percentage?: number | null;
+    share_code?: string | null;
+  } | null;
 }
 
 export interface QuizResult {
@@ -24,10 +39,18 @@ export interface QuizResult {
   percentage: number;
   time_spent: number | null;
   completed_at: string;
+  attempt_id?: string | null;
 }
 
 export interface QuizResultWithProfile extends QuizResult {
-  profiles: { full_name: string | null; avatar_url: string | null } | null;
+  profiles: {
+    full_name: string | null;
+    avatar_url: string | null;
+    utis_code?: string | null;
+    school?: string | null;
+    grade?: string | null;
+    fin?: string | null;
+  } | null;
 }
 
 export interface QuizDetailedStats {
@@ -50,7 +73,7 @@ export function useMyAttempts(quizId?: string) {
 
       let query = supabase
         .from('quiz_attempts')
-        .select('*')
+        .select('*, quizzes(id, title, duration, question_count, pass_percentage, share_code)')
         .eq('user_id', user.id)
         .order('started_at', { ascending: false });
 
@@ -71,16 +94,30 @@ export function useStartAttempt() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ quizId, totalQuestions }: { quizId: string; totalQuestions: number }) => {
-      if (!user) throw new Error('İstifadəçi daxil olmayıb');
+    mutationFn: async ({
+      quizId,
+      totalQuestions,
+      questionOrder,
+    }: {
+      quizId: string;
+      totalQuestions: number;
+      questionOrder?: string[];
+    }) => {
+      let activeUser = user;
+      if (!activeUser) {
+        const { data } = await supabase.auth.getUser();
+        activeUser = data?.user ?? null;
+      }
+      if (!activeUser) throw new Error('İstifadəçi daxil olmayıb');
 
       const { data, error } = await supabase
         .from('quiz_attempts')
         .insert({
           quiz_id: quizId,
-          user_id: user.id,
+          user_id: activeUser.id,
           total_questions: totalQuestions,
           answers: [],
+          question_order: questionOrder || null,
         })
         .select()
         .single();
@@ -98,13 +135,24 @@ export function useStartAttempt() {
 }
 
 export function useUpdateAttempt() {
-  const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({ attemptId, answers }: { attemptId: string; answers: Record<string, string>[] }) => {
+    mutationFn: async ({
+      attemptId,
+      answers,
+      currentQuestionIndex,
+    }: {
+      attemptId: string;
+      answers: Record<string, string>[];
+      currentQuestionIndex?: number;
+    }) => {
+      const updateData: Record<string, any> = { answers };
+      if (currentQuestionIndex !== undefined) {
+        updateData.current_question_index = currentQuestionIndex;
+      }
+
       const { data, error } = await supabase
         .from('quiz_attempts')
-        .update({ answers })
+        .update(updateData)
         .eq('id', attemptId)
         .select()
         .single();
@@ -112,9 +160,34 @@ export function useUpdateAttempt() {
       if (error) throw error;
       return data as QuizAttempt;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['attempts'] });
+    // Redundant invalidateQueries(['attempts']) intentionally omitted to eliminate DB query storms
+    // for 300+ concurrent participants answering questions.
+  });
+}
+
+export function useExamHeartbeat() {
+  return useMutation({
+    mutationFn: async ({
+      attemptId,
+      questionIndex,
+      tabSwitches,
+    }: {
+      attemptId: string;
+      questionIndex: number;
+      tabSwitches: number;
+    }) => {
+      const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null;
+      const { error } = await supabase.rpc('record_exam_heartbeat', {
+        p_attempt_id: attemptId,
+        p_question_index: questionIndex,
+        p_tab_switches: tabSwitches,
+        p_user_agent: userAgent,
+      });
+      if (error) {
+        console.warn('Heartbeat update error:', error.message);
+      }
     },
+    retry: false,
   });
 }
 
@@ -138,56 +211,108 @@ export function useCompleteAttempt() {
       timeSpent: number;
       answers: Record<string, string>[];
     }) => {
-      if (!user) throw new Error('İstifadəçi daxil olmayıb');
+      let activeUser = user;
+      if (!activeUser) {
+        const { data } = await supabase.auth.getUser();
+        activeUser = data?.user ?? null;
+      }
+      if (!activeUser) throw new Error('İstifadəçi daxil olmayıb');
 
-      // Update attempt
-      const { error: attemptError } = await supabase
-        .from('quiz_attempts')
-        .update({
-          completed_at: new Date().toISOString(),
-          score,
-          time_spent: timeSpent,
-          answers,
-        })
-        .eq('id', attemptId);
+      let resultData: Partial<QuizResult> | null = null;
 
-      if (attemptError) throw attemptError;
+      // 1. Primary: Atomic server-side procedure (eliminates submit race condition & lost play_count)
+      const { data: atomicData, error: atomicError } = await supabase.rpc('complete_quiz_attempt_atomic', {
+        p_attempt_id: attemptId,
+        p_quiz_id: quizId,
+        p_user_id: activeUser.id,
+        p_score: score,
+        p_total_questions: totalQuestions,
+        p_time_spent: timeSpent,
+        p_answers: answers as unknown as any,
+      });
 
-      // Create result for leaderboard
-      // score is already a percentage (0-100), not a raw count
-      const percentage = score;
-      const { data: resultData, error: resultError } = await supabase
-        .from('quiz_results')
-        .insert({
+      if (!atomicError && atomicData) {
+        resultData = {
+          id: (atomicData as any).result_id || attemptId,
           quiz_id: quizId,
-          user_id: user.id,
+          user_id: activeUser.id,
           score,
           total_questions: totalQuestions,
-          percentage,
+          percentage: score,
           time_spent: timeSpent,
-        })
-        .select()
-        .single();
-
-      if (resultError) throw resultError;
-
-      // Increment play count
-      try {
-        const { data: quizData } = await supabase
-          .from('quizzes')
-          .select('play_count')
-          .eq('id', quizId)
-          .single();
-
-        if (quizData) {
-          await supabase
-            .from('quizzes')
-            .update({ play_count: (quizData.play_count || 0) + 1 })
-            .eq('id', quizId);
+          completed_at: new Date().toISOString(),
+        };
+      } else {
+        // 2. Fallback to parallel client-side update if RPC is missing
+        if (atomicError) {
+          console.warn('Atomic completion RPC unavailable, falling back:', atomicError.message);
         }
-      } catch {
-        // Ignore errors
+        const percentage = score;
+        const [attemptRes, resultRes] = await Promise.all([
+          supabase
+            .from('quiz_attempts')
+            .update({
+              completed_at: new Date().toISOString(),
+              score,
+              time_spent: timeSpent,
+              answers,
+            })
+            .eq('id', attemptId),
+          supabase
+            .from('quiz_results')
+            .upsert({
+              attempt_id: attemptId,
+              quiz_id: quizId,
+              user_id: activeUser.id,
+              score,
+              total_questions: totalQuestions,
+              percentage,
+              time_spent: timeSpent,
+            }, { onConflict: 'attempt_id' })
+            .select()
+            .single(),
+        ]);
+
+        if (attemptRes.error) throw attemptRes.error;
+        if (resultRes.error) throw resultRes.error;
+        resultData = resultRes.data as QuizResult;
+
+        // Increment play count fallback
+        try {
+          const { data: quizData } = await supabase
+            .from('quizzes')
+            .select('play_count')
+            .eq('id', quizId)
+            .single();
+
+          if (quizData) {
+            await supabase
+              .from('quizzes')
+              .update({ play_count: (quizData.play_count || 0) + 1 })
+              .eq('id', quizId);
+          }
+        } catch {
+          // Ignore errors
+        }
       }
+
+      // Non-blocking background tasks
+      (async () => {
+        // Update Student Mastery in the background
+        try {
+          await syncStudentMasteryAfterQuiz({
+            userId: activeUser.id,
+            quizId,
+            answers: answers as unknown as Array<{
+              questionId: string;
+              isCorrect?: boolean;
+              pointsEarned?: number;
+            }>,
+          });
+        } catch (masteryErr) {
+          console.error('Mənimsəmə yenilənməsində xəta:', masteryErr);
+        }
+      })();
 
       return resultData as QuizResult;
     },
@@ -195,6 +320,7 @@ export function useCompleteAttempt() {
       queryClient.invalidateQueries({ queryKey: ['attempts'] });
       queryClient.invalidateQueries({ queryKey: ['results'] });
       queryClient.invalidateQueries({ queryKey: ['quizzes'] });
+      queryClient.invalidateQueries({ queryKey: ['student_mastery'] });
       toast.success('Quiz tamamlandı!');
     },
     onError: (error: Error) => {
@@ -340,7 +466,7 @@ export function useQuizDetailedStats(quizId: string | undefined, passPercentage 
 
       const { data, error } = await supabase
         .from('quiz_results')
-        .select(`*, profiles:user_id (full_name, avatar_url)`)
+        .select(`*, profiles:user_id (full_name, avatar_url, utis_code, school, grade, fin)`)
         .eq('quiz_id', quizId)
         .order('completed_at', { ascending: false });
 
@@ -366,5 +492,35 @@ export function useQuizDetailedStats(quizId: string | undefined, passPercentage 
     },
     enabled: !!quizId,
     staleTime: 5 * 60 * 1000, // 5 minutes cache (was 1 minute)
+  });
+}
+
+export function useQuizAttemptsForTeacher(quizId: string | undefined) {
+  return useQuery({
+    queryKey: ['teacher-quiz-attempts', quizId],
+    queryFn: async () => {
+      if (!quizId) return [];
+      const { data, error } = await supabase
+        .from('quiz_attempts')
+        .select(`
+          id,
+          quiz_id,
+          user_id,
+          started_at,
+          completed_at,
+          score,
+          total_questions,
+          time_spent,
+          answers
+        `)
+        .eq('quiz_id', quizId)
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!quizId,
+    staleTime: 2 * 60 * 1000,
   });
 }

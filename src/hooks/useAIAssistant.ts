@@ -9,6 +9,7 @@ import { UploadedDocument } from '@/components/ai/DocumentUploader';
 import { useCreateQuestionBank } from '@/hooks/useQuestionBank';
 import { AIParameters } from '@/components/ai/AIParametersPanel';
 import { SUBJECT_LABELS } from '@/lib/constants/subjects';
+import { saveStoredCustomSubject } from '@/hooks/useSubjects';
 import { convertToQuestionBankItem } from '@/utils/questionConverters';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -171,7 +172,11 @@ export function useAIAssistant() {
     return new Promise<void>((resolve, reject) => {
       createQuestion.mutate(questionData, {
         onSuccess: () => { toast.success('Sual bankına əlavə edildi'); resolve(); },
-        onError: (err) => { toast.error('Xəta baş verdi'); reject(err); },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : 'Xəta baş verdi';
+          toast.error(`Sual banka əlavə edilərkən xəta: ${msg}`);
+          reject(err);
+        },
       });
     });
   };
@@ -193,6 +198,10 @@ export function useAIAssistant() {
     if (!topic.trim()) { toast.error('Mövzu daxil edin'); return; }
     const effectiveSubject = getEffectiveSubject();
     if (!effectiveSubject) { toast.error('Fənn seçin'); return; }
+
+    if (subject === 'custom' && customSubject.trim()) {
+      saveStoredCustomSubject(customSubject.trim());
+    }
 
     setIsGenerating(true);
     setError(null);
@@ -261,6 +270,9 @@ export function useAIAssistant() {
   const handleAddBatchTopic = () => {
     const effectiveSubject = getEffectiveSubject();
     if (!topic.trim() || !effectiveSubject) { toast.error('Mövzu və fənn seçin'); return; }
+    if (subject === 'custom' && customSubject.trim()) {
+      saveStoredCustomSubject(customSubject.trim());
+    }
     setBatchTopics((prev) => [
       ...prev,
       { id: `batch-${Date.now()}`, topic: topic.trim(), subject, questionCount: getEffectiveCount() },
@@ -351,7 +363,11 @@ export function useAIAssistant() {
         questionType: question.questionType || questionType,
       },
     });
-    if (fnError || !data?.questions?.[0]) { toast.error('Sual yenilənə bilmədi'); return; }
+    if (fnError || !data?.questions?.[0]) {
+      const msg = fnError?.message || 'AI sualı yeniləyə bilmədi';
+      toast.error(`Sual yenilənə bilmədi: ${msg}`);
+      return;
+    }
     const newQ: GeneratedQuestion = { ...data.questions[0], id: question.id };
     setGeneratedQuestions((prev) => prev.map((q) => (q.id === question.id ? newQ : q)));
     toast.success('Sual yeniləndi');

@@ -34,6 +34,140 @@ export type Database = {
   }
   public: {
     Tables: {
+      official_exam_settings: {
+        Row: {
+          id: string
+          is_active: boolean
+          access_code: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          access_code?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          access_code?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          id: string
+          user_id: string | null
+          action: string
+          entity_type: string
+          entity_id: string | null
+          description: string
+          old_values: Json | null
+          new_values: Json | null
+          ip_address: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          action: string
+          entity_type: string
+          entity_id?: string | null
+          description: string
+          old_values?: Json | null
+          new_values?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          action?: string
+          entity_type?: string
+          entity_id?: string | null
+          description?: string
+          old_values?: Json | null
+          new_values?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      system_error_logs: {
+        Row: {
+          id: string
+          user_id: string | null
+          error_type: string
+          message: string
+          stack_trace: string | null
+          component_name: string | null
+          url_path: string
+          device_info: Json | null
+          severity: string
+          is_resolved: boolean
+          resolved_by: string | null
+          resolved_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          error_type: string
+          message: string
+          stack_trace?: string | null
+          component_name?: string | null
+          url_path: string
+          device_info?: Json | null
+          severity?: string
+          is_resolved?: boolean
+          resolved_by?: string | null
+          resolved_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          error_type?: string
+          message?: string
+          stack_trace?: string | null
+          component_name?: string | null
+          url_path?: string
+          device_info?: Json | null
+          severity?: string
+          is_resolved?: boolean
+          resolved_by?: string | null
+          resolved_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_error_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "system_error_logs_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       ai_config: {
         Row: {
           default_model_id: string | null
@@ -431,6 +565,7 @@ export type Database = {
           bio: string | null
           created_at: string | null
           email: string | null
+          fin: string | null
           full_name: string | null
           grade: string | null
           id: string
@@ -439,6 +574,7 @@ export type Database = {
           level: number | null
           phone: string | null
           school: string | null
+          specialty: string | null
           status: string | null
           streak_count: number | null
           subscription_tier: string
@@ -452,6 +588,7 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           email?: string | null
+          fin?: string | null
           full_name?: string | null
           grade?: string | null
           id?: string
@@ -460,6 +597,7 @@ export type Database = {
           level?: number | null
           phone?: string | null
           school?: string | null
+          specialty?: string | null
           status?: string | null
           streak_count?: number | null
           subscription_tier?: string
@@ -473,6 +611,7 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           email?: string | null
+          fin?: string | null
           full_name?: string | null
           grade?: string | null
           id?: string
@@ -481,6 +620,7 @@ export type Database = {
           level?: number | null
           phone?: string | null
           school?: string | null
+          specialty?: string | null
           status?: string | null
           streak_count?: number | null
           subscription_tier?: string
@@ -1457,45 +1597,63 @@ export type Database = {
           answers: Json | null
           bookmarked_questions: string[] | null
           completed_at: string | null
+          current_question_index: number | null
           device_type: string | null
           hint_used_questions: string[] | null
           id: string
+          ip_address: string | null
+          last_heartbeat_at: string | null
+          question_order: string[] | null
           question_timings: Json | null
           quiz_id: string
           score: number | null
           started_at: string | null
+          tab_switch_count: number | null
           time_spent: number | null
           total_questions: number | null
+          user_agent: string | null
           user_id: string
         }
         Insert: {
           answers?: Json | null
           bookmarked_questions?: string[] | null
           completed_at?: string | null
+          current_question_index?: number | null
           device_type?: string | null
           hint_used_questions?: string[] | null
           id?: string
+          ip_address?: string | null
+          last_heartbeat_at?: string | null
+          question_order?: string[] | null
           question_timings?: Json | null
           quiz_id: string
           score?: number | null
           started_at?: string | null
+          tab_switch_count?: number | null
           time_spent?: number | null
           total_questions?: number | null
+          user_agent?: string | null
           user_id: string
         }
         Update: {
           answers?: Json | null
           bookmarked_questions?: string[] | null
           completed_at?: string | null
+          current_question_index?: number | null
           device_type?: string | null
           hint_used_questions?: string[] | null
           id?: string
+          ip_address?: string | null
+          last_heartbeat_at?: string | null
+          question_order?: string[] | null
           question_timings?: Json | null
           quiz_id?: string
           score?: number | null
           started_at?: string | null
+          tab_switch_count?: number | null
           time_spent?: number | null
           total_questions?: number | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1601,6 +1759,7 @@ export type Database = {
           description: string | null
           difficulty: string | null
           duration: number | null
+          exam_category: string | null
           grade: string | null
           id: string
           is_archived: boolean
@@ -1613,9 +1772,15 @@ export type Database = {
           questions_per_page: number
           rating: number | null
           show_feedback: boolean | null
+          feedback_timing?: string | null
           show_question_nav: boolean
+          enable_calculator?: boolean
+          enable_periodic_table?: boolean
+          enable_scratchpad?: boolean
           shuffle_questions: boolean | null
+          specialty_key: string | null
           strict_mode: boolean
+          seb_config?: Json | null
           subject: string | null
           time_bonus_enabled: boolean | null
           time_penalty_enabled: boolean | null
@@ -1639,6 +1804,7 @@ export type Database = {
           description?: string | null
           difficulty?: string | null
           duration?: number | null
+          exam_category?: string | null
           grade?: string | null
           id?: string
           is_archived?: boolean
@@ -1651,9 +1817,15 @@ export type Database = {
           questions_per_page?: number
           rating?: number | null
           show_feedback?: boolean | null
+          feedback_timing?: string | null
           show_question_nav?: boolean
+          enable_calculator?: boolean
+          enable_periodic_table?: boolean
+          enable_scratchpad?: boolean
           shuffle_questions?: boolean | null
+          specialty_key?: string | null
           strict_mode?: boolean
+          seb_config?: Json | null
           subject?: string | null
           time_bonus_enabled?: boolean | null
           time_penalty_enabled?: boolean | null
@@ -1677,6 +1849,7 @@ export type Database = {
           description?: string | null
           difficulty?: string | null
           duration?: number | null
+          exam_category?: string | null
           grade?: string | null
           id?: string
           is_archived?: boolean
@@ -1689,9 +1862,15 @@ export type Database = {
           questions_per_page?: number
           rating?: number | null
           show_feedback?: boolean | null
+          feedback_timing?: string | null
           show_question_nav?: boolean
+          enable_calculator?: boolean
+          enable_periodic_table?: boolean
+          enable_scratchpad?: boolean
           shuffle_questions?: boolean | null
+          specialty_key?: string | null
           strict_mode?: boolean
+          seb_config?: Json | null
           subject?: string | null
           time_bonus_enabled?: boolean | null
           time_penalty_enabled?: boolean | null

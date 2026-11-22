@@ -1,5 +1,8 @@
 project_id = "qa3"
 
+[analytics]
+enabled = false
+
 [api]
 port = 54331
 external_url = "http://127.0.0.1:54331"

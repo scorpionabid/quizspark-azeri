@@ -14,7 +14,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { GeneratedQuestion } from "@/components/quiz/EditableQuestionCard";
 import { getBloomLevels } from "@/components/ai/BloomLevelBadge";
-import { SUBJECT_OPTIONS, SUBJECT_LABELS } from "@/lib/constants/subjects";
+import { SUBJECT_LABELS, getSubjectIcon } from "@/lib/constants/subjects";
+import { useSubjects } from "@/hooks/useSubjects";
 
 interface UploadedDocument {
   id: string;
@@ -42,6 +43,7 @@ export function DocumentQuizGenerator({
   model,
   temperature,
 }: DocumentQuizGeneratorProps) {
+  const { subjects: allSubjects, addCustomSubject } = useSubjects();
   const [subject, setSubject] = useState("");
   const [customSubject, setCustomSubject] = useState("");
   const [difficulty, setDifficulty] = useState("medium");
@@ -80,6 +82,10 @@ export function DocumentQuizGenerator({
     if (!effectiveSubject) {
       toast.error("Fənn seçin və ya daxil edin");
       return;
+    }
+
+    if (subject === "custom" && customSubject.trim()) {
+      addCustomSubject(customSubject.trim());
     }
 
     setIsGenerating(true);
@@ -194,14 +200,25 @@ Hər sual üçün düzgün cavabı da göstər (sənəddə varsa).`,
         {/* Subject */}
         <div>
           <Label className="text-xs">Fənn</Label>
-          <Select value={subject || "no-selection"} onValueChange={(v) => setSubject(v === "no-selection" ? "" : v)}>
+          <Select value={subject || "no-selection"} onValueChange={(v) => {
+            if (v === "no-selection") {
+              setSubject("");
+            } else {
+              setSubject(v);
+            }
+          }}>
             <SelectTrigger className="mt-1 h-9 text-xs">
               <SelectValue placeholder="Seçin" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="no-selection" disabled>Seçin</SelectItem>
-              {SUBJECT_OPTIONS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              {allSubjects.map((s) => (
+                <SelectItem key={s} value={s}>
+                  <div className="flex items-center gap-2">
+                    <span>{getSubjectIcon(s)}</span>
+                    <span>{SUBJECT_LABELS[s] || s}</span>
+                  </div>
+                </SelectItem>
               ))}
               <SelectItem value="custom">Xüsusi fənn...</SelectItem>
             </SelectContent>
@@ -210,6 +227,11 @@ Hər sual üçün düzgün cavabı da göstər (sənəddə varsa).`,
             <Input
               value={customSubject}
               onChange={(e) => setCustomSubject(e.target.value)}
+              onBlur={() => {
+                if (customSubject.trim()) {
+                  addCustomSubject(customSubject.trim());
+                }
+              }}
               placeholder="Fənn adını yazın"
               className="mt-1 h-8 text-xs"
             />

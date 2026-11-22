@@ -1,5 +1,62 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "katex/dist/katex.min.css";
+import { loggerService } from "./services/loggerService";
+
+// Global uncaught error listener
+window.addEventListener("error", (event) => {
+  if (event.error) {
+    void loggerService.logError({
+      message: event.message || "Global brauzer xətası",
+      error: event.error,
+      stackTrace: event.error?.stack,
+      urlPath: window.location.pathname,
+      severity: "error",
+      errorType: "runtime_error",
+    });
+  }
+});
+
+// Global unhandled promise rejection listener
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason;
+  const message =
+    reason instanceof Error
+      ? reason.message
+      : typeof reason === "string"
+      ? reason
+      : "Unhandled Promise Rejection";
+  const stackTrace = reason instanceof Error ? reason.stack : undefined;
+
+  // Ignore harmless third-party / antivirus / WebView Service Worker registration rejections
+  if (
+    stackTrace?.includes("registerSW.js") ||
+    stackTrace?.includes("serviceWorker.register") ||
+    stackTrace?.includes("wrsParams.serviceWorkers") ||
+    message.includes("serviceWorker")
+  ) {
+    return;
+  }
+
+  void loggerService.logError({
+    message: `[Async Rejection] ${message}`,
+    error: reason instanceof Error ? reason : undefined,
+    stackTrace,
+    urlPath: window.location.pathname,
+    severity: "warning",
+    errorType: "unhandled_rejection",
+  });
+});
+
+// Global dynamic chunk load error listener (deployment cache-bust protection)
+window.addEventListener("vite:preloadError", (event) => {
+  const lastReload = parseInt(sessionStorage.getItem("vite_preload_reload") || "0", 10);
+  const now = Date.now();
+  if (now - lastReload > 10000) {
+    sessionStorage.setItem("vite_preload_reload", now.toString());
+    window.location.reload();
+  }
+});
 
 createRoot(document.getElementById("root")!).render(<App />);

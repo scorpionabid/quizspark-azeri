@@ -2,9 +2,11 @@ import React, { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
+import { FontProvider } from "@/contexts/FontContext";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OAuthRoleDialog } from "@/components/auth/OAuthRoleDialog";
@@ -12,18 +14,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseHealth } from "@/hooks/useSupabaseHealth";
 import { ThemeProvider } from "next-themes";
 import { PageLoader } from "@/components/ui/loading-spinner";
+import { loggerService } from "@/services/loggerService";
 
-// Core Pages (statik — tez yüklənməlidir)
+// Core Pages
 import Index from "./pages/Index";
-import QuizPage from "./pages/QuizPage";
-import QuizzesPage from "./pages/QuizzesPage";
-import LeaderboardPage from "./pages/LeaderboardPage";
-import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
-import AuthPage from "./pages/auth/AuthPage";
-import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
-import PendingApprovalPage from "./pages/auth/PendingApprovalPage";
-import SupportChatPage from "./pages/chat/SupportChatPage";
 
 // Student Progress Page — lazy
 const StudentProgressPage = lazy(() => import("./pages/student/StudentProgressPage"));
@@ -46,8 +41,55 @@ const AIConfigPage = lazy(() => import("./pages/admin/AIConfigPage"));
 const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
 const TextbooksPage = lazy(() => import("./pages/admin/TextbooksPage"));
 const AdminChatPage = lazy(() => import("./pages/admin/AdminChatPage"));
+const AuditLogsPage = lazy(() => import("./pages/admin/AuditLogsPage"));
+const AdminExamsPage = lazy(() => import("./pages/admin/AdminExamsPage"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (errMsg.includes('AbortError')) return;
+      const keyStr = Array.isArray(query.queryKey) ? query.queryKey.map(String).join('/') : 'query';
+      void loggerService.logError({
+        message: `Query failed [${keyStr}]: ${errMsg}`,
+        error,
+        errorType: 'api_error',
+        severity: 'warning',
+        componentName: 'QueryCache',
+        extraInfo: { queryKey: keyStr },
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const mutationKey = mutation.options.mutationKey ? (Array.isArray(mutation.options.mutationKey) ? mutation.options.mutationKey.map(String).join('/') : String(mutation.options.mutationKey)) : 'anonymous_mutation';
+      void loggerService.logError({
+        message: `Mutation failed [${mutationKey}]: ${errMsg}`,
+        error,
+        errorType: 'api_error',
+        severity: 'error',
+        componentName: 'MutationCache',
+        extraInfo: { mutationKey },
+      });
+    },
+  }),
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes fresh
+      gcTime: 15 * 60 * 1000, // 15 minutes cache retention
+      refetchOnWindowFocus: false, // Avoid redundant network calls on tab switch
+      retry: 1,
+    },
+  },
+});
+
+// Clear all query cache on sign-out to prevent stale user data leaks
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:signout', () => {
+    queryClient.clear();
+  });
+}
 
 // Inner component so it can use useAuth (must be inside AuthProvider)
 function AppRoutes() {
@@ -60,9 +102,17 @@ function AppRoutes() {
       {showOAuthDialog && <OAuthRoleDialog />}
       <Routes>
         {/* Auth Routes - No Layout */}
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/pending-approval" element={<PendingApprovalPage />} />
+        <Route path="/auth" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <AuthPage />
+          </Suspense>
+        } />
+        <Route path="/reset-password" element={<Navigate to="/auth" replace />} />
+        <Route path="/pending-approval" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <PendingApprovalPage />
+          </Suspense>
+        } />
 
         {/* Profile Route */}
         <Route path="/profile" element={
@@ -160,6 +210,22 @@ function AppRoutes() {
           </Suspense>
         } />
 
+        {/* Support Chat Routes - Accessible by all authenticated users */}
+        <Route path="/support" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+              <MainLayout><SupportChatPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+        <Route path="/chat" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['student', 'teacher', 'admin']}>
+              <MainLayout><SupportChatPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+
         {/* Admin Routes - Protected + lazy */}
         <Route path="/admin/dashboard" element={
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>
@@ -210,6 +276,20 @@ function AppRoutes() {
             </ProtectedRoute>
           </Suspense>
         } />
+        <Route path="/admin/audit-logs" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><AuditLogsPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+        <Route path="/admin/exams" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><AdminExamsPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
 
         {/* Catch-all */}
         <Route path="*" element={<MainLayout><NotFound /></MainLayout>} />
@@ -221,15 +301,19 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
+      <FontProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <AppRoutes />
+              </BrowserRouter>
+            </TooltipProvider>
+          </AuthProvider>
+        </LanguageProvider>
+      </FontProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

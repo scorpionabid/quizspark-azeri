@@ -1,4 +1,4 @@
-import { Filter, X, SlidersHorizontal } from "lucide-react";
+import { X, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface QuizFilterValues {
   difficulty: string;
@@ -23,33 +24,35 @@ interface QuizFiltersProps {
   className?: string;
 }
 
-const difficultyOptions = [
-  { value: "all", label: "Bütün səviyyələr" },
-  { value: "easy", label: "Asan" },
-  { value: "medium", label: "Orta" },
-  { value: "hard", label: "Çətin" },
-];
-
-const durationOptions = [
-  { value: "all", label: "Bütün müddətlər" },
-  { value: "short", label: "0-10 dəqiqə" },
-  { value: "medium", label: "10-20 dəqiqə" },
-  { value: "long", label: "20+ dəqiqə" },
-];
-
-const sortOptions = [
-  { value: "newest", label: "Ən yeni" },
-  { value: "popular", label: "Ən populyar" },
-  { value: "rating", label: "Ən yüksək reytinq" },
-  { value: "questions", label: "Sual sayına görə" },
-];
-
 export function QuizFilters({
   filters,
   onFiltersChange,
   onClearFilters,
   className,
 }: QuizFiltersProps) {
+  const { t } = useLanguage();
+
+  const difficultyOptions = [
+    { value: "all", label: t('diff_all', 'Bütün səviyyələr') },
+    { value: "easy", label: t('diff_easy', 'Asan') },
+    { value: "medium", label: t('diff_medium', 'Orta') },
+    { value: "hard", label: t('diff_hard', 'Çətin') },
+  ];
+
+  const durationOptions = [
+    { value: "all", label: t('dur_all', 'Bütün müddətlər') },
+    { value: "short", label: t('dur_short', '0-10 dəqiqə') },
+    { value: "medium", label: t('dur_medium', '10-20 dəqiqə') },
+    { value: "long", label: t('dur_long', '20+ dəqiqə') },
+  ];
+
+  const sortOptions = [
+    { value: "newest", label: t('sort_newest', 'Ən yeni') },
+    { value: "popular", label: t('sort_popular', 'Ən populyar') },
+    { value: "rating", label: t('sort_rating', 'Ən yüksək reytinq') },
+    { value: "questions", label: t('sort_questions', 'Sual sayına görə') },
+  ];
+
   const hasActiveFilters =
     filters.difficulty !== "all" ||
     filters.duration !== "all" ||
@@ -67,7 +70,7 @@ export function QuizFilters({
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <SlidersHorizontal className="h-4 w-4" />
-          <span>Filterlər</span>
+          <span>{t('filter_title', 'Filterlər')}</span>
           {activeFilterCount > 0 && (
             <Badge variant="secondary" className="h-5 px-1.5 text-xs">
               {activeFilterCount}
@@ -83,7 +86,7 @@ export function QuizFilters({
           }
         >
           <SelectTrigger className="h-9 w-[160px] rounded-full border-border/50 bg-card/50 text-sm backdrop-blur-sm">
-            <SelectValue placeholder="Çətinlik" />
+            <SelectValue placeholder={t('filter_difficulty', 'Çətinlik')} />
           </SelectTrigger>
           <SelectContent>
             {difficultyOptions.map((option) => (
@@ -102,7 +105,7 @@ export function QuizFilters({
           }
         >
           <SelectTrigger className="h-9 w-[160px] rounded-full border-border/50 bg-card/50 text-sm backdrop-blur-sm">
-            <SelectValue placeholder="Müddət" />
+            <SelectValue placeholder={t('filter_duration', 'Müddət')} />
           </SelectTrigger>
           <SelectContent>
             {durationOptions.map((option) => (
@@ -121,7 +124,7 @@ export function QuizFilters({
           }
         >
           <SelectTrigger className="h-9 w-[160px] rounded-full border-border/50 bg-card/50 text-sm backdrop-blur-sm">
-            <SelectValue placeholder="Sıralama" />
+            <SelectValue placeholder={t('filter_sort', 'Sıralama')} />
           </SelectTrigger>
           <SelectContent>
             {sortOptions.map((option) => (
@@ -141,7 +144,7 @@ export function QuizFilters({
             className="h-9 gap-1.5 rounded-full text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />
-            Təmizlə
+            {t('filter_clear', 'Təmizlə')}
           </Button>
         )}
       </div>
@@ -149,7 +152,7 @@ export function QuizFilters({
       {/* Active Filter Tags */}
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Aktiv filterlər:</span>
+          <span className="text-xs text-muted-foreground">{t('filter_active_filters', 'Aktiv filterlər:')}</span>
           {filters.difficulty !== "all" && (
             <Badge
               variant="outline"

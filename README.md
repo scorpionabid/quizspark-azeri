@@ -1,80 +1,42 @@
-# Welcome to your Lovable project
+# Sınaq Platforması (QuizSpark)
 
-## Project info
+İnteraktiv təhsil, onlayn sınaq imtahanları və bilik yarışması platforması.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Layihə Haqqında
 
-## How can I edit this code?
+Sınaq platforması müəllimlər və tələbələr üçün nəzərdə tutulmuş müasir interaktiv quiz və imtahan sistemidir:
+- Müxtəlif sual növləri (tək seçimli, çox seçimli, boşluq doldurma, uyğunlaşdırma, sıralama, riyazi və s.)
+- Vaxt məhdudiyyətli və parolla qorunan təhlükəsiz imtahanlar
+- Real-vaxt statistika və nəticə analitikası
+- Sual bankı və AI dəstəkli sual generatoru
+- PWA dəstəyi (mobil və masaüstü quraşdırma)
 
-There are several ways of editing your application.
+## Texnologiyalar
 
-**Use Lovable**
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query, Framer Motion
+- **Backend / Verilənlər Bazası:** PostgreSQL, Supabase, Edge Functions, Deno
+- **Mühit:** Docker Compose, Nginx
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Quraşdırma və İşə Salma
 
-Changes made via Lovable will be committed automatically to this repo.
+### Tələblər
+- Node.js (v20+)
+- Docker və Docker Compose
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
+### Yerli İnkişaf (Local Development)
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Asılılıqları quraşdırın
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Fast setup for Local Development (Supabase + Docker + npm)
-./scripts/dev-setup.sh
-
-# Step 4: Start everything
-./scripts/dev-start.sh
-```
-
-### Alternative Start (Manual)
-If you prefer not to use the automated scripts:
-```sh
-npm i
+# İnkişaf rejimində başladın
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Production Build & Deploy
+```sh
+# Frontend build
+npm run build
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+# Docker konteynerlərini qaldırın
+docker compose -f docker-compose.prod.yml up -d --build
+```

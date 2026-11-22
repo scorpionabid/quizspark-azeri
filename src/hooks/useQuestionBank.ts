@@ -47,6 +47,15 @@ export interface QuestionBankItem {
   shared_by_name?: string | null;
   shared_by_avatar?: string | null;
   shared_at?: string | null;
+  // Quizzes and feedback stats
+  quizzes?: QuestionQuizInfo[];
+  feedbacks_count?: number;
+  issues_count?: number;
+}
+
+export interface QuestionQuizInfo {
+  id: string;
+  title: string;
 }
 
 export interface TeacherProfile {
@@ -66,7 +75,7 @@ export interface ShareRecord {
   recipient?: TeacherProfile;
 }
 
-export type QuestionBankMode = 'my-questions' | 'shared-with-me';
+export type QuestionBankMode = 'my-questions' | 'shared-with-me' | 'analytics';
 
 export interface QuestionFilters {
   search?: string;
@@ -76,11 +85,40 @@ export interface QuestionFilters {
   quality_score_min?: number;
   has_video?: boolean;
   has_3d_model?: boolean;
+  quiz_id?: string;
+  feedback_status?: 'all' | 'has_feedback' | 'has_issues';
 }
 
 export interface PaginationParams {
   page: number;
   pageSize: number;
+}
+
+export interface CategoryStatItem {
+  category: string;
+  questionCount: number;
+  percentage: number;
+  easyCount: number;
+  mediumCount: number;
+  hardCount: number;
+  attemptsCount: number;
+  correctCount: number;
+  incorrectCount: number;
+  accuracyPercentage: number;
+}
+
+export interface QuestionBankDetailedAnalytics {
+  totalQuestions: number;
+  totalCategories: number;
+  thisWeekCount: number;
+  difficultyCounts: Record<string, number>;
+  bloomLevelCounts: Record<string, number>;
+  typeCounts: Record<string, number>;
+  categories: CategoryStatItem[];
+  totalAttempts: number;
+  totalCorrect: number;
+  totalIncorrect: number;
+  overallAccuracy: number;
 }
 
 export interface QuestionBankStats {
@@ -102,10 +140,12 @@ export function useQuestionBankList(
   pagination: PaginationParams,
   filters: QuestionFilters,
   sort?: SortParams,
-  mode: QuestionBankMode = 'my-questions'
+  mode: QuestionBankMode = 'my-questions',
+  options?: { enabled?: boolean }
 ) {
   return useQuery({
     queryKey: ['question-bank', pagination, filters, sort, mode],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const { page, pageSize } = pagination;
       const from = page * pageSize;
@@ -117,7 +157,11 @@ export function useQuestionBankList(
           .from('question_bank_shares')
           .select(
             `id, message, created_at,
-             question:question_bank(*),
+             question:question_bank(
+               *,
+               questions(id, quiz_id, quizzes:quiz_id(id, title)),
+               question_ratings(id, rating, issue_type, comment)
+             ),
              sharer:profiles!question_bank_shares_shared_by_fkey(full_name, avatar_url)`,
             { count: 'exact' }
           )
@@ -128,18 +172,32 @@ export function useQuestionBankList(
 
         if (sharesError) throw sharesError;
 
-        const questions: QuestionBankItem[] = (sharesData ?? []).map((row: {
-          id: string;
-          message: string | null;
-          created_at: string;
-          question: Record<string, unknown>;
-          sharer: { full_name?: string | null; avatar_url?: string | null } | null;
-        }) => ({
-          ...(row.question as unknown as QuestionBankItem),
-          shared_by_name: row.sharer?.full_name ?? null,
-          shared_by_avatar: row.sharer?.avatar_url ?? null,
-          shared_at: row.created_at,
-        }));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const questions: QuestionBankItem[] = (sharesData ?? []).map((row: any) => {
+          const qObj = row.question || {};
+          const quizzesMap = new Map<string, QuestionQuizInfo>();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (qObj.questions || []).forEach((q: any) => {
+            if (q.quizzes?.id && q.quizzes?.title) {
+              quizzesMap.set(q.quizzes.id, { id: q.quizzes.id, title: q.quizzes.title });
+            }
+          });
+          const quizzes = Array.from(quizzesMap.values());
+          const ratings = qObj.question_ratings || [];
+          const feedbacks_count = ratings.length;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const issues_count = ratings.filter((r: any) => r.issue_type === 'error' || r.issue_type === 'confusing').length;
+
+          return {
+            ...(qObj as unknown as QuestionBankItem),
+            quizzes,
+            feedbacks_count,
+            issues_count,
+            shared_by_name: row.sharer?.full_name ?? null,
+            shared_by_avatar: row.sharer?.avatar_url ?? null,
+            shared_at: row.created_at,
+          };
+        });
 
         return {
           questions,
@@ -149,9 +207,30 @@ export function useQuestionBankList(
       }
 
       // Default: 'my-questions' — own questions only (RLS handles it)
+      const quizJoin = filters.quiz_id
+        ? 'questions!inner(id, quiz_id, quizzes:quiz_id(id, title))'
+        : 'questions(id, quiz_id, quizzes:quiz_id(id, title))';
+
+      const ratingsJoin = filters.feedback_status === 'has_issues'
+        ? 'question_ratings!inner(id, rating, issue_type, comment)'
+        : filters.feedback_status === 'has_feedback'
+        ? 'question_ratings!inner(id, rating, issue_type, comment)'
+        : 'question_ratings(id, rating, issue_type, comment)';
+
       let query = supabase
         .from('question_bank')
-        .select('*', { count: 'exact' });
+        .select(`
+          id, question_text, question_type, options, correct_answer, explanation,
+          category, difficulty, bloom_level, tags, user_id, source_document_id,
+          created_at, updated_at, question_image_url, option_images, media_type,
+          media_url, title, weight, hint, time_limit, per_option_explanations,
+          video_url, video_start_time, video_end_time, model_3d_url, model_3d_type,
+          hotspot_data, matching_pairs, sequence_items, fill_blank_template,
+          numerical_answer, numerical_tolerance, correct_option_indices,
+          feedback_enabled, quality_score, usage_count,
+          ${quizJoin},
+          ${ratingsJoin}
+        `, { count: 'exact' });
 
       // Apply sorting
       if (sort) {
@@ -163,6 +242,12 @@ export function useQuestionBankList(
       query = query.range(from, to);
 
       // Apply filters
+      if (filters.quiz_id) {
+        query = query.eq('questions.quiz_id', filters.quiz_id);
+      }
+      if (filters.feedback_status === 'has_issues') {
+        query = query.in('question_ratings.issue_type', ['error', 'confusing']);
+      }
       if (filters.category && filters.category !== 'all') {
         query = query.eq('category', filters.category);
       }
@@ -189,12 +274,36 @@ export function useQuestionBankList(
 
       if (error) throw error;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const questions: QuestionBankItem[] = (data || []).map((row: any) => {
+        const quizzesMap = new Map<string, QuestionQuizInfo>();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (row.questions || []).forEach((q: any) => {
+          if (q.quizzes?.id && q.quizzes?.title) {
+            quizzesMap.set(q.quizzes.id, { id: q.quizzes.id, title: q.quizzes.title });
+          }
+        });
+        const quizzes = Array.from(quizzesMap.values());
+        const ratings = row.question_ratings || [];
+        const feedbacks_count = ratings.length;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const issues_count = ratings.filter((r: any) => r.issue_type === 'error' || r.issue_type === 'confusing').length;
+
+        return {
+          ...row,
+          quizzes,
+          feedbacks_count,
+          issues_count,
+        };
+      });
+
       return {
-        questions: data as unknown as QuestionBankItem[],
+        questions,
         totalCount: count || 0,
         totalPages: Math.ceil((count || 0) / pageSize),
       };
     },
+    staleTime: 2 * 60 * 1000,
   });
 }
 
@@ -202,74 +311,50 @@ export function useQuestionBankList(
 export function useQuestionBankStats() {
   return useQuery({
     queryKey: ['question-bank-stats'],
-    queryFn: async () => {
-      // Get total count
-      const { count: totalQuestions } = await supabase
-        .from('question_bank')
-        .select('*', { count: 'exact', head: true });
-
-      // Get category counts
-      const { data: categoryData } = await supabase
-        .from('question_bank')
-        .select('category');
-
-      const categoryCounts: Record<string, number> = {};
-      categoryData?.forEach((item) => {
-        const cat = item.category || 'Kateqoriyasız';
-        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-      });
-
-      // Get difficulty counts
-      const { data: difficultyData } = await supabase
-        .from('question_bank')
-        .select('difficulty');
-
-      const difficultyCounts: Record<string, number> = {};
-      difficultyData?.forEach((item) => {
-        const diff = item.difficulty || 'Təyin edilməyib';
-        difficultyCounts[diff] = (difficultyCounts[diff] || 0) + 1;
-      });
-
-      // Get type counts
-      const { data: typeData } = await supabase
-        .from('question_bank')
-        .select('question_type');
-
-      const typeCounts: Record<string, number> = {};
-      typeData?.forEach((item) => {
-        const type = item.question_type || 'multiple_choice';
-        typeCounts[type] = (typeCounts[type] || 0) + 1;
-      });
-
-      // Get bloom level counts
-      const { data: bloomData } = await supabase
-        .from('question_bank')
-        .select('bloom_level');
-
-      const bloomLevelCounts: Record<string, number> = {};
-      bloomData?.forEach((item) => {
-        const level = item.bloom_level || 'Təyin edilməyib';
-        bloomLevelCounts[level] = (bloomLevelCounts[level] || 0) + 1;
-      });
-
-      // Get this week's count
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-      const { count: thisWeekCount } = await supabase
-        .from('question_bank')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', oneWeekAgo.toISOString());
-
-      return {
-        totalQuestions: totalQuestions || 0,
-        categoryCounts,
-        difficultyCounts,
-        typeCounts,
-        thisWeekCount: thisWeekCount || 0,
-        bloomLevelCounts,
-      } as QuestionBankStats;
+    queryFn: async (): Promise<QuestionBankStats> => {
+      const { data, error } = await supabase.rpc('get_question_bank_stats');
+      if (error) {
+        console.error('get_question_bank_stats RPC error:', error);
+        return {
+          totalQuestions: 0,
+          categoryCounts: {},
+          difficultyCounts: {},
+          typeCounts: {},
+          thisWeekCount: 0,
+          bloomLevelCounts: {},
+        };
+      }
+      return data as unknown as QuestionBankStats;
     },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Fetch detailed Question Bank analytics including category breakdowns and student answers
+export function useQuestionBankDetailedAnalytics() {
+  return useQuery({
+    queryKey: ['question-bank-detailed-analytics'],
+    queryFn: async (): Promise<QuestionBankDetailedAnalytics> => {
+      const { data, error } = await supabase.rpc('get_question_bank_detailed_analytics');
+      if (error) {
+        console.error('get_question_bank_detailed_analytics RPC error:', error);
+        return {
+          totalQuestions: 0,
+          totalCategories: 0,
+          thisWeekCount: 0,
+          difficultyCounts: {},
+          bloomLevelCounts: {},
+          typeCounts: {},
+          categories: [],
+          totalAttempts: 0,
+          totalCorrect: 0,
+          totalIncorrect: 0,
+          overallAccuracy: 0,
+        };
+      }
+      return data as unknown as QuestionBankDetailedAnalytics;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -277,17 +362,15 @@ export function useQuestionBankStats() {
 export function useQuestionBankCategories() {
   return useQuery({
     queryKey: ['question-bank-categories'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('question_bank')
-        .select('category')
-        .not('category', 'is', null);
-
-      if (error) throw error;
-
-      const uniqueCategories = [...new Set(data?.map((d) => d.category).filter(Boolean))] as string[];
-      return uniqueCategories.sort();
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase.rpc('get_unique_question_bank_categories');
+      if (error) {
+        console.error('get_unique_question_bank_categories RPC error:', error);
+        return [];
+      }
+      return (data as string[]) || [];
     },
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -343,6 +426,8 @@ export function useUpdateQuestionBank() {
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-stats'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['quizzes'] });
       toast.success('Sual yeniləndi');
     },
     onError: (error: Error) => {
@@ -427,51 +512,142 @@ export function useBulkUpdateQuestionBank() {
   });
 }
 
-// Bulk create questions (for import)
+// Bulk create or update questions (Smart Upsert for import)
 export function useBulkCreateQuestionBank() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (questions: Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'>[]) => {
       const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id || null;
 
       const questionsWithUser = questions.map((q) => ({
         ...q,
-        user_id: userData.user?.id || null,
+        user_id: userId,
       }));
 
-      // 100+ sual üçün 50-lik chunk-larla insert (timeout riskini azaldır)
-      // M3.1: Hər hansı chunk uğursuz olsa, əvvəlki chunk-lar geri silinir (best-effort atomicity)
-      const CHUNK_SIZE = 50;
-      const results: QuestionBankItem[] = [];
-      const insertedIds: string[] = [];
+      // 1. Mövcud sualları oxuyuruq (Sual mətni və düzgün cavab üzrə kompozit xəritələndirmə)
+      let fetchQuery = supabase
+        .from('question_bank')
+        .select('id, question_text, correct_answer')
+        .range(0, 4999);
 
-      for (let i = 0; i < questionsWithUser.length; i += CHUNK_SIZE) {
-        const chunk = questionsWithUser.slice(i, i + CHUNK_SIZE);
-        const { data, error } = await supabase
-          .from('question_bank')
-          .insert(chunk)
-          .select();
+      if (userId) {
+        fetchQuery = fetchQuery.eq('user_id', userId);
+      }
+      const { data: existingData, error: fetchErr } = await fetchQuery;
+      if (fetchErr) {
+        console.warn('Failed to fetch existing questions for duplicate check:', fetchErr);
+      }
 
-        if (error) {
-          // Rollback: əvvəl insert olunan sualları sil
-          if (insertedIds.length > 0) {
-            await supabase.from('question_bank').delete().in('id', insertedIds);
+      const normalize = (t: string) => t.replace(/\s+/g, ' ').trim().toLowerCase();
+      const compositeMap = new Map<string, string[]>();
+      const textMap = new Map<string, string[]>();
+
+      if (existingData) {
+        for (const item of existingData) {
+          if (item.question_text) {
+            const textKey = normalize(item.question_text);
+            const ansKey = normalize(item.correct_answer || '');
+            const compKey = `${textKey}:::${ansKey}`;
+
+            const compList = compositeMap.get(compKey) || [];
+            compList.push(item.id);
+            compositeMap.set(compKey, compList);
+
+            const textList = textMap.get(textKey) || [];
+            textList.push(item.id);
+            textMap.set(textKey, textList);
           }
-          throw error;
+        }
+      }
+
+      type QuestionPayload = Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'> & { user_id: string | null };
+      const toUpdate: { id: string; item: QuestionPayload }[] = [];
+      const toInsert: QuestionPayload[] = [];
+      const usedIds = new Set<string>();
+
+      for (const q of questionsWithUser) {
+        const textKey = normalize(q.question_text || '');
+        const ansKey = normalize(q.correct_answer || '');
+        const compKey = `${textKey}:::${ansKey}`;
+
+        // 1-ci seçim: Kompozit açar (mətni və düzgün cavabı dəqiq eyni olan)
+        let matchedId: string | undefined;
+        const compCandidates = compositeMap.get(compKey);
+        if (compCandidates) {
+          matchedId = compCandidates.find((id) => !usedIds.has(id));
         }
 
-        const inserted = data as unknown as QuestionBankItem[];
-        insertedIds.push(...inserted.map(d => d.id));
-        results.push(...inserted);
+        // 2-ci seçim: Əgər cavab dəyişibsə, mətni eyni olan istifadə edilməmiş sətri tapırıq
+        if (!matchedId) {
+          const textCandidates = textMap.get(textKey);
+          if (textCandidates) {
+            matchedId = textCandidates.find((id) => !usedIds.has(id));
+          }
+        }
+
+        if (matchedId) {
+          usedIds.add(matchedId);
+          toUpdate.push({ id: matchedId, item: q });
+        } else {
+          toInsert.push(q);
+        }
       }
-      return results;
+
+      // 2. Mövcud sualların üzərinə yazırıq (UPDATE)
+      const UPDATE_CHUNK = 20;
+      for (let i = 0; i < toUpdate.length; i += UPDATE_CHUNK) {
+        const chunk = toUpdate.slice(i, i + UPDATE_CHUNK);
+        const results = await Promise.all(
+          chunk.map(({ id, item }) =>
+            supabase
+              .from('question_bank')
+              .update({
+                ...item,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', id)
+          )
+        );
+        const firstErr = results.find((r) => r.error);
+        if (firstErr?.error) {
+          throw new Error(`Sual yenilənərkən xəta: ${firstErr.error.message}`);
+        }
+      }
+
+      // 3. Yeni sualları əlavə edirik (INSERT)
+      const CHUNK_SIZE = 25;
+      for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
+        const chunk = toInsert.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase
+          .from('question_bank')
+          .insert(chunk);
+
+        if (error) {
+          throw new Error(`Suallar əlavə edilərkən xəta (${i + 1}-${Math.min(i + CHUNK_SIZE, toInsert.length)}): ${error.message}`);
+        }
+      }
+
+      return {
+        updatedCount: toUpdate.length,
+        insertedCount: toInsert.length,
+        total: questions.length,
+      };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-stats'] });
       queryClient.invalidateQueries({ queryKey: ['question-bank-categories'] });
-      toast.success(`${data.length} sual import edildi`);
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['quizzes'] });
+      if (data.updatedCount > 0 && data.insertedCount > 0) {
+        toast.success(`${data.updatedCount} sual yeniləndi (üzərinə yazıldı), ${data.insertedCount} yeni sual əlavə edildi`);
+      } else if (data.updatedCount > 0) {
+        toast.success(`${data.updatedCount} sualın məlumatları yeniləndi (üzərinə yazıldı)`);
+      } else {
+        toast.success(`${data.insertedCount} sual import edildi`);
+      }
     },
     onError: (error: Error) => {
       toast.error(`Import xətası: ${error.message}`);

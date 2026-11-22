@@ -134,6 +134,7 @@ export default function AdminChatPage() {
                                             content={m.content}
                                             isOwn={m.sender_id === user?.id}
                                             timestamp={m.created_at}
+                                            isRead={m.is_read}
                                         />
                                     ))
                                 )}
@@ -170,6 +171,18 @@ export default function AdminChatPage() {
                         </div>
 
                         <div className="space-y-4 pt-4 border-t border-border/50">
+                            {selectedConv.email && (
+                                <div className="space-y-1">
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">E-poçt</p>
+                                    <p className="text-xs break-all bg-muted/30 p-2 rounded-lg font-medium">{selectedConv.email}</p>
+                                </div>
+                            )}
+                            {selectedConv.role && (
+                                <div className="space-y-1">
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Rol</p>
+                                    <p className="text-xs capitalize bg-muted/30 p-2 rounded-lg font-medium">{selectedConv.role}</p>
+                                </div>
+                            )}
                             <div className="space-y-1">
                                 <p className="text-[10px] text-muted-foreground uppercase font-bold">ID</p>
                                 <p className="text-xs font-mono break-all bg-muted/30 p-2 rounded-lg">{selectedConv.user_id}</p>
