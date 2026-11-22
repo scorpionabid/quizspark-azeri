@@ -120,7 +120,7 @@ export default function QuizzesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="w-full">
         {/* Header */}
         <div className="mb-8">
           <h1 className="mb-2 font-display text-3xl font-bold text-foreground">

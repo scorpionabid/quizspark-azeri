@@ -428,6 +428,19 @@ export default function QuizPage() {
             await updateXPAsync(xpGain);
           }
 
+          // Record online result directly into teacher's class roster (100-point system) if linked
+          const activeRosterStudentId = rosterStudentId || selectedRosterStudent;
+          if (rosterClassId && activeRosterStudentId) {
+            const correctCount = latestAnswers.filter((a) => a.isCorrect).length;
+            await supabase.rpc('record_online_student_result', {
+              p_class_id: rosterClassId,
+              p_student_id: activeRosterStudentId,
+              p_quiz_id: quiz.id,
+              p_score: correctCount,
+              p_total_questions: displayQuestions.length,
+            });
+          }
+
           // Transition to result only after confirmed persistence
           setQuizState('result');
         } catch (error) {
@@ -441,24 +454,10 @@ export default function QuizPage() {
             },
           });
         }
-
-        // Record online result directly into teacher's class roster (100-point system) if linked
-        const activeRosterStudentId = rosterStudentId || selectedRosterStudent;
-        if (rosterClassId && activeRosterStudentId) {
-          const correctCount = latestAnswers.filter((a) => a.isCorrect).length;
-          await supabase.rpc('record_online_student_result', {
-            p_class_id: rosterClassId,
-            p_student_id: activeRosterStudentId,
-            p_quiz_id: quiz.id,
-            p_score: correctCount,
-            p_total_questions: displayQuestions.length,
-          });
-        }
-      } catch (error) {
-        console.error("Error completing quiz:", error);
-      }
+      })();
+    } else {
+      setQuizState('result');
     }
-    setQuizState('result');
   }, [isPreview, attemptId, startTime, user, quiz, displayQuestions, completeAttempt, updateXPAsync, rosterClassId, rosterStudentId, selectedRosterStudent]);
 
   // Soft Strict Mode & Anti-cheat logging (Does NOT cut candidate exam short)

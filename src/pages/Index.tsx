@@ -211,58 +211,7 @@ export default function Index() {
             />
           </div>
 
-          <h1 className="mb-4 font-display text-3xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl px-2">
-            Öyrənmək <span className="text-gradient-primary">Əyləncəli</span> Ola Bilər
-          </h1>
-
-          <p className="mx-auto mb-8 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            Müxtəlif fənlər üzrə interaktiv quizlərlə biliklərini test et,
-            yeni şeylər öyrən və liderlik lövhəsində yarış!
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
-            <Button 
-                size="lg" 
-                className="h-14 px-8 rounded-full shadow-lg hover:shadow-primary/25 transition-all text-base"
-                onClick={() => document.getElementById('all-quizzes')?.scrollIntoView({ behavior: 'smooth' })}
-            >
-              <PlayCircle className="mr-2 h-5 w-5" />
-              Həmən Başla
-            </Button>
-            <Button 
-                variant="outline"
-                size="lg" 
-                className="h-14 px-8 rounded-full bg-background/50 backdrop-blur text-base gap-2 border-primary/40 text-primary hover:bg-primary/10"
-                onClick={() => navigate('/progress')}
-            >
-              <Brain className="h-5 w-5" />
-              İnkişaf & AI Tyutor
-            </Button>
-            <Button 
-                variant="outline"
-                size="lg" 
-                className="h-14 px-8 rounded-full bg-background/50 backdrop-blur text-base"
-                onClick={() => navigate('/leaderboard')}
-            >
-              <Trophy className="mr-2 h-5 w-5" />
-              Liderlər Lövhəsi
-            </Button>
-          </div>
-
-          {/* Search */}
-          <div className="mx-auto mb-8 max-w-xl">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Quiz axtar..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-14 rounded-2xl border-border/50 bg-card/50 pl-12 pr-4 text-base backdrop-blur-sm focus:border-primary focus:ring-primary"
-              />
-            </div>
-
+          <div className="relative mx-auto max-w-4xl text-center">
             <h1 className="mb-4 font-display text-3xl font-bold leading-tight text-foreground sm:text-5xl lg:text-6xl px-2">
               {t('hero_title_1')}{' '}
               <span className="text-gradient-primary">{t('hero_title_2')}</span>{' '}
@@ -332,7 +281,6 @@ export default function Index() {
                 <div className="text-xs text-muted-foreground sm:text-sm">{t('total_subjects_stat')}</div>
               </div>
             </div>
-          </div>
 
           {/* AI Student Progress & Mentor Feature Banner */}
           <motion.div
@@ -366,6 +314,7 @@ export default function Index() {
           </motion.div>
         </div>
       </section>
+      ) : null}
 
       {/* Categories */}
       <section className="px-4 pb-4 sm:px-6 lg:px-8">
