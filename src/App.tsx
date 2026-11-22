@@ -25,9 +25,15 @@ import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import PendingApprovalPage from "./pages/auth/PendingApprovalPage";
 import SupportChatPage from "./pages/chat/SupportChatPage";
 
+// Student Progress Page — lazy
+const StudentProgressPage = lazy(() => import("./pages/student/StudentProgressPage"));
+
 // Teacher Pages — lazy (dnd-kit ayrı chunk-da olsun, quiz path-ına qarışmasın)
 const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));
 const CreateQuizPage = lazy(() => import("./pages/teacher/CreateQuizPage"));
+const CreateAssessmentPage = lazy(() => import("./pages/teacher/CreateAssessmentPage"));
+const ScanAssessmentPage = lazy(() => import("./pages/teacher/ScanAssessmentPage"));
+const ClassRosterPage = lazy(() => import("./pages/teacher/ClassRosterPage"));
 const MyQuizzesPage = lazy(() => import("./pages/teacher/MyQuizzesPage"));
 const AIAssistantPage = lazy(() => import("./pages/teacher/AIAssistantPage"));
 const QuestionBankPage = lazy(() => import("./pages/teacher/QuestionBankPage"));
@@ -38,6 +44,7 @@ const UsersPage = lazy(() => import("./pages/admin/UsersPage"));
 const PermissionsPage = lazy(() => import("./pages/admin/PermissionsPage"));
 const AIConfigPage = lazy(() => import("./pages/admin/AIConfigPage"));
 const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
+const TextbooksPage = lazy(() => import("./pages/admin/TextbooksPage"));
 const AdminChatPage = lazy(() => import("./pages/admin/AdminChatPage"));
 
 const queryClient = new QueryClient();
@@ -58,15 +65,35 @@ function AppRoutes() {
         <Route path="/pending-approval" element={<PendingApprovalPage />} />
 
         {/* Profile Route */}
-        <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <MainLayout><ProfilePage /></MainLayout>
+          </ProtectedRoute>
+        } />
 
         {/* Routes with Layout */}
         <Route path="/" element={<MainLayout><Index /></MainLayout>} />
         <Route path="/quizzes" element={<MainLayout><QuizzesPage /></MainLayout>} />
         <Route path="/quiz/:id" element={<MainLayout><QuizPage /></MainLayout>} />
         <Route path="/leaderboard" element={<MainLayout><LeaderboardPage /></MainLayout>} />
+        <Route path="/progress" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <MainLayout><StudentProgressPage /></MainLayout>
+          </Suspense>
+        } />
+        <Route path="/student/progress" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <MainLayout><StudentProgressPage /></MainLayout>
+          </Suspense>
+        } />
         <Route path="/support" element={<MainLayout><SupportChatPage /></MainLayout>} />
-        <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
+        <Route path="/settings" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute>
+              <MainLayout><SettingsPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
 
         {/* Teacher Routes - Protected + lazy */}
         <Route path="/teacher/dashboard" element={
@@ -111,6 +138,27 @@ function AppRoutes() {
             </ProtectedRoute>
           </Suspense>
         } />
+        <Route path="/teacher/create-assessment" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <MainLayout><CreateAssessmentPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+        <Route path="/teacher/scan" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <MainLayout><ScanAssessmentPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+        <Route path="/teacher/classes" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['teacher', 'admin']}>
+              <MainLayout><ClassRosterPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
 
         {/* Admin Routes - Protected + lazy */}
         <Route path="/admin/dashboard" element={
@@ -145,6 +193,13 @@ function AppRoutes() {
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>
             <ProtectedRoute allowedRoles={['admin']}>
               <MainLayout><SettingsPage /></MainLayout>
+            </ProtectedRoute>
+          </Suspense>
+        } />
+        <Route path="/admin/textbooks" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MainLayout><TextbooksPage /></MainLayout>
             </ProtectedRoute>
           </Suspense>
         } />

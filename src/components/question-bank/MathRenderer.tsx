@@ -11,7 +11,14 @@ type MathPart =
  * `$$...$$` → block math
  * `$...$`   → inline math
  */
-function parseMathParts(text: string): MathPart[] {
+function normalizeDelimiters(text: string): string {
+  return text
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_, inner) => `$$${inner}$$`)
+    .replace(/\\\(([\s\S]+?)\\\)/g, (_, inner) => `$${inner}$`);
+}
+
+function parseMathParts(rawText: string): MathPart[] {
+  const text = normalizeDelimiters(rawText);
   const parts: MathPart[] = [];
   // $$...$$ önce gəlir, sonra $...$
   const regex = /(\$\$[\s\S]+?\$\$|\$(?!\$)[^$\n]+?\$)/g;
@@ -51,8 +58,8 @@ interface MathRendererProps {
 export function MathRenderer({ text, className }: MathRendererProps) {
   if (!text) return null;
 
-  // `$` yoxdursa sadə mətn kimi göstər
-  if (!text.includes('$')) {
+  // `$` və ya `\(` / `\[` yoxdursa sadə mətn kimi göstər
+  if (!text.includes('$') && !text.includes('\\(') && !text.includes('\\[')) {
     return <span className={className}>{text}</span>;
   }
 

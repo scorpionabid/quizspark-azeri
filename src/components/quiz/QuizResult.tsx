@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, BookOpen, Share2 } from "lucide-react";
+import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, BookOpen, Share2, Brain, Sparkles } from "lucide-react";
+import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -207,6 +208,16 @@ export const QuizResult: React.FC<QuizResultProps> = ({
                 <div className="text-xs text-muted-foreground">Vaxt</div>
               </div>
             )}
+          </div>
+
+          <div className="mb-4">
+            <Link to="/progress" className="w-full block">
+              <Button className="w-full bg-gradient-to-r from-primary via-secondary to-primary bg-size-200 hover:bg-right transition-all text-primary-foreground font-bold shadow-lg shadow-primary/20 gap-2 h-11">
+                <Brain className="h-4 w-4" />
+                <span>Zəif Cəhətləri və Səhvləri AI Tyutor ilə Analiz Et</span>
+                <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
+              </Button>
+            </Link>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row mb-4">

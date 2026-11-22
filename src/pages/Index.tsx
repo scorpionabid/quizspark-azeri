@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap, PlayCircle } from "lucide-react";
+import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap, PlayCircle, Brain, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -174,6 +174,15 @@ export default function Index() {
             <Button 
                 variant="outline"
                 size="lg" 
+                className="h-14 px-8 rounded-full bg-background/50 backdrop-blur text-base gap-2 border-primary/40 text-primary hover:bg-primary/10"
+                onClick={() => navigate('/progress')}
+            >
+              <Brain className="h-5 w-5" />
+              İnkişaf & AI Tyutor
+            </Button>
+            <Button 
+                variant="outline"
+                size="lg" 
                 className="h-14 px-8 rounded-full bg-background/50 backdrop-blur text-base"
                 onClick={() => navigate('/leaderboard')}
             >
@@ -220,6 +229,37 @@ export default function Index() {
               <div className="text-xs text-muted-foreground sm:text-sm">Fənn</div>
             </div>
           </div>
+
+          {/* AI Student Progress & Mentor Feature Banner */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-auto mt-8 max-w-3xl overflow-hidden rounded-3xl bg-gradient-to-r from-primary/20 via-secondary/20 to-accent/20 border border-primary/30 p-6 sm:p-8 shadow-lg text-left backdrop-blur-md"
+          >
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  <span>YENİ İMKAN</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                  Zəif Cəhətlərini Gör və AI Mentor ilə Öyrən
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground max-w-lg">
+                  Bilik radarı, ağıllı səhvlər dəftəri, Sokratik AI Tyutor və fərdi 7 günlük tədris planı ilə biliklərini zirvəyə daşı.
+                </p>
+              </div>
+              <Button
+                size="lg"
+                className="gap-2 shadow-lg shadow-primary/25 h-12 px-6 rounded-2xl shrink-0 font-bold"
+                onClick={() => navigate('/progress')}
+              >
+                <Brain className="h-4 w-4" />
+                <span>İnkişaf Mərkəzi</span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </motion.div>
         </div>
       </section>
 

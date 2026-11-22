@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 // Hooks & Context
+import { supabase } from "@/integrations/supabase/client";
 import { useQuiz } from "@/hooks/useQuizzes";
 import { useQuestions } from "@/hooks/useQuestions";
 import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt } from "@/hooks/useQuizAttempts";
@@ -27,9 +28,23 @@ type Answer = QuestionAnswer;
 export default function QuizPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isPreview = searchParams.get('preview') === 'true';
+  const rosterClassId = searchParams.get('classId');
+  const rosterStudentId = searchParams.get('studentId');
+  const [rosterStudents, setRosterStudents] = useState<Array<{ id: string; full_name: string; student_number: number }>>([]);
+  const [selectedRosterStudent, setSelectedRosterStudent] = useState<string>(rosterStudentId || '');
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (rosterClassId && !rosterStudentId) {
+      supabase
+        .rpc('get_class_students_for_quiz', { p_class_id: rosterClassId })
+        .then(({ data }) => {
+          if (data) setRosterStudents(data);
+        });
+    }
+  }, [rosterClassId, rosterStudentId]);
 
   const { data: quiz, isLoading: quizLoading } = useQuiz(id);
   const { data: questions = [], isLoading: questionsLoading } = useQuestions(id);
@@ -122,12 +137,25 @@ export default function QuizPage() {
         if (xpGain > 0) {
           await updateXPAsync(xpGain);
         }
+
+        // Record online result directly into teacher's class roster (100-point system) if linked
+        const activeRosterStudentId = rosterStudentId || selectedRosterStudent;
+        if (rosterClassId && activeRosterStudentId) {
+          const correctCount = latestAnswers.filter((a) => a.isCorrect).length;
+          await supabase.rpc('record_online_student_result', {
+            p_class_id: rosterClassId,
+            p_student_id: activeRosterStudentId,
+            p_quiz_id: quiz.id,
+            p_score: correctCount,
+            p_total_questions: displayQuestions.length,
+          });
+        }
       } catch (error) {
         console.error("Error completing quiz:", error);
       }
     }
     setQuizState('result');
-  }, [isPreview, attemptId, startTime, user, quiz, displayQuestions, completeAttempt, updateXPAsync]);
+  }, [isPreview, attemptId, startTime, user, quiz, displayQuestions, completeAttempt, updateXPAsync, rosterClassId, rosterStudentId, selectedRosterStudent]);
 
   // Strict Mode — tab violations tracked; 3 violations → auto-submit
   useEffect(() => {
@@ -472,6 +500,37 @@ export default function QuizPage() {
   if (!quiz) return <div className="flex-1 bg-background p-8 flex flex-col items-center justify-center"><EmptyState icon="😕" title="Quiz tapılmadı" description="Bu quiz mövcud deyil və ya silinib." action={{ label: "Ana Səhifəyə Qayıt", onClick: () => navigate('/') }} /></div>;
 
   if (quizState === 'intro') {
+    if (rosterClassId && !rosterStudentId && rosterStudents.length > 0 && !selectedRosterStudent) {
+      return (
+        <div className="min-h-[60vh] flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-gradient-card border border-border/50 p-6 space-y-4">
+            <h2 className="font-display text-xl font-bold text-foreground">Sinif Siyahısından Adınızı Seçin</h2>
+            <p className="text-sm text-muted-foreground">
+              Nəticəniz avtomatik olaraq müəllimin jurnalına (100 ballıq sistemlə) yazılacaq.
+            </p>
+            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+              {rosterStudents.map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRosterStudent(st.id);
+                    const next = new URLSearchParams(searchParams);
+                    next.set('studentId', st.id);
+                    setSearchParams(next, { replace: true });
+                  }}
+                  className="w-full flex items-center gap-3 rounded-xl border border-border/50 p-3 text-left hover:border-primary hover:bg-primary/10 transition-colors"
+                >
+                  <span className="font-mono text-xs text-muted-foreground w-6">{st.student_number}.</span>
+                  <span className="font-medium text-sm">{st.full_name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <QuizIntro
         quiz={quiz}

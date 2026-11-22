@@ -1,14 +1,15 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  Settings,
   Globe,
   Bell,
   Shield,
   Database,
-  Mail,
   Save,
   RefreshCw
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,28 +24,97 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
+const STORAGE_KEY = "platform_settings_v1";
+
+function loadSavedSettings() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function SettingsPage() {
+  const { role } = useAuth();
+  const queryClient = useQueryClient();
+  const initial = loadSavedSettings();
   const [hasChanges, setHasChanges] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [lastBackupTime, setLastBackupTime] = useState<string>(initial.lastBackupTime || "Hələ edilməyib");
 
   // General settings
-  const [siteName, setSiteName] = useState("Sınaq");
-  const [siteDescription, setSiteDescription] = useState("Öyrənmək Əyləncəli Ola Bilər");
-  const [language, setLanguage] = useState("az");
-  const [timezone, setTimezone] = useState("Asia/Baku");
+  const [siteName, setSiteName] = useState(initial.siteName ?? "Sınaq");
+  const [siteDescription, setSiteDescription] = useState(initial.siteDescription ?? "Öyrənmək Əyləncəli Ola Bilər");
+  const [language, setLanguage] = useState(initial.language ?? "az");
+  const [timezone, setTimezone] = useState(initial.timezone ?? "Asia/Baku");
 
   // Notifications
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(false);
-  const [weeklyReport, setWeeklyReport] = useState(true);
+  const [emailNotifications, setEmailNotifications] = useState(initial.emailNotifications ?? true);
+  const [pushNotifications, setPushNotifications] = useState(initial.pushNotifications ?? false);
+  const [weeklyReport, setWeeklyReport] = useState(initial.weeklyReport ?? true);
 
   // Security
-  const [twoFactor, setTwoFactor] = useState(false);
-  const [sessionTimeout, setSessionTimeout] = useState("60");
-  const [passwordPolicy, setPasswordPolicy] = useState("medium");
+  const [twoFactor, setTwoFactor] = useState(initial.twoFactor ?? false);
+  const [sessionTimeout, setSessionTimeout] = useState(initial.sessionTimeout ?? "60");
+  const [passwordPolicy, setPasswordPolicy] = useState(initial.passwordPolicy ?? "medium");
 
   const handleSave = () => {
-    toast.success("Ayarlar uğurla yeniləndi!");
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        siteName,
+        siteDescription,
+        language,
+        timezone,
+        emailNotifications,
+        pushNotifications,
+        weeklyReport,
+        twoFactor,
+        sessionTimeout,
+        passwordPolicy,
+        lastBackupTime,
+      })
+    );
+    toast.success("Ayarlar uğurla yadda saxlanıldı!");
     setHasChanges(false);
+  };
+
+  const handleBackupNow = async () => {
+    setIsBackingUp(true);
+    try {
+      const [{ data: quizzes }, { data: textbooks }, { data: classes }] = await Promise.all([
+        supabase.from("quizzes").select("id, title, subject, grade, assessment_type, created_at").limit(200),
+        supabase.from("textbooks").select("id, title, grade, subject, status").limit(200),
+        supabase.from("teacher_classes").select("id, name, grade, academic_year").limit(200),
+      ]);
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        quizzes: quizzes ?? [],
+        textbooks: textbooks ?? [],
+        classes: classes ?? [],
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `platform-backup-${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      const nowStr = new Date().toLocaleTimeString("az-AZ", { hour: "2-digit", minute: "2-digit" });
+      setLastBackupTime(`Bu gün, ${nowStr}`);
+      toast.success("Verilənlər bazası ehtiyat nüsxəsi endirildi!");
+    } catch {
+      toast.error("Yedəkləmə zamanı xəta baş verdi");
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  const handleOptimizeCache = async () => {
+    await queryClient.invalidateQueries();
+    toast.success("Keş təmizləndi və məlumatlar yeniləndi!");
   };
 
   const handleChange = () => {
@@ -53,7 +123,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-4xl">
+      <div className="w-full">
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -256,7 +326,8 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Database & Backup */}
+        {/* Database & Backup (Admin only) */}
+        {role === "admin" && (
         <div className="rounded-2xl bg-gradient-card border border-border/50 p-6">
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/20">
@@ -269,25 +340,26 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between rounded-xl bg-muted/30 p-4">
               <div>
                 <div className="font-medium text-foreground">Son Yedəkləmə</div>
-                <div className="text-sm text-muted-foreground">Bu gün, 03:00</div>
+                <div className="text-sm text-muted-foreground">{lastBackupTime}</div>
               </div>
-              <Button variant="outline" size="sm">
-                <RefreshCw className="mr-2 h-4 w-4" />
+              <Button variant="outline" size="sm" onClick={handleBackupNow} disabled={isBackingUp}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isBackingUp ? "animate-spin" : ""}`} />
                 İndi Yedəklə
               </Button>
             </div>
 
             <div className="flex items-center justify-between rounded-xl bg-muted/30 p-4">
               <div>
-                <div className="font-medium text-foreground">Verilənlər Bazası Ölçüsü</div>
-                <div className="text-sm text-muted-foreground">256 MB / 1 GB</div>
+                <div className="font-medium text-foreground">Keş və Sinxronizasiya</div>
+                <div className="text-sm text-muted-foreground">Lokal sorğu keşini təmizləyib yeniləyin</div>
               </div>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleOptimizeCache}>
                 Optimallaşdır
               </Button>
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

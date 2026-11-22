@@ -90,6 +90,7 @@ export default function MyQuizzesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
@@ -134,6 +135,7 @@ export default function MyQuizzesPage() {
         return false;
       if (statusFilter === 'active' && !quiz.is_published) return false;
       if (statusFilter === 'draft' && quiz.is_published) return false;
+      if (typeFilter !== 'all' && ((quiz as { assessment_type?: string }).assessment_type || 'quiz') !== typeFilter) return false;
       if (difficultyFilter !== 'all' && quiz.difficulty !== difficultyFilter) return false;
       if (subjectFilter !== 'all' && quiz.subject !== subjectFilter) return false;
       return true;
@@ -161,7 +163,7 @@ export default function MyQuizzesPage() {
           return 0;
       }
     });
-  }, [quizzes, quizzesMeta, debouncedSearch, statusFilter, difficultyFilter, subjectFilter, sortBy]);
+  }, [quizzes, quizzesMeta, debouncedSearch, statusFilter, typeFilter, difficultyFilter, subjectFilter, sortBy]);
 
   // ── handlers ──
   const handleDelete = async () => {
@@ -224,6 +226,7 @@ export default function MyQuizzesPage() {
 
   const activeFilterCount = [
     statusFilter !== 'all',
+    typeFilter !== 'all',
     difficultyFilter !== 'all',
     subjectFilter !== 'all',
     debouncedSearch !== '',
@@ -231,7 +234,7 @@ export default function MyQuizzesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-6xl">
+      <div className="w-full">
 
         {/* ── Header ── */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -252,6 +255,7 @@ export default function MyQuizzesPage() {
               onClick={() => {
                 setShowArchived(s => !s);
                 setSubjectFilter('all');
+                setTypeFilter('all');
                 setDifficultyFilter('all');
                 setStatusFilter('all');
               }}
@@ -293,13 +297,27 @@ export default function MyQuizzesPage() {
               />
             </div>
 
+            {/* Type (KSQ / BSQ / Sınaq / Quiz) */}
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Növ" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Bütün növlər</SelectItem>
+                <SelectItem value="ksq">KSQ</SelectItem>
+                <SelectItem value="bsq">BSQ</SelectItem>
+                <SelectItem value="sinaq">Sınaq</SelectItem>
+                <SelectItem value="quiz">Quiz</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Status */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Hamısı</SelectItem>
+                <SelectItem value="all">Bütün statuslar</SelectItem>
                 <SelectItem value="active">Dərc Olunmuş</SelectItem>
                 <SelectItem value="draft">Qaralama</SelectItem>
               </SelectContent>
@@ -307,7 +325,7 @@ export default function MyQuizzesPage() {
 
             {/* Difficulty */}
             <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-[165px]">
                 <SelectValue placeholder="Çətinlik" />
               </SelectTrigger>
               <SelectContent>
@@ -370,6 +388,7 @@ export default function MyQuizzesPage() {
               <button
                 onClick={() => {
                   setSearchInput('');
+                  setTypeFilter('all');
                   setStatusFilter('all');
                   setDifficultyFilter('all');
                   setSubjectFilter('all');
@@ -405,6 +424,13 @@ export default function MyQuizzesPage() {
                         <Badge variant={quiz.is_published ? 'success' : 'warning'}>
                           {quiz.is_published ? 'Dərc Olunmuş' : 'Qaralama'}
                         </Badge>
+                        {(() => {
+                          const aType = (quiz as { assessment_type?: string }).assessment_type;
+                          if (aType === 'ksq') return <Badge variant="default">KSQ</Badge>;
+                          if (aType === 'bsq') return <Badge variant="default">BSQ</Badge>;
+                          if (aType === 'sinaq') return <Badge variant="default">Sınaq</Badge>;
+                          return null;
+                        })()}
                         {quiz.difficulty && (
                           <Badge variant={quiz.difficulty}>
                             {DIFFICULTY_LABELS[quiz.difficulty] || quiz.difficulty}

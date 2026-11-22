@@ -279,7 +279,11 @@ serve(async (req: Request) => {
 
     const {
       topic,
+      topics,
+      topicIds,
       subject,
+      grade,
+      assessmentType = 'quiz',
       difficulty,
       questionCount,
       agentId,
@@ -290,6 +294,22 @@ serve(async (req: Request) => {
       bloomLevel,
       questionType = 'multiple_choice',
     } = await req.json();
+
+    // Fetch textbook chunks from our local DB if topicIds are provided
+    let effectiveDocumentContext = documentContext || '';
+    if (Array.isArray(topicIds) && topicIds.length > 0) {
+      const { data: chunks } = await supabase
+        .from('textbook_chunks')
+        .select('content')
+        .in('topic_id', topicIds)
+        .limit(12);
+      if (chunks && chunks.length > 0) {
+        const chunkText = chunks.map((c: { content: string }) => c.content).join('\n\n---\n\n');
+        effectiveDocumentContext = effectiveDocumentContext
+          ? `${effectiveDocumentContext}\n\n${chunkText}`
+          : chunkText;
+      }
+    }
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
@@ -303,6 +323,7 @@ serve(async (req: Request) => {
       easy: "Suallar sadə olmalı, əsas anlayışları əhatə etməlidir.",
       medium: "Suallar orta çətinlikdə olmalı, mövzunun dərindən başa düşülməsini tələb etməlidir.",
       hard: "Suallar çətin olmalı, analitik düşüncə və mürəkkəb problemlərin həllini tələb etməlidir.",
+      balanced: "Azərbaycan məktəb summativ qiymətləndirmə standartına uyğun paylanma tətbiq et: ~20% I səviyyə (asan), ~50% II-III səviyyə (orta), ~30% IV səviyyə (çətin).",
     };
 
     const agentPrompts: Record<string, string> = {
@@ -335,33 +356,59 @@ ${getTypeInstructions(questionType)}
 
 Çətinlik səviyyəsi: ${difficultyInstructions[difficulty] || difficultyInstructions.medium}`;
 
+    const isStemSubject = /riyaziyyat|fizika|kimya|math|physics|chemistry/i.test(String(subject || ''));
+    const effectiveTemperature = isStemSubject ? Math.min(Number(temperature) || 0.3, 0.35) : temperature;
+
+    if (isStemSubject) {
+      systemPrompt += `
+
+Riyaziyyat / Dəqiq Fənlər Qaydaları:
+- Bütün düsturları, kəsrləri, kökləri, dərəcələri və riyazi ifadələri mütləq LaTeX formatında yaz ($...$ daxilində, məs: $\\frac{3}{4}$, $\\sqrt{16}$, $x^2 + 2x = 0$).
+- Hər məsələni əvvəlcə zehində addım-addım dəqiq hesabla, yalnız yoxlanılmış düzgün cavabı qeyd et və variantların bir-birindən fərqli olduğuna əmin ol.`;
+    }
+
     if (bloomLevel) {
       systemPrompt += `\n\nVacib: Bütün suallar "${bloomLevel}" Bloom səviyyəsində olmalıdır.`;
     }
 
-    let userPrompt = `Mövzu: ${topic}
-Fənn: ${subject}
+    const topicListText = Array.isArray(topics) && topics.length > 0 ? topics.join(', ') : topic;
+    const assessmentLabel =
+      assessmentType === 'ksq'
+        ? 'KSQ (Kiçik Summativ Qiymətləndirmə)'
+        : assessmentType === 'bsq'
+          ? 'BSQ (Böyük Summativ Qiymətləndirmə)'
+          : assessmentType === 'sinaq'
+            ? 'Ümumi Sınaq İmtahanı'
+            : 'Quiz';
+
+    let userPrompt = `Qiymətləndirmə növü: ${assessmentLabel}
+${grade ? `Sinif: ${grade}-ci sinif\n` : ''}Fənn: ${subject}
+Mövzu(lar): ${topicListText}
 Sual sayı: ${questionCount}`;
 
-    if (documentContext) {
+    if (assessmentType === 'ksq' || assessmentType === 'bsq' || assessmentType === 'sinaq') {
+      userPrompt += `\nSualları verilmiş mövzular arasında bərabər bölüşdür və ${grade || 'müvafiq'} sinif şagirdlərinin yaş və kurikulum səviyyəsinə tam uyğun hazırla.`;
+    }
+
+    if (effectiveDocumentContext) {
       userPrompt += `
 
-Aşağıdakı sənəd məzmununa əsaslanaraq suallar yarat:
+Aşağıdakı dərslik / sənəd məzmununa əsaslanaraq suallar yarat:
 
-${documentContext}
+${effectiveDocumentContext}
 
-Bu sənədə daxil olan məlumatlardan istifadə edərək ${questionCount} ədəd test sualı yarat.`;
+Bu məzmuna daxil olan məlumatlardan istifadə edərək ${questionCount} ədəd test sualı yarat.`;
     } else {
       userPrompt += `
 
-Bu mövzu üzrə ${questionCount} ədəd test sualı yarat.`;
+Bu mövzu(lar) üzrə ${questionCount} ədəd test sualı yarat.`;
     }
 
     const toolSchema = getToolSchemaForType(questionType);
 
     const requestBody = JSON.stringify({
       model,
-      temperature,
+      temperature: effectiveTemperature,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

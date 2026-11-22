@@ -6,7 +6,7 @@ import {
   LogOut,
   Trophy,
   PlusCircle,
-  LayoutDashboard,
+  BarChart3,
   FileText,
   Shield,
   Key,
@@ -16,7 +16,9 @@ import {
   User,
   LogIn,
   Database,
-  MessageCircle
+  MessageCircle,
+  TrendingUp,
+  QrCode
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -56,17 +58,21 @@ const navigationGroups: NavGroup[] = [
     items: [
       { title: "Ana Səhifə", url: "/", icon: Home, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Quizlər", url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
-      { title: "Liderlik Lövhəsi", url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student'] },
-      { title: "Dəstək", url: "/support", icon: MessageCircle, roles: ['admin', 'teacher', 'student'] },
+      { title: "İnkişaf & AI Tyutor", url: "/progress", icon: TrendingUp, roles: ['admin', 'teacher', 'student', 'guest'] },
+      { title: "Liderlik Lövhəsi", url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student', 'guest'] },
+      { title: "Dəstək", url: "/support", icon: MessageCircle, roles: ['admin', 'teacher', 'student', 'guest'] },
     ],
   },
   {
     label: "Müəllim",
     items: [
-      { title: "İdarə Paneli", url: "/teacher/dashboard", icon: LayoutDashboard, roles: ['admin', 'teacher'] },
+      { title: "KSQ / BSQ / Sınaq", url: "/teacher/create-assessment?type=ksq", icon: PlusCircle, roles: ['admin', 'teacher'] },
       { title: "Quizlərim", url: "/teacher/my-quizzes", icon: FileText, roles: ['admin', 'teacher'] },
+      { title: "Kağız Yoxla (Kamera)", url: "/teacher/scan", icon: QrCode, roles: ['admin', 'teacher'] },
+      { title: "Siniflərim və Nəticələr", url: "/teacher/classes", icon: Users, roles: ['admin', 'teacher'] },
       { title: "Sual Bankı", url: "/teacher/question-bank", icon: Database, roles: ['admin', 'teacher'] },
       { title: "AI Köməkçi", url: "/teacher/ai-assistant", icon: Sparkles, roles: ['admin', 'teacher'] },
+      { title: "Statistika", url: "/teacher/dashboard", icon: BarChart3, roles: ['admin', 'teacher'] },
     ],
   },
   {
@@ -74,6 +80,7 @@ const navigationGroups: NavGroup[] = [
     items: [
       { title: "Admin Panel", url: "/admin/dashboard", icon: Shield, roles: ['admin'] },
       { title: "İstifadəçilər", url: "/admin/users", icon: Users, roles: ['admin'] },
+      { title: "Dərsliklər (TRİMS)", url: "/admin/textbooks", icon: BookOpen, roles: ['admin'] },
       { title: "Mesajlar", url: "/admin/chat", icon: MessageCircle, roles: ['admin'] },
       { title: "İcazələr", url: "/admin/permissions", icon: Key, roles: ['admin'] },
       { title: "AI Konfiqurasiya", url: "/admin/ai-config", icon: Cpu, roles: ['admin'] },

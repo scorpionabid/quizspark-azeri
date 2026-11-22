@@ -23,10 +23,13 @@ export function useProfileStats() {
                 .eq('user_id', user.id)
                 .order('completed_at', { ascending: false });
 
-            if (attemptsError) throw attemptsError;
+            if (attemptsError) {
+                console.warn('quiz_attempts fetch error:', attemptsError.message);
+            }
 
+            const safeAttempts = attemptsError ? [] : (attempts || []);
             // Only count completed attempts for stats
-            const completedAttempts = attempts?.filter(a => a.completed_at !== null && a.score !== null) || [];
+            const completedAttempts = safeAttempts.filter(a => a.completed_at !== null && a.score !== null);
             const totalQuizzesTaken = completedAttempts.length;
             // score is already 0-100 percentage; average across completed attempts
             const averageScore = totalQuizzesTaken > 0
@@ -35,19 +38,22 @@ export function useProfileStats() {
             // XP-style points: each percentage point = 1 point, scaled by quiz count
             const totalPoints = completedAttempts.reduce((acc, curr) => acc + (curr.score || 0), 0);
 
-            // Role-specific stats for Teachers
+            // Role-specific stats for Teachers / Admins
             let teacherStats = null;
-            if (role === 'teacher') {
+            if (role === 'teacher' || role === 'admin') {
                 const { data: createdQuizzes, error: quizError } = await supabase
                     .from('quizzes')
                     .select('id, play_count, rating')
                     .eq('creator_id', user.id);
 
-                if (quizError) throw quizError;
+                if (quizError) {
+                    console.warn('teacher quizzes fetch error:', quizError.message);
+                }
 
-                const totalCreated = createdQuizzes?.length || 0;
-                const totalPlays = createdQuizzes?.reduce((acc, q) => acc + (q.play_count || 0), 0) || 0;
-                const ratings = createdQuizzes?.filter(q => q.rating !== null).map(q => q.rating as number) || [];
+                const safeQuizzes = quizError ? [] : (createdQuizzes || []);
+                const totalCreated = safeQuizzes.length;
+                const totalPlays = safeQuizzes.reduce((acc, q) => acc + (q.play_count || 0), 0);
+                const ratings = safeQuizzes.filter(q => q.rating !== null).map(q => q.rating as number);
                 const averageRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "0";
 
                 teacherStats = {
@@ -58,11 +64,11 @@ export function useProfileStats() {
             }
 
             return {
-                attempts,
+                attempts: safeAttempts,
                 totalQuizzes: totalQuizzesTaken,
                 averageScore,
                 totalPoints,
-                recentActivity: attempts?.slice(0, 5) || [],
+                recentActivity: safeAttempts.slice(0, 5),
                 teacherStats
             };
         },

@@ -137,7 +137,7 @@ export function UserMenu() {
             <DropdownMenuItem asChild className="cursor-pointer">
               <Link to="/teacher/dashboard" className="flex items-center">
                 {getRoleIcon()}
-                <span className="ml-2">Müəllim Paneli</span>
+                <span className="ml-2">Statistika</span>
               </Link>
             </DropdownMenuItem>
           </>

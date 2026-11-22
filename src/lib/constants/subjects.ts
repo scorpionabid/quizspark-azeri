@@ -16,6 +16,33 @@ export const SUBJECT_OPTIONS = [
   { value: "philosophy", label: "Fəlsəfə" },
 ] as const;
 
+export const CORE_SUBJECTS = [
+  "Azərbaycan dili",
+  "Riyaziyyat",
+  "İngilis dili",
+  "Ədəbiyyat",
+  "Tarix",
+  "Coğrafiya",
+  "Fizika",
+  "Kimya",
+  "Biologiya",
+  "İnformatika",
+] as const;
+
+export const OTHER_SUBJECTS = [
+  "Musiqi",
+  "Təsviri incəsənət",
+  "Rus dili",
+  "Texnologiya",
+  "Həyat bilgisi",
+  "Bədən tərbiyəsi",
+  "Çağırışaqədərki hazırlıq",
+] as const;
+
+export const ALL_SCHOOL_SUBJECTS = [...CORE_SUBJECTS, ...OTHER_SUBJECTS] as const;
+
+export const SCHOOL_GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
+
 export const SUBJECT_LABELS: Record<string, string> = Object.fromEntries(
   SUBJECT_OPTIONS.map((s) => [s.value, s.label])
 );

@@ -8,7 +8,7 @@ import { StudentProfile } from "@/components/profile/StudentProfile";
 import { TeacherProfile } from "@/components/profile/TeacherProfile";
 
 export default function ProfilePage() {
-    const { user, profile, role } = useAuth();
+    const { user, profile, role, isLoading: authLoading } = useAuth();
     const { data: stats, isLoading: statsLoading } = useProfileStats();
     const { updateProfile, uploadAvatar, isUpdating } = useUpdateProfile();
 
@@ -20,7 +20,7 @@ export default function ProfilePage() {
         }
     };
 
-    if (statsLoading) {
+    if (authLoading || statsLoading) {
         return (
             <div className="min-h-[60vh] flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -29,7 +29,7 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="container mx-auto py-8 px-4 max-w-6xl">
+        <div className="w-full py-6 px-4 sm:px-6 lg:px-8">
             <motion.div
                 variants={container}
                 initial="hidden"
@@ -47,10 +47,10 @@ export default function ProfilePage() {
                 />
 
                 {/* Role Specific Content */}
-                {role === 'teacher' ? (
-                    <TeacherProfile stats={stats} />
+                {role === 'teacher' || role === 'admin' ? (
+                    <TeacherProfile stats={stats ?? null} />
                 ) : (
-                    <StudentProfile stats={stats} />
+                    <StudentProfile stats={stats ?? null} />
                 )}
             </motion.div>
         </div>

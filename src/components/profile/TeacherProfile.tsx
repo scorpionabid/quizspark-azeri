@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Users, Star, Award, Zap, Database } from "lucide-react";
@@ -16,6 +17,7 @@ interface TeacherProfileProps {
 }
 
 export function TeacherProfile({ stats }: TeacherProfileProps) {
+    const navigate = useNavigate();
     const { profile } = useAuth();
     const isVip = profile?.subscription_tier === 'vip';
 
@@ -100,7 +102,7 @@ export function TeacherProfile({ stats }: TeacherProfileProps) {
                                     Süni intellekt köməyi ilə saniyələr içində peşəkar quiz-lər yaradın.
                                 </p>
                                 <SubscriptionGate feature="ai_assistant" variant="inline">
-                                    <Button variant="outline" size="sm" className="w-full" onClick={() => window.location.href = '/ai-assistant'}>
+                                    <Button variant="outline" size="sm" className="w-full" onClick={() => navigate('/teacher/ai-assistant')}>
                                         İstifadə Et
                                     </Button>
                                 </SubscriptionGate>
@@ -119,7 +121,7 @@ export function TeacherProfile({ stats }: TeacherProfileProps) {
                                     Minlərlə hazır sualdan istifadə edərərk imtahanlarınızı sürətləndirin.
                                 </p>
                                 <SubscriptionGate feature="question_bank_write" variant="inline">
-                                    <Button variant="outline" size="sm" className="w-full" onClick={() => window.location.href = '/question-bank'}>
+                                    <Button variant="outline" size="sm" className="w-full" onClick={() => navigate('/teacher/question-bank')}>
                                         Bankı İdarə Et
                                     </Button>
                                 </SubscriptionGate>

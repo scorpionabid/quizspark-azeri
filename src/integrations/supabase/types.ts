@@ -1589,6 +1589,7 @@ export type Database = {
           access_password: string | null
           allow_backtracking: boolean
           allow_bookmarks: boolean
+          assessment_type: string
           attempts_limit: number | null
           auto_advance: boolean | null
           available_from: string | null
@@ -1619,12 +1620,14 @@ export type Database = {
           time_bonus_enabled: boolean | null
           time_penalty_enabled: boolean | null
           title: string
+          topics: Json | null
           updated_at: string | null
         }
         Insert: {
           access_password?: string | null
           allow_backtracking?: boolean
           allow_bookmarks?: boolean
+          assessment_type?: string
           attempts_limit?: number | null
           auto_advance?: boolean | null
           available_from?: string | null
@@ -1655,12 +1658,14 @@ export type Database = {
           time_bonus_enabled?: boolean | null
           time_penalty_enabled?: boolean | null
           title: string
+          topics?: Json | null
           updated_at?: string | null
         }
         Update: {
           access_password?: string | null
           allow_backtracking?: boolean
           allow_bookmarks?: boolean
+          assessment_type?: string
           attempts_limit?: number | null
           auto_advance?: boolean | null
           available_from?: string | null
@@ -1691,7 +1696,233 @@ export type Database = {
           time_bonus_enabled?: boolean | null
           time_penalty_enabled?: boolean | null
           title?: string
+          topics?: Json | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      textbooks: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          grade: number
+          id: string
+          is_core_subject: boolean
+          page_count: number | null
+          source_type: string
+          source_url: string | null
+          status: string
+          storage_path: string | null
+          subject: string
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          grade: number
+          id?: string
+          is_core_subject?: boolean
+          page_count?: number | null
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          subject: string
+          title: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          grade?: number
+          id?: string
+          is_core_subject?: boolean
+          page_count?: number | null
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          subject?: string
+          title?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      curriculum_topics: {
+        Row: {
+          created_at: string
+          grade: number
+          id: string
+          order_index: number
+          page_end: number | null
+          page_start: number | null
+          semester: number | null
+          subject: string
+          textbook_id: string | null
+          topic_name: string
+          unit_name: string
+        }
+        Insert: {
+          created_at?: string
+          grade: number
+          id?: string
+          order_index?: number
+          page_end?: number | null
+          page_start?: number | null
+          semester?: number | null
+          subject: string
+          textbook_id?: string | null
+          topic_name: string
+          unit_name?: string
+        }
+        Update: {
+          created_at?: string
+          grade?: number
+          id?: string
+          order_index?: number
+          page_end?: number | null
+          page_start?: number | null
+          semester?: number | null
+          subject?: string
+          textbook_id?: string | null
+          topic_name?: string
+          unit_name?: string
+        }
+        Relationships: []
+      }
+      textbook_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          page_number: number | null
+          textbook_id: string
+          topic_id: string | null
+        }
+        Insert: {
+          chunk_index?: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          page_number?: number | null
+          textbook_id: string
+          topic_id?: string | null
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          page_number?: number | null
+          textbook_id?: string
+          topic_id?: string | null
+        }
+        Relationships: []
+      }
+      teacher_classes: {
+        Row: {
+          academic_year: string
+          created_at: string
+          grade: number
+          id: string
+          name: string
+          teacher_id: string
+        }
+        Insert: {
+          academic_year?: string
+          created_at?: string
+          grade: number
+          id?: string
+          name: string
+          teacher_id: string
+        }
+        Update: {
+          academic_year?: string
+          created_at?: string
+          grade?: number
+          id?: string
+          name?: string
+          teacher_id?: string
+        }
+        Relationships: []
+      }
+      class_students: {
+        Row: {
+          class_id: string
+          created_at: string
+          full_name: string
+          id: string
+          student_number: number
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          full_name: string
+          id?: string
+          student_number?: number
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          student_number?: number
+        }
+        Relationships: []
+      }
+      student_assessment_results: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          grade_mark: number
+          id: string
+          percentage: number
+          quiz_id: string
+          score: number
+          score_10: number
+          source: string
+          student_id: string
+          teacher_id: string
+          total_questions: number
+          variant: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          grade_mark: number
+          id?: string
+          percentage: number
+          quiz_id: string
+          score: number
+          score_10: number
+          source?: string
+          student_id: string
+          teacher_id: string
+          total_questions: number
+          variant?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          grade_mark?: number
+          id?: string
+          percentage?: number
+          quiz_id?: string
+          score?: number
+          score_10?: number
+          source?: string
+          student_id?: string
+          teacher_id?: string
+          total_questions?: number
+          variant?: string | null
         }
         Relationships: []
       }
@@ -1848,6 +2079,26 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      record_online_student_result: {
+        Args: {
+          p_class_id: string
+          p_student_id: string
+          p_quiz_id: string
+          p_score: number
+          p_total_questions: number
+        }
+        Returns: undefined
+      }
+      get_class_students_for_quiz: {
+        Args: {
+          p_class_id: string
+        }
+        Returns: {
+          full_name: string
+          id: string
+          student_number: number
+        }[]
       }
       search_questions: {
         Args: {

@@ -1,8 +1,10 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Target, Trophy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BookOpen, Target, Trophy, TrendingUp, Sparkles, Brain, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { az } from "date-fns/locale";
+import { Link } from "react-router-dom";
 
 interface StudentProfileProps {
     stats: {
@@ -21,6 +23,35 @@ export function StudentProfile({ stats }: StudentProfileProps) {
 
     return (
         <div className="space-y-8">
+            {/* AI Progress Hub Feature Banner */}
+            <motion.div variants={item}>
+                <Card className="overflow-hidden bg-gradient-to-r from-primary/20 via-card to-secondary/20 border-primary/30 shadow-md">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="space-y-1.5">
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                                    <span>YENİ: Fərdi Tərəqqi & AI Mentor</span>
+                                </div>
+                                <h3 className="text-xl font-bold tracking-tight text-foreground">
+                                    Zəif tərəflərini aşkar et və AI Tyutor ilə öyrən
+                                </h3>
+                                <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
+                                    Bilik radarı, ağıllı səhvlər dəftəri, aralıqlı təkrar və gündəlik hədəflərlə nəticələrini maksimuma çatdır.
+                                </p>
+                            </div>
+
+                            <Link to="/progress">
+                                <Button className="gap-2 shadow-lg shadow-primary/25">
+                                    <Brain className="h-4 w-4" />
+                                    <span>İnkişaf Mərkəzinə Keç</span>
+                                    <ArrowRight className="h-4 w-4" />
+                                </Button>
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+            </motion.div>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <motion.div variants={item}>

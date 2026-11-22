@@ -63,6 +63,24 @@ function useTeacherTopStudents(quizIds: string[]) {
   });
 }
 
+function useTeacherRosterStats() {
+  return useQuery({
+    queryKey: ["teacher-roster-stats"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("student_assessment_results")
+        .select("percentage, grade_mark, source");
+      const rows = data || [];
+      const count = rows.length;
+      const avg100 = count > 0 ? Math.round(rows.reduce((s, r) => s + Number(r.percentage || 0), 0) / count) : 0;
+      const passed = rows.filter((r) => Number(r.grade_mark) >= 3).length;
+      const passRate = count > 0 ? Math.round((passed / count) * 100) : 0;
+      return { count, avg100, passRate };
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
 export default function TeacherDashboard() {
   const navigate = useNavigate();
   const { data: myQuizzes = [], isLoading: quizzesLoading } = useMyQuizzes();
@@ -70,6 +88,7 @@ export default function TeacherDashboard() {
   const { data: meta = {}, isLoading: metaLoading } = useQuizzesMeta(quizIds);
   const { data: topStudents = [], isLoading: studentsLoading } =
     useTeacherTopStudents(quizIds);
+  const { data: rosterStats } = useTeacherRosterStats();
 
   const isLoading = quizzesLoading || metaLoading;
 
@@ -91,21 +110,15 @@ export default function TeacherDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-hero p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="w-full">
         {/* Header */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">
-              Müəllim Paneli
-            </h1>
-            <p className="text-muted-foreground">
-              Quizlərinizi və tələbə nəticələrini idarə edin
-            </p>
-          </div>
-          <Button variant="game" onClick={() => navigate("/teacher/create")}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Yeni Quiz Yarat
-          </Button>
+        <div className="mb-8">
+          <h1 className="font-display text-3xl font-bold text-foreground">
+            Statistika
+          </h1>
+          <p className="text-muted-foreground">
+            Quiz, KSQ, BSQ və sınaq imtahanları üzrə ümumi göstəricilər
+          </p>
         </div>
 
         {/* Stats Grid */}
@@ -161,6 +174,30 @@ export default function TeacherDashboard() {
             </div>
           ))}
         </div>
+
+        {/* Class Roster Summary (100-point system) */}
+        {rosterStats && rosterStats.count > 0 && (
+          <div className="mb-8 rounded-2xl bg-gradient-card border border-border/50 p-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="font-display text-lg font-bold text-foreground">
+                Sinif Jurnalı Xülasəsi (100 ballıq sistem)
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Cəmi {rosterStats.count} qiymətləndirmə nəticəsi üzrə ortalama
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-6 text-sm">
+              <div>
+                <span className="text-muted-foreground">Orta Bal: </span>
+                <span className="font-bold text-primary">{rosterStats.avg100} / 100</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Keçid Faizi (3+): </span>
+                <span className="font-bold text-emerald-500">{rosterStats.passRate}%</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Recent Quizzes */}
