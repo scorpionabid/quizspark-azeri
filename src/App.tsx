@@ -2,7 +2,7 @@ import React, { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSupabaseHealth } from "@/hooks/useSupabaseHealth";
 import { ThemeProvider } from "next-themes";
 import { PageLoader } from "@/components/ui/loading-spinner";
+import { loggerService } from "@/services/loggerService";
 
 // Core Pages
 import Index from "./pages/Index";
@@ -48,6 +49,35 @@ const AuditLogsPage = lazy(() => import("./pages/admin/AuditLogsPage"));
 const AdminExamsPage = lazy(() => import("./pages/admin/AdminExamsPage"));
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (errMsg.includes('AbortError')) return;
+      const keyStr = Array.isArray(query.queryKey) ? query.queryKey.map(String).join('/') : 'query';
+      void loggerService.logError({
+        message: `Query failed [${keyStr}]: ${errMsg}`,
+        error,
+        errorType: 'api_error',
+        severity: 'warning',
+        componentName: 'QueryCache',
+        extraInfo: { queryKey: keyStr },
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const mutationKey = mutation.options.mutationKey ? (Array.isArray(mutation.options.mutationKey) ? mutation.options.mutationKey.map(String).join('/') : String(mutation.options.mutationKey)) : 'anonymous_mutation';
+      void loggerService.logError({
+        message: `Mutation failed [${mutationKey}]: ${errMsg}`,
+        error,
+        errorType: 'api_error',
+        severity: 'error',
+        componentName: 'MutationCache',
+        extraInfo: { mutationKey },
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes fresh
@@ -81,11 +111,7 @@ function AppRoutes() {
             <AuthPage />
           </Suspense>
         } />
-        <Route path="/reset-password" element={
-          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
-            <ResetPasswordPage />
-          </Suspense>
-        } />
+        <Route path="/reset-password" element={<Navigate to="/auth" replace />} />
         <Route path="/pending-approval" element={
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>
             <PendingApprovalPage />
@@ -114,11 +140,6 @@ function AppRoutes() {
         <Route path="/leaderboard" element={
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>
             <MainLayout><LeaderboardPage /></MainLayout>
-          </Suspense>
-        } />
-        <Route path="/support" element={
-          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
-            <MainLayout><SupportChatPage /></MainLayout>
           </Suspense>
         } />
         <Route path="/imtahan" element={

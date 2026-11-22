@@ -20,6 +20,14 @@ export interface QuizAttempt {
   tab_switch_count?: number | null;
   ip_address?: string | null;
   user_agent?: string | null;
+  quizzes?: {
+    id: string;
+    title: string;
+    duration?: number | null;
+    question_count?: number | null;
+    pass_percentage?: number | null;
+    share_code?: string | null;
+  } | null;
 }
 
 export interface QuizResult {
@@ -31,10 +39,18 @@ export interface QuizResult {
   percentage: number;
   time_spent: number | null;
   completed_at: string;
+  attempt_id?: string | null;
 }
 
 export interface QuizResultWithProfile extends QuizResult {
-  profiles: { full_name: string | null; avatar_url: string | null } | null;
+  profiles: {
+    full_name: string | null;
+    avatar_url: string | null;
+    utis_code?: string | null;
+    school?: string | null;
+    grade?: string | null;
+    fin?: string | null;
+  } | null;
 }
 
 export interface QuizDetailedStats {
@@ -57,7 +73,7 @@ export function useMyAttempts(quizId?: string) {
 
       let query = supabase
         .from('quiz_attempts')
-        .select('*')
+        .select('*, quizzes(id, title, duration, question_count, pass_percentage, share_code)')
         .eq('user_id', user.id)
         .order('started_at', { ascending: false });
 
@@ -87,13 +103,18 @@ export function useStartAttempt() {
       totalQuestions: number;
       questionOrder?: string[];
     }) => {
-      if (!user) throw new Error('İstifadəçi daxil olmayıb');
+      let activeUser = user;
+      if (!activeUser) {
+        const { data } = await supabase.auth.getUser();
+        activeUser = data?.user ?? null;
+      }
+      if (!activeUser) throw new Error('İstifadəçi daxil olmayıb');
 
       const { data, error } = await supabase
         .from('quiz_attempts')
         .insert({
           quiz_id: quizId,
-          user_id: user.id,
+          user_id: activeUser.id,
           total_questions: totalQuestions,
           answers: [],
           question_order: questionOrder || null,
@@ -190,7 +211,12 @@ export function useCompleteAttempt() {
       timeSpent: number;
       answers: Record<string, string>[];
     }) => {
-      if (!user) throw new Error('İstifadəçi daxil olmayıb');
+      let activeUser = user;
+      if (!activeUser) {
+        const { data } = await supabase.auth.getUser();
+        activeUser = data?.user ?? null;
+      }
+      if (!activeUser) throw new Error('İstifadəçi daxil olmayıb');
 
       let resultData: Partial<QuizResult> | null = null;
 
@@ -198,7 +224,7 @@ export function useCompleteAttempt() {
       const { data: atomicData, error: atomicError } = await supabase.rpc('complete_quiz_attempt_atomic', {
         p_attempt_id: attemptId,
         p_quiz_id: quizId,
-        p_user_id: user.id,
+        p_user_id: activeUser.id,
         p_score: score,
         p_total_questions: totalQuestions,
         p_time_spent: timeSpent,
@@ -209,7 +235,7 @@ export function useCompleteAttempt() {
         resultData = {
           id: (atomicData as any).result_id || attemptId,
           quiz_id: quizId,
-          user_id: user.id,
+          user_id: activeUser.id,
           score,
           total_questions: totalQuestions,
           percentage: score,
@@ -237,7 +263,7 @@ export function useCompleteAttempt() {
             .upsert({
               attempt_id: attemptId,
               quiz_id: quizId,
-              user_id: user.id,
+              user_id: activeUser.id,
               score,
               total_questions: totalQuestions,
               percentage,
@@ -275,7 +301,7 @@ export function useCompleteAttempt() {
         // Update Student Mastery in the background
         try {
           await syncStudentMasteryAfterQuiz({
-            userId: user.id,
+            userId: activeUser.id,
             quizId,
             answers: answers as unknown as Array<{
               questionId: string;
@@ -440,7 +466,7 @@ export function useQuizDetailedStats(quizId: string | undefined, passPercentage 
 
       const { data, error } = await supabase
         .from('quiz_results')
-        .select(`*, profiles:user_id (full_name, avatar_url)`)
+        .select(`*, profiles:user_id (full_name, avatar_url, utis_code, school, grade, fin)`)
         .eq('quiz_id', quizId)
         .order('completed_at', { ascending: false });
 

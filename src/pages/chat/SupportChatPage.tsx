@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { Navigate } from "react-router-dom";
 import { useSupportMessages, useSendMessage, useMarkAsRead } from "@/hooks/useChat";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -8,7 +9,7 @@ import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 
 export default function SupportChatPage() {
-    const { user, profile } = useAuth();
+    const { user, profile, role } = useAuth();
     const { messages, isLoading, supportAdminId } = useSupportMessages();
     const { mutateAsync: sendMessage, isPending: isSending } = useSendMessage();
     const { mutate: markAsRead } = useMarkAsRead();
@@ -33,6 +34,11 @@ export default function SupportChatPage() {
             }
         }
     }, [user, messages, supportAdminId, markAsRead]);
+
+    // Admins have their own multi-conversation dashboard at /admin/chat
+    if (role === 'admin') {
+        return <Navigate to="/admin/chat" replace />;
+    }
 
     const handleSend = async (content: string) => {
         await sendMessage({ content });

@@ -140,6 +140,20 @@ export default function QuizPage() {
   const [earnedXP, setEarnedXP] = useState(0);
   const [timeSpent, setTimeSpent] = useState(0);
   const [bookmarkedQuestions, setBookmarkedQuestions] = useState<Set<string>>(new Set());
+
+  // Watch for dynamic exam duration extensions from admin in real-time
+  const prevDurationRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (quiz?.duration && prevDurationRef.current !== null && quiz.duration !== prevDurationRef.current) {
+      toast.success(`İmtahan müddəti ${quiz.duration} dəqiqəyə yeniləndi!`, {
+        duration: 8000,
+        id: 'exam-duration-updated',
+      });
+    }
+    if (quiz?.duration) {
+      prevDurationRef.current = quiz.duration;
+    }
+  }, [quiz?.duration]);
   
   const { updateXPAsync } = useGamification();
 
@@ -632,31 +646,83 @@ export default function QuizPage() {
     setShowFeedback(false);
     setShowHint({});
     setQuizState('playing');
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(`active_playing_${attempt.id}`, 'true');
+      }
+    } catch (_e) {
+      // ignore session storage error
+    }
   }, [quiz, questions, completeQuizWithAnswers]);
 
-  // Seamless Auto-Resume on Page Load / Refresh
+  // Seamless Auto-Resume on Page Load / Refresh (yalnız imtahan zamanı F5 / refresh edildikdə)
   useEffect(() => {
     if (quizState === 'intro' && myAttempts && questions.length > 0 && !isPreview && !autoResumeAttemptedRef.current) {
       const incomplete = myAttempts.find(a => a.completed_at === null);
       if (incomplete) {
-        autoResumeAttemptedRef.current = true;
-        void resumeQuiz(incomplete);
+        let isSessionActive = false;
+        try {
+          isSessionActive = typeof sessionStorage !== 'undefined' && sessionStorage.getItem(`active_playing_${incomplete.id}`) === 'true';
+        } catch (_e) {
+          // ignore session storage error
+        }
+        if (isSessionActive) {
+          autoResumeAttemptedRef.current = true;
+          void resumeQuiz(incomplete);
+        }
       }
     }
   }, [quizState, myAttempts, questions.length, isPreview, resumeQuiz]);
 
+  const handleViewResult = useCallback((attempt: import('@/hooks/useQuizAttempts').QuizAttempt) => {
+    const rawAnswers = (attempt.answers || []) as unknown as Answer[];
+    const prevAnswers = rawAnswers.filter(ans => typeof ans.textAnswer === 'string' && ans.textAnswer.trim().length > 0);
+
+    setAnswers(prevAnswers);
+    setTimeSpent(attempt.time_spent || 0);
+    setAttemptId(attempt.id);
+    setQuizState('completed');
+  }, []);
+
   const startQuiz = async () => {
-    if (!quiz || !user) {
-      if (!user) {
-        toast.error("Quiz başlamaq üçün daxil olmalısınız");
-        navigate('/auth');
-      }
+    if (!quiz) return;
+
+    let activeUser = user;
+    if (!activeUser && !isPreview) {
+      const { data } = await supabase.auth.getUser();
+      activeUser = data?.user ?? null;
+    }
+
+    if (!activeUser && !isPreview) {
+      toast.error("Quiz başlamaq üçün daxil olmalısınız");
+      const redirectUrl = typeof window !== 'undefined'
+        ? encodeURIComponent(window.location.pathname + window.location.search)
+        : '';
+      navigate(redirectUrl ? `/auth?redirect=${redirectUrl}` : '/auth');
       return;
+    }
+
+    let currentAttempts = myAttempts || [];
+    if (!user && activeUser && !isPreview) {
+      const { data: fetchedAttempts } = await supabase
+        .from('quiz_attempts')
+        .select('*')
+        .eq('user_id', activeUser.id)
+        .eq('quiz_id', quiz.id)
+        .order('started_at', { ascending: false });
+      if (fetchedAttempts) {
+        currentAttempts = fetchedAttempts as import('@/hooks/useQuizAttempts').QuizAttempt[];
+        const incomplete = currentAttempts.find((a) => a.completed_at === null);
+        if (incomplete) {
+          await resumeQuiz(incomplete);
+          return;
+        }
+      }
     }
 
     const attemptsLimit = isUnlimitedUser ? 0 : (quiz.attempts_limit ?? 0);
     if (attemptsLimit > 0) {
-      const completedCount = (myAttempts || []).filter(a => a.completed_at !== null).length;
+      const completedCount = currentAttempts.filter(a => a.completed_at !== null).length;
       if (completedCount >= attemptsLimit) {
         toast.error(`Cəhd limitiniz dolub (${completedCount}/${attemptsLimit})`);
         return;
@@ -685,6 +751,13 @@ export default function QuizPage() {
       }
 
       setAttemptId(newAttemptId);
+      try {
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(`active_playing_${newAttemptId}`, 'true');
+        }
+      } catch (_e) {
+        // ignore session storage error
+      }
       localStorage.setItem(`quiz_order_${newAttemptId}`, JSON.stringify(questionOrderIds));
       const now = new Date();
       setStartTime(now);
@@ -914,6 +987,7 @@ export default function QuizPage() {
         user={user}
         onStart={startQuiz}
         onResume={resumeQuiz}
+        onViewResult={handleViewResult}
         onBack={() => navigate('/')}
         isPending={startAttempt.isPending}
         isPreview={isPreview}

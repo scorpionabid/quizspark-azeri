@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
@@ -12,12 +12,20 @@ import { LoginFormData, SignupFormData } from '@/lib/validations/auth';
 import { AppRole } from '@/types/auth';
 import { Button } from '@/components/ui/button';
 import { QuickJoinPinCard } from '@/components/student/QuickJoinPinCard';
+import { UtisStudentAuthCard } from '@/components/auth/UtisStudentAuthCard';
 import { translateAuthError } from '@/utils/auth-error-translator';
 
+type AuthCategory = 'utis' | 'candidate' | 'teacher';
+
 export default function AuthPage() {
+  const [searchParams] = useSearchParams();
+  const rawRedirect = searchParams.get('redirect') || '';
+  const safeRedirect = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '';
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [authCategory, setAuthCategory] = useState<AuthCategory>(() => (safeRedirect ? 'candidate' : 'utis'));
   const [selectedRole, setSelectedRole] = useState<AppRole>('student');
   const { signIn, signUp, resetPassword, isAuthenticated, isLoading, role, profile, isProfileComplete, selectOAuthRole, signInWithOAuth } = useAuth();
   const navigate = useNavigate();
@@ -47,20 +55,32 @@ export default function AuthPage() {
   useEffect(() => {
     // Regular redirection after auth and profile setup
     if (isAuthenticated && !isLoading && role !== null && isProfileComplete) {
-      if (role === 'admin') {
+      const storedRedirect = localStorage.getItem('auth_redirect') || '';
+      const validStored = storedRedirect.startsWith('/') && !storedRedirect.startsWith('//') ? storedRedirect : '';
+      const targetRedirect = safeRedirect || validStored;
+      if (storedRedirect) {
+        localStorage.removeItem('auth_redirect');
+      }
+
+      if (role === 'teacher' && profile?.status === 'pending') {
+        navigate('/pending-approval');
+      } else if (targetRedirect) {
+        navigate(targetRedirect);
+      } else if (role === 'admin') {
         navigate('/admin/dashboard');
       } else if (role === 'teacher' && profile?.status === 'active') {
         navigate('/teacher/dashboard');
-      } else if (role === 'teacher' && profile?.status === 'pending') {
-        navigate('/pending-approval');
       } else {
         navigate('/');
       }
     }
-  }, [isAuthenticated, isLoading, role, profile, isProfileComplete, navigate]);
+  }, [isAuthenticated, isLoading, role, profile, isProfileComplete, navigate, safeRedirect]);
 
   const handleSocialLogin = async (targetRole: AppRole) => {
     localStorage.setItem('pending_role', targetRole);
+    if (safeRedirect) {
+      localStorage.setItem('auth_redirect', safeRedirect);
+    }
     const { error } = await signInWithOAuth('google');
     if (error) toast.error(translateAuthError(error));
   };
@@ -159,35 +179,77 @@ export default function AuthPage() {
                 </p>
               </div>
 
-              {/* ── Student / Teacher Segment Switcher ── */}
-              <div className="flex p-1 bg-muted/60 rounded-xl sm:rounded-2xl border border-border/40 w-full">
+              {/* ── 3-Segment Category Switcher ── */}
+              <div className="flex p-1 bg-muted/60 rounded-xl sm:rounded-2xl border border-border/40 w-full gap-1">
                 <button
-                  onClick={() => setSelectedRole('student')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
-                    selectedRole === 'student'
+                  type="button"
+                  onClick={() => setAuthCategory('utis')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
+                    authCategory === 'utis'
+                      ? 'bg-background text-primary shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <GraduationCap className="h-4 w-4 shrink-0" />
+                  <span>Məktəbli (UTİS)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthCategory('candidate');
+                    setSelectedRole('student');
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
+                    authCategory === 'candidate'
                       ? 'bg-background text-primary shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <UserCircle className="h-4 w-4 shrink-0" />
-                  <span>Şagird / Abituriyent</span>
+                  <span>Tələbə / Namizəd</span>
                 </button>
                 <button
-                  onClick={() => setSelectedRole('teacher')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
-                    selectedRole === 'teacher'
+                  type="button"
+                  onClick={() => {
+                    setAuthCategory('teacher');
+                    setSelectedRole('teacher');
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all ${
+                    authCategory === 'teacher'
                       ? 'bg-background text-secondary shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  <GraduationCap className="h-4 w-4 shrink-0" />
+                  <Sparkles className="h-4 w-4 shrink-0 text-secondary" />
                   <span>Müəllim</span>
                 </button>
               </div>
 
-              {/* ── Student View ── */}
-              {selectedRole === 'student' && (
+              {/* ── 1. Məktəbli (UTİS) View ── */}
+              {authCategory === 'utis' && (
+                <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                  <UtisStudentAuthCard
+                    variant="card"
+                    title="Məktəbli Girişi"
+                    subtitle="Gmail və ya şifrə tələb olunmur. Sadəcə 7 rəqəmli UTİS kodunuzu daxil edin."
+                    buttonText="Daxil Ol və Başla"
+                    onSuccess={() => navigate(safeRedirect || '/')}
+                    onSwitchToAccountLogin={() => setAuthCategory('candidate')}
+                  />
+                  <QuickJoinPinCard variant="compact" />
+                </div>
+              )}
+
+              {/* ── 2. Tələbə / Namizəd (Gmail ilə) View ── */}
+              {authCategory === 'candidate' && (
                 <div className="space-y-4 sm:space-y-5 animate-in fade-in zoom-in-95 duration-200 w-full min-w-0">
+                  <div className="rounded-2xl bg-primary/5 border border-primary/20 p-3.5 text-xs text-muted-foreground">
+                    <p className="font-semibold text-foreground text-xs sm:text-sm mb-0.5">
+                      Dövlət Qulluğu, Magistratura və İmtahanlara Hazırlıq
+                    </p>
+                    <p>Fərdi sınaq tarixçənizi, reytinqinizi və analitikanı qorumaq üçün Google və ya E-poçt ilə daxil olun.</p>
+                  </div>
+
                   {/* Primary 1-Click Google Button */}
                   <Button
                     onClick={() => handleSocialLogin('student')}
@@ -199,7 +261,7 @@ export default function AuthPage() {
                       <path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z" fill="#FBBC05" />
                       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335" />
                     </svg>
-                    Google ilə Şagird Girişi
+                    Google ilə Daxil Ol (Tələbə / Namizəd)
                   </Button>
 
                   {/* Quick PIN Join Card Embedded */}
@@ -218,7 +280,10 @@ export default function AuthPage() {
 
                     <Button
                       variant="ghost"
-                      onClick={() => setShowEmailAuth(true)}
+                      onClick={() => {
+                        setSelectedRole('student');
+                        setShowEmailAuth(true);
+                      }}
                       className="w-full sm:flex-1 h-11 rounded-xl text-xs sm:text-sm font-bold text-muted-foreground hover:text-primary justify-center"
                     >
                       Email ilə Daxil Ol
@@ -227,8 +292,8 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {/* ── Teacher View ── */}
-              {selectedRole === 'teacher' && (
+              {/* ── 3. Müəllim View ── */}
+              {authCategory === 'teacher' && (
                 <div className="space-y-5 animate-in fade-in zoom-in-95 duration-200">
                   <Card className="border-2 border-primary/20 rounded-3xl p-6 bg-card/60">
                     <div className="text-center space-y-4">
@@ -237,7 +302,7 @@ export default function AuthPage() {
                       </div>
                       <h3 className="text-2xl font-black">Müəllim Portalı</h3>
                       <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto">
-                        Quizlər yaradın, sual bazasını idarə edin və şagirdlərinizin nəticələrini izləyin.
+                        Quizlər yaradın, sual bazasını idarə edin, şagirdlərin UTİS nəticələrini izləyin və Excel protokolunu yükləyin.
                       </p>
 
                       <Button
@@ -253,17 +318,21 @@ export default function AuthPage() {
                         </svg>
                         Google ilə Müəllim Girişi
                       </Button>
+
+                      <div className="pt-2 border-t border-border/40">
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedRole('teacher');
+                            setShowEmailAuth(true);
+                          }}
+                          className="w-full text-xs sm:text-sm font-bold text-muted-foreground hover:text-secondary"
+                        >
+                          E-poçt ilə Daxil Ol və ya Qeydiyyatdan Keç
+                        </Button>
+                      </div>
                     </div>
                   </Card>
-
-                  <div className="text-center">
-                    <button
-                      onClick={() => setShowEmailAuth(true)}
-                      className="px-6 py-2.5 rounded-full text-muted-foreground font-bold hover:text-primary transition-all text-xs"
-                    >
-                      Və ya email və şifrə ilə daxil olun
-                    </button>
-                  </div>
                 </div>
               )}
             </motion.div>
@@ -297,7 +366,6 @@ export default function AuthPage() {
                 <TabsContent value="login">
                   <LoginForm
                     onSubmit={handleLogin}
-                    onForgotPassword={async (email) => { await resetPassword(email); }}
                     isSubmitting={isSubmitting}
                   />
                 </TabsContent>

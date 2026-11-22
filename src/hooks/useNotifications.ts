@@ -116,8 +116,8 @@ export function useNotifications() {
 
     if (error) {
       console.error("Error marking notification as read:", error);
-    } else {
-      setNotifications((prev) =>
+    } else if (user?.id) {
+      queryClient.setQueryData<Notification[]>(["notifications", user.id], (prev = []) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
     }
@@ -135,7 +135,9 @@ export function useNotifications() {
     if (error) {
       console.error("Error marking all notifications as read:", error);
     } else {
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      queryClient.setQueryData<Notification[]>(["notifications", user.id], (prev = []) =>
+        prev.map((n) => ({ ...n, read: true }))
+      );
     }
   };
 
@@ -147,8 +149,10 @@ export function useNotifications() {
 
     if (error) {
       console.error("Error deleting notification:", error);
-    } else {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } else if (user?.id) {
+      queryClient.setQueryData<Notification[]>(["notifications", user.id], (prev = []) =>
+        prev.filter((n) => n.id !== id)
+      );
     }
   };
 

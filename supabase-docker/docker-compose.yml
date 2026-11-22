@@ -234,6 +234,7 @@ services:
       PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
       PGRST_DB_POOL: 40
       PGRST_DB_POOL_TIMEOUT: 10
+      PGRST_LOG_LEVEL: "error"
     command:
       [
         "postgrest"
@@ -453,7 +454,7 @@ services:
         "-c",
         "config_file=/etc/postgresql/postgresql.conf",
         "-c",
-        "log_min_messages=fatal" # prevents Realtime polling queries from appearing in logs
+        "log_min_messages=error" # prevents Realtime polling queries while logging all errors
       ]
 
   # vector: DEAKTIV - analytics ilə birlikdə söndürüldü (docker.sock mount aradan qalxdı)

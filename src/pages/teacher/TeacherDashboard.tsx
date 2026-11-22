@@ -23,22 +23,24 @@ function useTeacherTopStudents(quizIds: string[]) {
   return useQuery({
     queryKey: ["teacher-top-students", quizIds],
     queryFn: async () => {
-      if (!quizIds.length) return [];
+      if (!quizIds.length) return { top: [], uniqueCount: 0 };
       const { data } = await supabase
         .from("quiz_results")
-        .select("user_id, percentage, profiles:user_id(full_name)")
+        .select("user_id, percentage, profiles:user_id(full_name, utis_code, grade)")
         .in("quiz_id", quizIds);
 
       const userMap = new Map<
         string,
-        { name: string; scores: number[]; count: number }
+        { userId: string; name: string; utisCode?: string | null; grade?: string | null; scores: number[]; count: number }
       >();
       for (const r of data || []) {
         if (!userMap.has(r.user_id)) {
+          const prof = r.profiles as { full_name: string | null; utis_code?: string | null; grade?: string | null } | null;
           userMap.set(r.user_id, {
-            name:
-              (r.profiles as { full_name: string | null } | null)?.full_name ||
-              "İsimsiz",
+            userId: r.user_id,
+            name: prof?.full_name || "İsimsiz",
+            utisCode: prof?.utis_code,
+            grade: prof?.grade,
             scores: [],
             count: 0,
           });
@@ -48,9 +50,12 @@ function useTeacherTopStudents(quizIds: string[]) {
         u.count++;
       }
 
-      return Array.from(userMap.values())
+      const top = Array.from(userMap.values())
         .map((u) => ({
+          userId: u.userId,
           name: u.name,
+          utisCode: u.utisCode,
+          grade: u.grade,
           quizzes: u.count,
           score: Math.round(
             u.scores.reduce((a, b) => a + b, 0) / u.scores.length
@@ -58,6 +63,8 @@ function useTeacherTopStudents(quizIds: string[]) {
         }))
         .sort((a, b) => b.score - a.score)
         .slice(0, 4);
+
+      return { top, uniqueCount: userMap.size };
     },
     enabled: quizIds.length > 0,
     staleTime: 2 * 60 * 1000,
@@ -69,8 +76,10 @@ export default function TeacherDashboard() {
   const { data: myQuizzes = [], isLoading: quizzesLoading } = useMyQuizzes();
   const quizIds = myQuizzes.map((q) => q.id);
   const { data: meta = {}, isLoading: metaLoading } = useQuizzesMeta(quizIds);
-  const { data: topStudents = [], isLoading: studentsLoading } =
+  const { data: studentStats, isLoading: studentsLoading } =
     useTeacherTopStudents(quizIds);
+  const topStudents = studentStats?.top ?? [];
+  const uniqueStudentsCount = studentStats?.uniqueCount ?? 0;
 
   const isLoading = quizzesLoading || metaLoading;
 
@@ -132,7 +141,7 @@ export default function TeacherDashboard() {
             },
             {
               title: "Unikal Tələbələr",
-              value: studentsLoading ? null : String(topStudents.length > 0 ? "—" : "0"),
+              value: studentsLoading ? null : String(uniqueStudentsCount),
               icon: Users,
               color: "text-warning",
             },
@@ -278,7 +287,7 @@ export default function TeacherDashboard() {
                     </p>
                   )
                 : topStudents.map((student, index) => (
-                    <div key={student.name} className="flex items-center gap-4">
+                    <div key={student.userId} className="flex items-center gap-4">
                       <div
                         className={cn(
                           "flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold shrink-0",
@@ -297,8 +306,10 @@ export default function TeacherDashboard() {
                         <div className="font-medium text-foreground truncate">
                           {student.name}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-muted-foreground truncate">
                           {student.quizzes} quiz tamamladı
+                          {student.grade ? ` · ${student.grade}` : ""}
+                          {student.utisCode ? ` · UTİS: ${student.utisCode}` : ""}
                         </div>
                       </div>
                       <div className="text-right shrink-0">

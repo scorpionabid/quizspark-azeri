@@ -294,6 +294,7 @@ export function parseSingleBlock(block: string, lineOffset: number): BlockResult
   }
 
   // 3 — Boşluq işarəsi → fill_blank
+  const META_RE_LIGHT = buildMetaRE(ANSWER_META);
   if (lines.some((l) => /___/.test(l) && !META_RE_LIGHT.test(l))) {
     return parseFillBlankBlock(lines, lineOffset);
   }

@@ -9,9 +9,12 @@ import {
   Zap,
   CheckCircle2,
   TrendingUp,
+  ArrowRight,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMyAttempts } from '@/hooks/useQuizAttempts';
 import { QuickJoinPinCard } from './QuickJoinPinCard';
@@ -111,6 +114,80 @@ export const StudentLearningHub: React.FC = () => {
 
       {/* ── 2. Quick PIN Join Widget ── */}
       <QuickJoinPinCard variant="hero" />
+
+      {/* ── 2.5 Recent Exam Results ── */}
+      {completedAttempts.length > 0 && (
+        <div className="rounded-2xl sm:rounded-3xl border border-border/60 bg-card p-4 sm:p-6 shadow-sm space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <Trophy className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-black text-base sm:text-lg text-foreground">Son İmtahan Nəticələrim</h3>
+                <p className="text-xs text-muted-foreground">İştirak etdiyiniz son sınaqlar və topladığınız ballar</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/profile')}
+              className="text-xs text-primary font-bold hover:bg-primary/10 h-8 gap-1"
+            >
+              <span>Profilə bax</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
+            {completedAttempts.slice(0, 4).map((att) => {
+              const title = att.quizzes?.title || 'Sınaq İmtahanı';
+              const pct = att.total_questions ? Math.round(((att.score || 0) / att.total_questions) * 100) : 0;
+              const isPass = pct >= (att.quizzes?.pass_percentage || 60);
+
+              return (
+                <div
+                  key={att.id}
+                  className="flex items-center justify-between p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border border-border/50 bg-muted/30 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="min-w-0 flex-1 pr-3">
+                    <h4 className="font-bold text-xs sm:text-sm text-foreground truncate" title={title}>
+                      {title}
+                    </h4>
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                      <span>{att.score ?? 0} / {att.total_questions || 0} bal</span>
+                      <span>•</span>
+                      <span>{att.completed_at ? new Date(att.completed_at).toLocaleDateString('az-AZ') : ''}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      className={cn(
+                        'font-black text-xs px-2 py-0.5',
+                        isPass
+                          ? 'bg-emerald-600 hover:bg-emerald-600 text-white'
+                          : 'bg-amber-600 hover:bg-amber-600 text-white'
+                      )}
+                    >
+                      %{pct}
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs font-bold rounded-lg border-primary/30 text-primary hover:bg-primary/10 gap-1"
+                      onClick={() => navigate(`/quiz/${att.quizzes?.share_code || att.quiz_id}`)}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>Bax</span>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── 3. Quick Actions Grid ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 w-full min-w-0">

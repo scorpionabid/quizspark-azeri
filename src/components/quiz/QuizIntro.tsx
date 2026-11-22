@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Trophy, RotateCcw, CheckCircle, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Trophy, RotateCcw, CheckCircle, Lock, Eye, EyeOff, ShieldCheck, UserCheck, LogOut, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { QuizRating } from "./QuizRating";
 import { QuizComments } from "./QuizComments";
 import { FavoriteButton } from "./FavoriteButton";
+import { UtisStudentAuthCard } from "@/components/auth/UtisStudentAuthCard";
+import { QuizPrintDialog } from "@/components/quiz/print/QuizPrintDialog";
 
 import { Quiz, useVerifyQuizPassword, getSafeExamConfig } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
@@ -23,6 +26,7 @@ interface QuizIntroProps {
   user: User | null;
   onStart: () => void;
   onResume?: (attempt: QuizAttempt) => void;
+  onViewResult?: (attempt: QuizAttempt) => void;
   onBack: () => void;
   isPending: boolean;
   isPreview: boolean;
@@ -35,11 +39,13 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
   user,
   onStart,
   onResume,
+  onViewResult,
   onBack,
   isPending,
   isPreview,
 }) => {
-  const { role } = useAuth();
+  const navigate = useNavigate();
+  const { role, profile, signOut } = useAuth();
   const isUnlimitedUser =
     (user?.email && [
       'scorpionabid82@gmail.com',
@@ -69,6 +75,7 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
   const [passwordError, setPasswordError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const verifyPassword = useVerifyQuizPassword();
 
   const requiresPassword = Boolean(quiz.has_password || (quiz.access_password && quiz.access_password.trim().length > 0));
@@ -115,14 +122,17 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
 
   // M3.3: Tamamlanmamış aktiv cəhdi tap
   const incompleteAttempt = !isPreview ? myAttempts.find(a => !a.completed_at) : undefined;
+  const completedAttempts = !isPreview ? myAttempts.filter(a => a.completed_at !== null) : [];
+  const lastCompletedAttempt = completedAttempts.length > 0 ? completedAttempts[0] : undefined;
   const now = new Date();
   const fromStr = quiz.available_from?.trim();
   const toStr = quiz.available_to?.trim();
   const from = fromStr ? new Date(fromStr) : null;
   const to = toStr ? new Date(toStr) : null;
 
-  const isDisabled = (from && !isNaN(from.getTime()) && now < from) ||
-                     (to && !isNaN(to.getTime()) && now > to);
+  const isTimeRestricted = (from && !isNaN(from.getTime()) && now < from) ||
+                           (to && !isNaN(to.getTime()) && now > to);
+  const isDisabled = isTimeRestricted && !isUnlimitedUser && !isPreview;
 
   const isPattern = isPatternBackground(quiz.background_image_url);
   const bgStyle = getQuizBackgroundStyle(quiz.background_image_url);
@@ -220,9 +230,21 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                 </div>
               )}
               {isUnlimitedUser && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/20 bg-primary/10 text-sm font-semibold text-primary">
-                  <RotateCcw className="h-4 w-4" />
-                  Limitsiz sınaq cəhdi (Müəllim / Admin)
+                <div className="flex flex-wrap items-center gap-2 justify-center">
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/20 bg-primary/10 text-sm font-semibold text-primary">
+                    <RotateCcw className="h-4 w-4" />
+                    Limitsiz sınaq cəhdi (Müəllim / Admin)
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPrintDialogOpen(true)}
+                    className="h-9 px-3 gap-1.5 text-xs font-bold rounded-xl border-blue-500/40 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 shadow-sm"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Test Kitabçası (PDF / Çap)
+                  </Button>
                 </div>
               )}
             </div>
@@ -237,10 +259,21 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
           ) : (
             <>
               {from && now < from && (
-                <div className="mb-6 rounded-xl bg-warning/10 p-4 border border-warning/30 text-center">
-                  <p className="text-warning font-bold">Bu quiz hələ aktiv deyil</p>
+                <div className={cn(
+                  "mb-6 rounded-xl p-4 border text-center",
+                  isUnlimitedUser
+                    ? "bg-primary/10 border-primary/30 text-primary"
+                    : "bg-warning/10 border-warning/30 text-warning"
+                )}>
+                  <p className="font-bold">
+                    {isUnlimitedUser
+                      ? "🛠️ Sınaq / Test Rejimi (Müəllim / Nəzarətçi Girişi)"
+                      : "Bu quiz hələ aktiv deyil"}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Açılış vaxtı: {from.toLocaleString('az-AZ')}
+                    {isUnlimitedUser
+                      ? `Şagirdlər üçün rəsmi açılış: ${from.toLocaleString('az-AZ')}. Siz test məqsədilə daxil ola bilərsiniz.`
+                      : `Açılış vaxtı: ${from.toLocaleString('az-AZ')}`}
                   </p>
                 </div>
               )}
@@ -282,19 +315,45 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
             </div>
           )}
 
-          {(isPreview || !user) ? (
-            <div className="text-center">
-              <p className="mb-4 text-muted-foreground">Bu quizi başlamaq üçün daxil olmalısınız.</p>
+          {isPreview && !user ? (
+            <div className="text-center p-4">
+              <p className="mb-4 text-muted-foreground">Önizləmə rejimi: Başlamaq üçün daxil olmalısınız.</p>
               <div className="flex gap-2 justify-center">
                 <Button variant="outline" onClick={onBack}>
                   Ana Səhifəyə Qayıt
                 </Button>
-                {!user && (
-                  <Button variant="game" onClick={() => (window.location.href = '/auth')}>
-                    Daxil Ol
-                  </Button>
-                )}
+                <Button
+                  variant="game"
+                  onClick={() => {
+                    const redirect = typeof window !== 'undefined'
+                      ? encodeURIComponent(window.location.pathname + window.location.search)
+                      : '';
+                    navigate(redirect ? `/auth?redirect=${redirect}` : '/auth');
+                  }}
+                >
+                  Daxil Ol
+                </Button>
               </div>
+            </div>
+          ) : !user ? (
+            <div className="space-y-4">
+              <UtisStudentAuthCard
+                variant="card"
+                title="Məktəbli Girişi (UTİS)"
+                subtitle="Quizdə iştirak etmək üçün 7 rəqəmli UTİS kodunuzu daxil edin. Gmail və ya şifrə tələb olunmur."
+                buttonText={requiresPassword && !passwordInput.trim() ? 'Daxil Ol' : 'İmtahana Başla'}
+                onSuccess={() => {
+                  if (!requiresPassword || passwordInput.trim().length > 0) {
+                    void handleStart();
+                  }
+                }}
+                onSwitchToAccountLogin={() => {
+                  const redirect = typeof window !== 'undefined'
+                    ? encodeURIComponent(window.location.pathname + window.location.search)
+                    : '';
+                  navigate(redirect ? `/auth?redirect=${redirect}` : '/auth');
+                }}
+              />
             </div>
           ) : questions.length === 0 ? (
             <div className="text-center">
@@ -305,6 +364,41 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
             </div>
           ) : (
             <div className="space-y-3">
+              {/* Active User Information Card */}
+              {user && (
+                <div className="flex items-center justify-between rounded-2xl bg-muted/50 border border-border/50 px-4 py-2.5 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div className="truncate">
+                      <span className="font-bold text-foreground">
+                        {profile?.full_name || user.email}
+                      </span>
+                      {profile?.utis_code && (
+                        <span className="ml-1.5 text-muted-foreground font-mono">
+                          (UTİS: {profile.utis_code})
+                        </span>
+                      )}
+                      {profile?.grade && (
+                        <span className="ml-1.5 text-primary font-medium">
+                          · {profile.grade}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => signOut()}
+                    className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive gap-1 shrink-0"
+                    title="Hesabdan çıx və başqa şagird kimi daxil ol"
+                  >
+                    <LogOut className="h-3 w-3" />
+                    Dəyişdir
+                  </Button>
+                </div>
+              )}
+
               {/* Access password input */}
               {requiresPassword && (
                 <div className="space-y-2">
@@ -351,6 +445,56 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                 </div>
               )}
 
+              {/* Tamamlanmış cəhdin nəticəsi */}
+              {lastCompletedAttempt && (
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-950/30 p-4 space-y-2.5 shadow-sm text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                        <Trophy className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-sm text-foreground">
+                          {completedAttempts.length > 1 ? `Son Cəhdinizin Nəticəsi (${completedAttempts.length} cəhd)` : 'Cəhdinizin Nəticəsi'}
+                        </span>
+                        <p className="text-[11px] text-muted-foreground">
+                          {lastCompletedAttempt.completed_at
+                            ? new Date(lastCompletedAttempt.completed_at).toLocaleString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-black text-sm px-2.5 py-0.5">
+                      {Math.round(((lastCompletedAttempt.score ?? 0) / (lastCompletedAttempt.total_questions || questions.length || 1)) * 100)}%
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-emerald-500/20">
+                    <span className="text-muted-foreground">
+                      Doğru / Ümumi bal: <strong className="text-foreground font-bold">{lastCompletedAttempt.score ?? 0} / {lastCompletedAttempt.total_questions || questions.length}</strong>
+                    </span>
+                    {lastCompletedAttempt.time_spent ? (
+                      <span className="text-muted-foreground font-medium">
+                        Müddət: {Math.round(lastCompletedAttempt.time_spent / 60)} dəq
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {onViewResult && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-1 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold text-xs h-9 rounded-xl gap-1.5"
+                      onClick={() => onViewResult(lastCompletedAttempt)}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Nəticə Vərəqinə və Cavablara Bax
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* M3.3: Yarımçıq cəhd varsa "Davam Et" düyməsi */}
               {incompleteAttempt && onResume && !isDisabled && (
                 <div className="rounded-xl bg-warning/10 border border-warning/30 p-4 text-center space-y-2">
@@ -386,7 +530,17 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
                 onClick={handleStart}
                 disabled={isPending || isDisabled || isVerifying}
               >
-                {isVerifying ? "Şifrə yoxlanılır..." : isPending ? "Yüklənir..." : (isDisabled ? "Giriş qapalıdır" : incompleteAttempt ? "Yenidən Başla" : "Quizə Başla")}
+                {isVerifying
+                  ? "Şifrə yoxlanılır..."
+                  : isPending
+                  ? "Yüklənir..."
+                  : isDisabled
+                  ? "Giriş qapalıdır"
+                  : isUnlimitedUser && from && now < from
+                  ? "Quizə Başla (Sınaq / Test)"
+                  : incompleteAttempt
+                  ? "Yenidən Başla"
+                  : "Quizə Başla"}
               </Button>
             </div>
           )}
@@ -401,6 +555,13 @@ export const QuizIntro: React.FC<QuizIntroProps> = ({
           <QuizComments quizId={quiz.id} />
         </div>
       </div>
+
+      <QuizPrintDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        quiz={quiz}
+        initialQuestions={questions}
+      />
     </div>
   );
 };

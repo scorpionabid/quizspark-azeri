@@ -125,6 +125,11 @@ export function useSupportMessages(otherUserId?: string) {
     return { messages, isLoading, supportAdminId };
 }
 
+const LEGACY_INVALID_RECEIVER_IDS = new Set([
+    "f95994c2-97e1-4cf1-94a5-3487b3baf1d5",
+    "d0000000-0000-0000-0000-000000000004",
+]);
+
 /**
  * Sends a message to the target admin or user
  */
@@ -140,9 +145,20 @@ export function useSendMessage() {
             const trimmed = content.trim();
             if (!trimmed) throw new Error("Mesaj mətni boş ola bilməz");
 
-            const targetId = role === 'admin' 
-                ? receiverId 
-                : (receiverId || supportAdminId || "81cebd9d-586b-4460-8615-6cb0ed9d1094");
+            const validReceiverId = receiverId && !LEGACY_INVALID_RECEIVER_IDS.has(receiverId)
+                ? receiverId
+                : undefined;
+
+            let targetId: string | undefined;
+            if (role === 'admin') {
+                targetId = validReceiverId;
+            } else {
+                targetId = validReceiverId || supportAdminId;
+                if (!targetId || LEGACY_INVALID_RECEIVER_IDS.has(targetId)) {
+                    const { data: rpcAdminId } = await supabase.rpc('get_support_admin_id');
+                    targetId = (rpcAdminId as string) || "81cebd9d-586b-4460-8615-6cb0ed9d1094";
+                }
+            }
 
             if (!targetId) throw new Error("Qəbul edən admin tapılmadı");
 

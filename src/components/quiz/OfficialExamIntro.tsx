@@ -1,12 +1,15 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Shield, Clock, HelpCircle, CheckCircle, User, Award, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import { OFFICIAL_EXAMS, getExamTitle } from '@/lib/constants/exams';
 import { Quiz, getSafeExamConfig } from '@/hooks/useQuizzes';
+import { UtisStudentAuthCard } from '@/components/auth/UtisStudentAuthCard';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface OfficialExamIntroProps {
@@ -22,10 +25,12 @@ export const OfficialExamIntro: React.FC<OfficialExamIntroProps> = ({
   onStart,
   isPending = false,
 }) => {
+  const navigate = useNavigate();
   const { language, t } = useLanguage();
+  const { profile } = useAuth();
 
-  const fullName = user?.user_metadata?.full_name || '';
-  const fin = (user?.user_metadata?.fin || '').toUpperCase();
+  const fullName = profile?.full_name || user?.user_metadata?.full_name || '';
+  const fin = (profile?.utis_code || profile?.fin || user?.user_metadata?.fin || '').toUpperCase();
 
   const examMeta = OFFICIAL_EXAMS.find((e) => e.key === quiz.specialty_key);
   const displayTitle = examMeta ? getExamTitle(examMeta, language) : quiz.title;
@@ -130,15 +135,31 @@ export const OfficialExamIntro: React.FC<OfficialExamIntroProps> = ({
         </CardContent>
 
         <CardFooter className="px-6 pb-6 pt-0">
-          <Button
-            size="lg"
-            className="w-full h-12 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-600/20"
-            onClick={onStart}
-            disabled={isPending}
-          >
-            <span>{isPending ? t('checking_btn') : t('start_exam_btn')}</span>
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          {!user ? (
+            <UtisStudentAuthCard
+              variant="embedded"
+              title="Məktəbli Girişi (UTİS)"
+              subtitle="İmtahana başlamaq üçün 7 rəqəmli UTİS kodunuzu daxil edin."
+              buttonText={t('start_exam_btn')}
+              onSuccess={() => onStart()}
+              onSwitchToAccountLogin={() => {
+                const redirect = typeof window !== 'undefined'
+                  ? encodeURIComponent(window.location.pathname + window.location.search)
+                  : '';
+                navigate(redirect ? `/auth?redirect=${redirect}` : '/auth');
+              }}
+            />
+          ) : (
+            <Button
+              size="lg"
+              className="w-full h-12 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md shadow-blue-600/20"
+              onClick={onStart}
+              disabled={isPending}
+            >
+              <span>{isPending ? t('checking_btn') : t('start_exam_btn')}</span>
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>

@@ -117,17 +117,30 @@ export const loggerService = {
         extra: extraInfo || null,
       };
 
-      await supabase.from('system_error_logs').insert({
-        user_id: finalUserId,
-        error_type: errorType,
-        message: message.slice(0, 1000), // Protect against huge payloads
-        stack_trace: extractedStack ? extractedStack.slice(0, 5000) : null,
-        component_name: componentName || null,
-        url_path: currentUrl || '/',
-        device_info: deviceInfo,
+      const logPayload = JSON.stringify({
+        timestamp: new Date().toISOString(),
         severity,
-        is_resolved: false,
+        error_type: errorType,
+        message: message.slice(0, 1000),
+        url_path: currentUrl || '/',
+        user_id: finalUserId,
+        component_name: componentName || null,
+        stack_trace: extractedStack ? extractedStack.slice(0, 2000) : null,
+        device: deviceInfo,
       });
+
+      // Send directly to server log file (/var/log/quizspark/frontend-errors.log)
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        const blob = new Blob([logPayload], { type: 'application/json' });
+        navigator.sendBeacon('/api/v1/client-logs', blob);
+      } else if (typeof fetch === 'function') {
+        void fetch('/api/v1/client-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: logPayload,
+          keepalive: true,
+        }).catch(() => {});
+      }
     } catch (e) {
       // Fail gracefully without crashing the application
       console.warn('Failed to send error log to Supabase:', e);

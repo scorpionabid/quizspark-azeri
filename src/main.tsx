@@ -27,11 +27,22 @@ window.addEventListener("unhandledrejection", (event) => {
       : typeof reason === "string"
       ? reason
       : "Unhandled Promise Rejection";
+  const stackTrace = reason instanceof Error ? reason.stack : undefined;
+
+  // Ignore harmless third-party / antivirus / WebView Service Worker registration rejections
+  if (
+    stackTrace?.includes("registerSW.js") ||
+    stackTrace?.includes("serviceWorker.register") ||
+    stackTrace?.includes("wrsParams.serviceWorkers") ||
+    message.includes("serviceWorker")
+  ) {
+    return;
+  }
 
   void loggerService.logError({
     message: `[Async Rejection] ${message}`,
     error: reason instanceof Error ? reason : undefined,
-    stackTrace: reason instanceof Error ? reason.stack : undefined,
+    stackTrace,
     urlPath: window.location.pathname,
     severity: "warning",
     errorType: "unhandled_rejection",

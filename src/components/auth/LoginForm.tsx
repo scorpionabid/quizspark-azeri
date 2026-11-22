@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, LoginFormData } from '@/lib/validations/auth';
@@ -12,13 +11,10 @@ import { motion } from 'framer-motion';
 
 interface LoginFormProps {
     onSubmit: (data: LoginFormData) => Promise<void>;
-    onForgotPassword: (email: string) => Promise<void>;
     isSubmitting: boolean;
 }
 
-export function LoginForm({ onSubmit, onForgotPassword, isSubmitting }: LoginFormProps) {
-    const [isForgotMode, setIsForgotMode] = useState(false);
-
+export function LoginForm({ onSubmit, isSubmitting }: LoginFormProps) {
     const form = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
         defaultValues: {
@@ -27,13 +23,6 @@ export function LoginForm({ onSubmit, onForgotPassword, isSubmitting }: LoginFor
             rememberMe: !!localStorage.getItem('remembered_email'),
         },
     });
-
-    // If user changes forgot mode, reset password but keep email
-    useEffect(() => {
-        if (isForgotMode) {
-            form.setValue('password', '');
-        }
-    }, [isForgotMode, form]);
 
     const container = {
         hidden: { opacity: 0 },
@@ -89,73 +78,49 @@ export function LoginForm({ onSubmit, onForgotPassword, isSubmitting }: LoginFor
                     />
                 </motion.div>
 
-                {!isForgotMode && (
-                    <motion.div variants={item}>
-                        <FormField
-                            control={form.control}
-                            name="password"
-                            render={({ field }) => (
-                                <PasswordField
-                                    field={field}
-                                    label="Parol"
-                                    autoComplete="current-password"
-                                />
-                            )}
-                        />
-                    </motion.div>
-                )}
+                <motion.div variants={item}>
+                    <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                            <PasswordField
+                                field={field}
+                                label="Parol"
+                                autoComplete="current-password"
+                            />
+                        )}
+                    />
+                </motion.div>
 
-                {!isForgotMode && (
-                    <motion.div variants={item} className="flex items-center justify-between">
-                        <FormField
-                            control={form.control}
-                            name="rememberMe"
-                            render={({ field }) => (
-                                <div className="flex items-center space-x-2">
-                                    <FormControl>
-                                        <Checkbox
-                                            id="remember"
-                                            checked={field.value}
-                                            onCheckedChange={field.onChange}
-                                        />
-                                    </FormControl>
-                                    <label
-                                        htmlFor="remember"
-                                        className="text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                    >
-                                        Məni xatırla
-                                    </label>
-                                </div>
-                            )}
-                        />
-                        <Button variant="link" className="px-0 font-normal h-auto" type="button" onClick={() => setIsForgotMode(true)}>
-                            Parolu unutmusunuz?
-                        </Button>
-                    </motion.div>
-                )}
-
-                {isForgotMode && (
-                    <motion.div variants={item} className="flex justify-end">
-                        <Button
-                            variant="link"
-                            className="px-0 font-normal h-auto text-primary"
-                            type="button"
-                            onClick={() => setIsForgotMode(false)}
-                        >
-                            Geri Qayıt
-                        </Button>
-                    </motion.div>
-                )}
+                <motion.div variants={item} className="flex items-center justify-between">
+                    <FormField
+                        control={form.control}
+                        name="rememberMe"
+                        render={({ field }) => (
+                            <div className="flex items-center space-x-2">
+                                <FormControl>
+                                    <Checkbox
+                                        id="remember"
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                                <label
+                                    htmlFor="remember"
+                                    className="text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                    Məni xatırla
+                                </label>
+                            </div>
+                        )}
+                    />
+                </motion.div>
 
                 <motion.div variants={item}>
                     <Button
                         type="submit"
                         className="w-full h-11 text-base transition-all duration-200"
                         disabled={isSubmitting}
-                        onClick={isForgotMode ? (e) => {
-                            e.preventDefault();
-                            onForgotPassword(form.getValues('email'));
-                        } : undefined}
                     >
                         {isSubmitting ? (
                             <>
@@ -163,7 +128,7 @@ export function LoginForm({ onSubmit, onForgotPassword, isSubmitting }: LoginFor
                                 Gözləyin...
                             </>
                         ) : (
-                            isForgotMode ? 'Sıfırlama linkini göndər' : 'Daxil ol'
+                            'Daxil ol'
                         )}
                     </Button>
                 </motion.div>

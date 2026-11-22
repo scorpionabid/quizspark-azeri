@@ -20,7 +20,12 @@ interface TextBlock {
   content: string;
 }
 
-type ContentBlock = TextBlock | TableBlock;
+interface QuoteBlock {
+  type: 'quote';
+  content: string;
+}
+
+type ContentBlock = TextBlock | TableBlock | QuoteBlock;
 
 /**
  * Mətni riyazi ifadə hissələrinə ayırır.
@@ -207,6 +212,30 @@ function parseBlocks(rawText: string): ContentBlock[] {
 
   while (i < lines.length) {
     const line = lines[i];
+
+    // Blockquote handling (lines starting with >)
+    if (line.trim().startsWith('>')) {
+      if (currentTextLines.length > 0) {
+        blocks.push({ type: 'text', content: currentTextLines.join('\n') });
+        currentTextLines = [];
+      }
+      const quoteLines: string[] = [];
+      while (
+        i < lines.length &&
+        (lines[i].trim().startsWith('>') ||
+          (!lines[i].trim() && i + 1 < lines.length && lines[i + 1].trim().startsWith('>')))
+      ) {
+        if (!lines[i].trim()) {
+          quoteLines.push('');
+        } else {
+          quoteLines.push(lines[i].trim().replace(/^>\s?/, ''));
+        }
+        i++;
+      }
+      blocks.push({ type: 'quote', content: quoteLines.join('\n') });
+      continue;
+    }
+
     const nextLine = lines[i + 1];
     const isSep = nextLine ? SEP_REGEX.test(nextLine.trim()) : false;
     const isHeaderCandidate = line.includes('|');
@@ -280,31 +309,33 @@ function getAlignmentClass(align: 'left' | 'center' | 'right' | undefined): stri
 
 export interface MathRendererProps {
   text?: string | null;
+  content?: string | null;
   className?: string;
 }
 
 /**
  * Mətni KaTeX və Markdown Cədvəl dəstəyi ilə render edir.
  */
-export const MathRenderer: React.FC<MathRendererProps> = ({ text, className }) => {
-  if (!text) return null;
+export const MathRenderer: React.FC<MathRendererProps> = ({ text, content, className }) => {
+  const rawText = text ?? content;
+  if (!rawText) return null;
 
-  const blocks = parseBlocks(text);
-  const hasTable = blocks.some((b) => b.type === 'table');
+  const blocks = parseBlocks(rawText);
+  const hasComplex = blocks.some((b) => b.type === 'table' || b.type === 'quote');
 
-  if (!hasTable) {
-    const hasNewlines = text.includes('\n');
-    const hasImages = text.includes('![');
+  if (!hasComplex) {
+    const hasNewlines = rawText.includes('\n');
+    const hasImages = rawText.includes('![');
     if (hasImages || hasNewlines) {
       return (
         <div className={cn('whitespace-pre-line leading-relaxed', className)}>
-          <RenderInline content={text} />
+          <RenderInline content={rawText} />
         </div>
       );
     }
     return (
       <span className={className}>
-        <RenderInline content={text} />
+        <RenderInline content={rawText} />
       </span>
     );
   }
@@ -318,6 +349,17 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className }) =
             <div key={bIdx} className="whitespace-pre-line leading-relaxed text-foreground/95">
               <RenderInline content={block.content} />
             </div>
+          );
+        }
+
+        if (block.type === 'quote') {
+          return (
+            <blockquote
+              key={bIdx}
+              className="my-3 border-l-4 border-blue-600/80 bg-blue-50/70 dark:bg-blue-950/30 p-3.5 rounded-r-xl text-foreground/95 text-xs sm:text-sm whitespace-pre-line leading-relaxed shadow-xs"
+            >
+              <RenderInline content={block.content} />
+            </blockquote>
           );
         }
 

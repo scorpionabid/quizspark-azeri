@@ -2,7 +2,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, Users, Target, Clock, TrendingUp, MessageSquare } from 'lucide-react';
+import { Users, Target, Clock, TrendingUp, MessageSquare } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -17,6 +17,7 @@ import { useQuestions } from '@/hooks/useQuestions';
 import { MathRenderer } from '@/components/common/MathRenderer';
 import { Progress } from '@/components/ui/progress';
 import { QuizFeedbacksTab } from './QuizFeedbacksTab';
+import { QuizStudentsResultsTab } from './QuizStudentsResultsTab';
 import { PageLoader } from '@/components/ui/loading-spinner';
 
 interface QuizStatsSheetProps {
@@ -92,26 +93,6 @@ export function QuizStatsSheet({
         cəhd: data.results.filter(r => r.completed_at.startsWith(day)).length,
       }))
     : [];
-
-  const exportCSV = () => {
-    if (!data) return;
-    const headers = ['Ad', 'Bal', 'Faiz (%)', 'Vaxt (san)', 'Tarix'];
-    const rows = data.results.map(r => [
-      r.profiles?.full_name ?? 'Naməlum',
-      r.score,
-      r.percentage.toFixed(1),
-      r.time_spent ?? '',
-      new Date(r.completed_at).toLocaleString('az-AZ'),
-    ]);
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${quizTitle}_nəticələr.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <Sheet open={!!quizId} onOpenChange={open => !open && onClose()}>
@@ -213,61 +194,12 @@ export function QuizStatsSheet({
 
             {/* ── Tab: Tələbələr ── */}
             <TabsContent value="students" className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {data.results.length} nəticə
-                </p>
-                {data.results.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={exportCSV} className="h-7 gap-1.5 text-xs">
-                    <Download className="h-3.5 w-3.5" />
-                    CSV ixrac
-                  </Button>
-                )}
-              </div>
-
-              {data.results.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8 text-sm">
-                  Hələ heç bir nəticə yoxdur
-                </p>
-              ) : (
-                <div className="space-y-1.5">
-                  {data.results.map((r, i) => (
-                    <div
-                      key={r.id}
-                      className="flex items-center justify-between rounded-lg border bg-card px-3 py-2.5"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-xs text-muted-foreground font-mono w-5 shrink-0 text-right">
-                          {i + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate leading-tight">
-                            {r.profiles?.full_name ?? 'Naməlum'}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {relDate(r.completed_at)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[11px] text-muted-foreground font-mono">
-                          {formatTime(r.time_spent)}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={
-                            r.percentage >= passPercentage
-                              ? 'text-emerald-600 border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 text-xs px-1.5 h-5'
-                              : 'text-rose-600 border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20 text-xs px-1.5 h-5'
-                          }
-                        >
-                          {r.percentage.toFixed(0)}%
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <QuizStudentsResultsTab
+                quizTitle={quizTitle}
+                results={data.results}
+                passPercentage={passPercentage}
+                attempts={teacherAttempts}
+              />
             </TabsContent>
 
             {/* ── Tab: Suallar (Question Breakdown) ── */}

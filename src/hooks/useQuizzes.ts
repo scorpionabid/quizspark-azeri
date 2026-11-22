@@ -230,7 +230,8 @@ export function useQuiz(quizIdOrCode: string | undefined) {
       return quiz;
     },
     enabled: !!quizIdOrCode,
-    staleTime: 30 * 1000, // 30 saniyə (redaktələr dərhal əks olunsun)
+    staleTime: 10 * 1000,
+    refetchInterval: 15 * 1000, // Real-time duration & status sync every 15s
     refetchOnMount: 'always',
   });
 }

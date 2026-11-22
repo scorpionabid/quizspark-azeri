@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap, PlayCircle, Award } from "lucide-react";
+import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap, PlayCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ const defaultFilters: QuizFilterValues = {
 
 export default function Index() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -182,13 +182,13 @@ export default function Index() {
   return (
     <div className="bg-gradient-hero min-h-screen w-full overflow-x-hidden">
       {/* If Student is logged in, show their personal Learning Hub */}
-      {!isGuest ? (
+      {role === 'student' ? (
         <section className="pt-4 sm:pt-6 px-3 sm:px-6 lg:px-8 w-full min-w-0">
           <div className="mx-auto max-w-7xl w-full min-w-0">
             <StudentLearningHub />
           </div>
         </section>
-      ) : (
+      ) : !user ? (
         /* Guest Hero Section */
         <section className="relative overflow-hidden px-4 py-12 sm:py-16 sm:px-6 lg:px-8">
           {/* Decorative elements */}
@@ -223,14 +223,9 @@ export default function Index() {
               {t('hero_title_3')}
             </h1>
 
-            <p className="mx-auto mb-6 max-w-2xl text-base text-muted-foreground sm:text-lg">
+            <p className="mx-auto mb-8 max-w-2xl text-base text-muted-foreground sm:text-lg">
               {t('hero_subtitle')}
             </p>
-
-            {/* Quick PIN Join Card for Guests */}
-            <div className="mx-auto mb-8 max-w-2xl text-left">
-              <QuickJoinPinCard variant="card" />
-            </div>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
@@ -293,76 +288,16 @@ export default function Index() {
             </div>
           </div>
         </section>
+      ) : null}
+
+      {/* Sürətli Kod/PIN ilə Daxilolma Bölməsi */}
+      {role !== 'student' && (
+        <section className="px-3 sm:px-6 lg:px-8 pb-6 w-full min-w-0">
+          <div className="mx-auto max-w-7xl w-full min-w-0">
+            <QuickJoinPinCard variant="hero" />
+          </div>
+        </section>
       )}
-
-      {/* Zəfər Olimpiadası Banner */}
-      <section className="px-3 sm:px-6 lg:px-8 pb-4 w-full min-w-0">
-        <div className="mx-auto max-w-7xl w-full min-w-0">
-          <div className="rounded-3xl border border-amber-300 dark:border-amber-800/60 bg-gradient-to-r from-amber-500/10 via-amber-50 to-amber-500/5 dark:from-amber-950/30 dark:via-slate-900 dark:to-amber-950/10 p-5 sm:p-7 shadow-sm flex flex-col md:flex-row items-center justify-between gap-5">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
-                <Trophy className="h-6 w-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                    Zəfər Olimpiadası
-                  </span>
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">VIII, IX, X, XI siniflər</span>
-                </div>
-                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100">
-                  Zəfər Olimpiadası Portalı
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
-                  Şagirdlər üçün 8 fənn üzrə sınaq imtahanı. UTİS kodunuzu yazıb, sinif və fənni seçərək daxil olun.
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => navigate('/imtahan?tab=olimpiada')}
-              className="h-11 px-6 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-md shadow-amber-600/20 shrink-0 w-full md:w-auto gap-2"
-            >
-              <Trophy className="w-4 h-4" />
-              Olimpiadaya Daxil Ol
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Official Exam Portal Banner */}
-      <section className="px-3 sm:px-6 lg:px-8 pb-6 w-full min-w-0">
-        <div className="mx-auto max-w-7xl w-full min-w-0">
-          <div className="rounded-3xl border border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-white to-blue-50/50 dark:from-blue-950/40 dark:via-slate-900 dark:to-blue-950/20 p-5 sm:p-7 shadow-sm flex flex-col md:flex-row items-center justify-between gap-5">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
-                <Award className="h-6 w-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                    {t('exam_portal')}
-                  </span>
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{t('specialties_count', '9 İxtisas')}</span>
-                </div>
-                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100">
-                  {t('exam_portal')}
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
-                  {t('exam_portal_desc')}
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => navigate('/imtahan')}
-              className="h-11 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-600/20 shrink-0 w-full md:w-auto"
-            >
-              {t('exam_portal')}
-            </Button>
-          </div>
-        </div>
-      </section>
 
       {/* Categories */}
       <section className="px-4 pb-4 sm:px-6 lg:px-8">

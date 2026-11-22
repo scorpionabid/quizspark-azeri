@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -127,7 +127,10 @@ function dialogSaveToDraft(saved: Partial<QuestionBankItem>, existing: DraftQues
     media_type: saved.media_type ?? existing.media_type,
     media_url: saved.media_url ?? existing.media_url,
     shuffle_options: saved.shuffle_options !== undefined ? saved.shuffle_options : existing.shuffle_options,
-    bank_question_id: saved.id || existing.bank_question_id,
+    bank_question_id:
+      existing.bank_question_id && existing.bank_question_id !== existing.localId
+        ? existing.bank_question_id
+        : null,
   };
 }
 
@@ -180,9 +183,15 @@ function draftToDbInsert(q: DraftQuestion, quizId: string, index: number) {
     normalizedPairs = matching_pairs as Record<string, string>;
   }
 
+  const safeBankQuestionId =
+    rest.bank_question_id && rest.bank_question_id !== localId
+      ? rest.bank_question_id
+      : null;
+
   return {
     ...rest,
     id: localId,
+    bank_question_id: safeBankQuestionId,
     hotspot_data: hotspot_data as Record<string, unknown> | null | undefined,
     matching_pairs: normalizedPairs,
     quiz_id: quizId,
@@ -367,6 +376,7 @@ export default function CreateQuizPage() {
   const [draftRecoveryInfo, setDraftRecoveryInfo] = useState<{ raw: string; mins: number } | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const createdQuizIdRef = useRef<string | null>(null);
 
   const isFormDirty = form.formState.isDirty;
 
@@ -619,7 +629,7 @@ export default function CreateQuizPage() {
     setIsSubmitting(true);
     try {
       const metadata = form.getValues();
-      let quizId = id;
+      let quizId = id || createdQuizIdRef.current || undefined;
 
       const quizPayload = {
         title: metadata.title.trim(),
@@ -660,17 +670,18 @@ export default function CreateQuizPage() {
         background_image_url: metadata.background_image_url || null,
       };
 
-      if (id) {
-        await updateQuiz.mutateAsync({ id, ...quizPayload });
+      if (quizId) {
+        await updateQuiz.mutateAsync({ id: quizId, ...quizPayload });
         const newQuestions = questions.map((q, i) => ({
-          ...draftToDbInsert(q, id, i),
+          ...draftToDbInsert(q, quizId!, i),
           shuffle_options: q.shuffle_options !== undefined ? q.shuffle_options : Boolean(metadata.shuffle_options),
         }));
-        const oldQuestionIds = (existingQuestions ?? []).map((q) => q.id);
-        await replaceQuestions.mutateAsync({ quizId: id, oldQuestionIds, newQuestions });
+        const oldQuestionIds = id ? (existingQuestions ?? []).map((q) => q.id) : [];
+        await replaceQuestions.mutateAsync({ quizId, oldQuestionIds, newQuestions });
       } else {
         const quiz = await createQuiz.mutateAsync(quizPayload);
         quizId = quiz.id;
+        createdQuizIdRef.current = quiz.id;
         const questionsToCreate = questions.map((q, i) => {
           const { id: _ignoreId, ...rest } = draftToDbInsert(q, quizId!, i);
           return {

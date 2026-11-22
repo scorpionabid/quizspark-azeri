@@ -29,7 +29,10 @@ import {
   PlayCircle,
   Eye,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -317,9 +320,27 @@ export default function UsersPage() {
       })
       .sort((a, b) => {
         if (teacherStatSort === 'questions_desc') return b.totalQuestions - a.totalQuestions;
+        if (teacherStatSort === 'questions_asc') return a.totalQuestions - b.totalQuestions;
         if (teacherStatSort === 'quizzes_desc') return b.quizCount - a.quizCount;
+        if (teacherStatSort === 'quizzes_asc') return a.quizCount - b.quizCount;
+        if (teacherStatSort === 'bank_desc') return b.bankQuestionCount - a.bankQuestionCount;
+        if (teacherStatSort === 'bank_asc') return a.bankQuestionCount - b.bankQuestionCount;
         if (teacherStatSort === 'plays_desc') return b.totalPlays - a.totalPlays;
+        if (teacherStatSort === 'plays_asc') return a.totalPlays - b.totalPlays;
         if (teacherStatSort === 'name_asc') return a.fullName.localeCompare(b.fullName, 'az');
+        if (teacherStatSort === 'name_desc') return b.fullName.localeCompare(a.fullName, 'az');
+        if (teacherStatSort === 'school_asc') return (a.school || a.specialty || '').localeCompare(b.school || b.specialty || '', 'az');
+        if (teacherStatSort === 'school_desc') return (b.school || b.specialty || '').localeCompare(a.school || a.specialty || '', 'az');
+        if (teacherStatSort === 'last_created_desc') {
+          const tA = a.lastCreatedDate ? new Date(a.lastCreatedDate).getTime() : 0;
+          const tB = b.lastCreatedDate ? new Date(b.lastCreatedDate).getTime() : 0;
+          return tB - tA;
+        }
+        if (teacherStatSort === 'last_created_asc') {
+          const tA = a.lastCreatedDate ? new Date(a.lastCreatedDate).getTime() : 0;
+          const tB = b.lastCreatedDate ? new Date(b.lastCreatedDate).getTime() : 0;
+          return tA - tB;
+        }
         return 0;
       });
   }, [teacherStats, teacherStatSearch, teacherStatSort]);
@@ -386,6 +407,11 @@ export default function UsersPage() {
         const timeB = b.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
         return timeB - timeA;
       }
+      if (sortBy === 'last_active_asc') {
+        const timeA = a.lastActiveAt ? new Date(a.lastActiveAt).getTime() : 0;
+        const timeB = b.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
+        return timeA - timeB;
+      }
       if (sortBy === 'created_desc') {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
@@ -395,9 +421,78 @@ export default function UsersPage() {
       if (sortBy === 'name_asc') {
         return a.name.localeCompare(b.name, 'az');
       }
+      if (sortBy === 'name_desc') {
+        return b.name.localeCompare(a.name, 'az');
+      }
+      if (sortBy === 'email_asc') {
+        return (a.email || '').localeCompare(b.email || '', 'az');
+      }
+      if (sortBy === 'email_desc') {
+        return (b.email || '').localeCompare(a.email || '', 'az');
+      }
+      if (sortBy === 'phone_asc') {
+        return (a.phone || '').localeCompare(b.phone || '', 'az');
+      }
+      if (sortBy === 'phone_desc') {
+        return (b.phone || '').localeCompare(a.phone || '', 'az');
+      }
+      if (sortBy === 'school_asc') {
+        return (a.school || a.specialty || '').localeCompare(b.school || b.specialty || '', 'az');
+      }
+      if (sortBy === 'school_desc') {
+        return (b.school || b.specialty || '').localeCompare(a.school || a.specialty || '', 'az');
+      }
+      if (sortBy === 'content_desc') {
+        const scoreA = (a.quizCount || 0) * 1000 + (a.questionCount || 0);
+        const scoreB = (b.quizCount || 0) * 1000 + (b.questionCount || 0);
+        return scoreB - scoreA;
+      }
+      if (sortBy === 'content_asc') {
+        const scoreA = (a.quizCount || 0) * 1000 + (a.questionCount || 0);
+        const scoreB = (b.quizCount || 0) * 1000 + (b.questionCount || 0);
+        return scoreA - scoreB;
+      }
+      if (sortBy === 'tier_asc') {
+        return (a.subscriptionTier || '').localeCompare(b.subscriptionTier || '', 'az');
+      }
+      if (sortBy === 'tier_desc') {
+        return (b.subscriptionTier || '').localeCompare(a.subscriptionTier || '', 'az');
+      }
+      if (sortBy === 'status_asc') {
+        return (a.status || '').localeCompare(b.status || '', 'az');
+      }
+      if (sortBy === 'status_desc') {
+        return (b.status || '').localeCompare(a.status || '', 'az');
+      }
       return 0;
     });
   }, [users, searchQuery, roleTab, statusFilter, activityFilter, sortBy]);
+
+  const toggleUserSort = (ascKey: string, descKey: string, defaultOrder: 'asc' | 'desc' = 'asc') => {
+    setSortBy((prev) => {
+      if (prev === ascKey) return descKey;
+      if (prev === descKey) return ascKey;
+      return defaultOrder === 'asc' ? ascKey : descKey;
+    });
+  };
+
+  const toggleTeacherStatSort = (ascKey: string, descKey: string, defaultOrder: 'asc' | 'desc' = 'asc') => {
+    setTeacherStatSort((prev) => {
+      if (prev === ascKey) return descKey;
+      if (prev === descKey) return ascKey;
+      return defaultOrder === 'asc' ? ascKey : descKey;
+    });
+  };
+
+  const renderSortIcon = (current: string, ascKey: string, descKey: string) => {
+    if (current === ascKey) {
+      return <ArrowUp className="h-3.5 w-3.5 text-primary inline ml-1 shrink-0" />;
+    }
+    if (current === descKey) {
+      return <ArrowDown className="h-3.5 w-3.5 text-primary inline ml-1 shrink-0" />;
+    }
+    return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-foreground inline ml-1 shrink-0 transition-colors" />;
+  };
 
   // Paginated users
   const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
@@ -781,9 +876,17 @@ export default function UsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="last_active_desc">⚡ Ən son daxil olanlar</SelectItem>
+                <SelectItem value="last_active_asc">⚡ Ən əvvəl daxil olanlar</SelectItem>
                 <SelectItem value="created_desc">🕒 Qeydiyyat (Ən yeni)</SelectItem>
                 <SelectItem value="created_asc">🕒 Qeydiyyat (Ən köhnə)</SelectItem>
                 <SelectItem value="name_asc">🔤 Ad üzrə (A-Z)</SelectItem>
+                <SelectItem value="name_desc">🔤 Ad üzrə (Z-A)</SelectItem>
+                <SelectItem value="school_asc">🏫 Məktəb / Fənn (A-Z)</SelectItem>
+                <SelectItem value="school_desc">🏫 Məktəb / Fənn (Z-A)</SelectItem>
+                <SelectItem value="content_desc">📝 Məzmun (Çoxdan-aza)</SelectItem>
+                <SelectItem value="content_asc">📝 Məzmun (Azdan-çoxa)</SelectItem>
+                <SelectItem value="tier_desc">👑 Tier (VIP öncə)</SelectItem>
+                <SelectItem value="tier_asc">👑 Tier (Quest öncə)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -865,19 +968,54 @@ export default function UsersPage() {
                     <thead>
                       <tr className="border-b border-border/60 bg-muted/40">
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Müəllim
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('name_asc', 'name_desc', 'asc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Müəllim (A-Z)</span>
+                            {renderSortIcon(sortBy, 'name_asc', 'name_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Əlaqə Nömrəsi
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('phone_asc', 'phone_desc', 'asc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Əlaqə Nömrəsi</span>
+                            {renderSortIcon(sortBy, 'phone_asc', 'phone_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          E-poçt
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('email_asc', 'email_desc', 'asc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>E-poçt</span>
+                            {renderSortIcon(sortBy, 'email_asc', 'email_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Məktəb / İxtisas
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('school_asc', 'school_desc', 'asc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Məktəb / İxtisas</span>
+                            {renderSortIcon(sortBy, 'school_asc', 'school_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Müraciət Vaxtı
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('created_asc', 'created_desc', 'desc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Müraciət Vaxtı</span>
+                            {renderSortIcon(sortBy, 'created_asc', 'created_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                           Status
@@ -1113,9 +1251,15 @@ export default function UsersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="questions_desc">⚡ Ən çox sual yaradanlar</SelectItem>
+                    <SelectItem value="questions_asc">⚡ Ən az sual yaradanlar</SelectItem>
                     <SelectItem value="quizzes_desc">📝 Ən çox quiz yaradanlar</SelectItem>
+                    <SelectItem value="quizzes_asc">📝 Ən az quiz yaradanlar</SelectItem>
+                    <SelectItem value="bank_desc">📚 Sual bankı (Çoxdan-aza)</SelectItem>
                     <SelectItem value="plays_desc">👥 Ən çox tələbə iştirakı olanlar</SelectItem>
                     <SelectItem value="name_asc">🔤 Ad üzrə (A-Z)</SelectItem>
+                    <SelectItem value="name_desc">🔤 Ad üzrə (Z-A)</SelectItem>
+                    <SelectItem value="school_asc">🏫 Məktəb / Fənn (A-Z)</SelectItem>
+                    <SelectItem value="school_desc">🏫 Məktəb / Fənn (Z-A)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1128,25 +1272,74 @@ export default function UsersPage() {
                   <thead>
                     <tr className="border-b border-border/60 bg-muted/40">
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Müəllim
+                        <button
+                          type="button"
+                          onClick={() => toggleTeacherStatSort('name_asc', 'name_desc', 'asc')}
+                          className="group inline-flex items-center hover:text-foreground transition-colors"
+                        >
+                          <span>Müəllim (A-Z)</span>
+                          {renderSortIcon(teacherStatSort, 'name_asc', 'name_desc')}
+                        </button>
                       </th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Məktəb / Fənn
+                        <button
+                          type="button"
+                          onClick={() => toggleTeacherStatSort('school_asc', 'school_desc', 'asc')}
+                          className="group inline-flex items-center hover:text-foreground transition-colors"
+                        >
+                          <span>Məktəb / Fənn</span>
+                          {renderSortIcon(teacherStatSort, 'school_asc', 'school_desc')}
+                        </button>
                       </th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">
-                        Yaratdığı Quizlər
+                        <button
+                          type="button"
+                          onClick={() => toggleTeacherStatSort('quizzes_asc', 'quizzes_desc', 'desc')}
+                          className="group inline-flex items-center justify-center hover:text-foreground transition-colors"
+                        >
+                          <span>Yaratdığı Quizlər</span>
+                          {renderSortIcon(teacherStatSort, 'quizzes_asc', 'quizzes_desc')}
+                        </button>
                       </th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">
-                        Sual Bankı
+                        <button
+                          type="button"
+                          onClick={() => toggleTeacherStatSort('bank_asc', 'bank_desc', 'desc')}
+                          className="group inline-flex items-center justify-center hover:text-foreground transition-colors"
+                        >
+                          <span>Sual Bankı</span>
+                          {renderSortIcon(teacherStatSort, 'bank_asc', 'bank_desc')}
+                        </button>
                       </th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">
-                        Cəmi Suallar
+                        <button
+                          type="button"
+                          onClick={() => toggleTeacherStatSort('questions_asc', 'questions_desc', 'desc')}
+                          className="group inline-flex items-center justify-center hover:text-foreground transition-colors"
+                        >
+                          <span>Cəmi Suallar</span>
+                          {renderSortIcon(teacherStatSort, 'questions_asc', 'questions_desc')}
+                        </button>
                       </th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">
-                        Tələbə İştirakı
+                        <button
+                          type="button"
+                          onClick={() => toggleTeacherStatSort('plays_asc', 'plays_desc', 'desc')}
+                          className="group inline-flex items-center justify-center hover:text-foreground transition-colors"
+                        >
+                          <span>Tələbə İştirakı</span>
+                          {renderSortIcon(teacherStatSort, 'plays_asc', 'plays_desc')}
+                        </button>
                       </th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Son Fəaliyyət
+                        <button
+                          type="button"
+                          onClick={() => toggleTeacherStatSort('last_created_asc', 'last_created_desc', 'desc')}
+                          className="group inline-flex items-center hover:text-foreground transition-colors"
+                        >
+                          <span>Son Fəaliyyət</span>
+                          {renderSortIcon(teacherStatSort, 'last_created_asc', 'last_created_desc')}
+                        </button>
                       </th>
                       <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground">
                         Quizlər
@@ -1291,30 +1484,86 @@ export default function UsersPage() {
                     <thead>
                       <tr className="border-b border-border/60 bg-muted/40">
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          İstifadəçi
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('name_asc', 'name_desc', 'asc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>İstifadəçi (A-Z)</span>
+                            {renderSortIcon(sortBy, 'name_asc', 'name_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Əlaqə / Telefon
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('phone_asc', 'phone_desc', 'asc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Əlaqə / Telefon</span>
+                            {renderSortIcon(sortBy, 'phone_asc', 'phone_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Məktəb / Fənn
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('school_asc', 'school_desc', 'asc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Məktəb / Fənn</span>
+                            {renderSortIcon(sortBy, 'school_asc', 'school_desc')}
+                          </button>
                         </th>
                         {tabKey === 'teacher' && (
                           <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            Məzmun (Quiz / Sual)
+                            <button
+                              type="button"
+                              onClick={() => toggleUserSort('content_asc', 'content_desc', 'desc')}
+                              className="group inline-flex items-center hover:text-foreground transition-colors"
+                            >
+                              <span>Məzmun (Quiz / Sual)</span>
+                              {renderSortIcon(sortBy, 'content_asc', 'content_desc')}
+                            </button>
                           </th>
                         )}
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Son Aktivlik
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('last_active_asc', 'last_active_desc', 'desc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Son Aktivlik</span>
+                            {renderSortIcon(sortBy, 'last_active_asc', 'last_active_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Tier
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('tier_asc', 'tier_desc', 'desc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Tier</span>
+                            {renderSortIcon(sortBy, 'tier_asc', 'tier_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Status
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('status_asc', 'status_desc', 'asc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Status</span>
+                            {renderSortIcon(sortBy, 'status_asc', 'status_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                          Qeydiyyat
+                          <button
+                            type="button"
+                            onClick={() => toggleUserSort('created_asc', 'created_desc', 'desc')}
+                            className="group inline-flex items-center hover:text-foreground transition-colors"
+                          >
+                            <span>Qeydiyyat</span>
+                            {renderSortIcon(sortBy, 'created_asc', 'created_desc')}
+                          </button>
                         </th>
                         <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground">
                           Əməliyyatlar

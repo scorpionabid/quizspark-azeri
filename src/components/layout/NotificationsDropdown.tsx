@@ -1,4 +1,5 @@
 import { Bell, Check, FileQuestion, Trophy, MessageSquare, Info, Trash2, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,6 +18,7 @@ import { formatDistanceToNow } from "date-fns";
 import { az, enUS, ru, tr } from "date-fns/locale";
 
 export function NotificationsDropdown() {
+  const navigate = useNavigate();
   const {
     notifications,
     loading,
@@ -117,7 +119,10 @@ export function NotificationsDropdown() {
                 )}
                 onClick={() => {
                   if (!notification.read) {
-                    markAsRead(notification.id);
+                    void markAsRead(notification.id);
+                  }
+                  if (notification.link) {
+                    navigate(notification.link);
                   }
                 }}
               >
