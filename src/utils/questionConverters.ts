@@ -79,6 +79,7 @@ export function convertToQuestionBankItem(
     fill_blank_template: qType === 'fill_blank' ? (question.fillBlankTemplate || null) : null,
     numerical_answer: qType === 'numerical' ? (question.numericalAnswer ?? null) : null,
     numerical_tolerance: qType === 'numerical' ? (question.numericalTolerance ?? null) : null,
+    correct_option_indices: null,
     feedback_enabled: true,
     quality_score: null,
     usage_count: 0,

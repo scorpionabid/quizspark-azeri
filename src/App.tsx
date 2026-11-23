@@ -20,6 +20,15 @@ import { loggerService } from "@/services/loggerService";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
+// Lazy Loaded User/Auth Pages
+const QuizPage = lazy(() => import("./pages/QuizPage"));
+const QuizzesPage = lazy(() => import("./pages/QuizzesPage"));
+const LeaderboardPage = lazy(() => import("./pages/LeaderboardPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const AuthPage = lazy(() => import("./pages/auth/AuthPage"));
+const PendingApprovalPage = lazy(() => import("./pages/auth/PendingApprovalPage"));
+const SupportChatPage = lazy(() => import("./pages/chat/SupportChatPage"));
+
 // Student Progress Page — lazy
 const StudentProgressPage = lazy(() => import("./pages/student/StudentProgressPage"));
 
