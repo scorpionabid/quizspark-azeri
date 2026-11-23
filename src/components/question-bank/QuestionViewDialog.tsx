@@ -19,6 +19,7 @@ import { Question3DViewer } from './Question3DViewer';
 import { normalizePairs, parseMatchingValue } from '../quiz/renderers/utils';
 import { useQuestionFeedbacks } from '@/hooks/useQuizFeedback';
 import { MathRenderer } from '@/components/common/MathRenderer';
+import { shouldDisplayQuestionTitle } from '@/utils/questionConverters';
 
 interface QuestionViewDialogProps {
   open: boolean;
@@ -126,7 +127,9 @@ export function QuestionViewDialog({
 
           {/* Question Text */}
           <div>
-            {question.title && <h3 className="font-semibold text-primary mb-1"><MathRenderer text={question.title} /></h3>}
+            {shouldDisplayQuestionTitle(question.title, question.question_text) && (
+              <h3 className="font-semibold text-primary mb-1"><MathRenderer text={question.title} /></h3>
+            )}
             <h4 className="font-medium mb-2">Sual</h4>
             <div className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
               <MathRenderer text={question.question_text} />

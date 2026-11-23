@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { shouldDisplayQuestionTitle } from '@/utils/questionConverters';
 
 export interface QuestionBankItem {
   id: string;
@@ -374,6 +375,75 @@ export function useQuestionBankCategories() {
   });
 }
 
+/**
+ * Verilənlər bazasına göndərilməzdən əvvəl bütün numeric, integer və nullable string sahələri təmizləyir.
+ * Boş string ("") dəyərlərinin numeric/integer sütunlara göndərilərək SQL xətası ("invalid input syntax for type numeric: """)
+ * verməsinin qarşısını tam alır.
+ */
+export function sanitizeQuestionBankPayload<T extends Record<string, any>>(item: T): T {
+  if (!item || typeof item !== 'object') return item;
+  const sanitized = { ...item } as any;
+
+  // Numeric fields (PostgreSQL: numeric, real, double precision)
+  const numericFields = ['numerical_answer', 'numerical_tolerance', 'weight', 'quality_score'];
+  for (const field of numericFields) {
+    if (field in sanitized) {
+      const val = sanitized[field];
+      if (val === '' || val === null || val === undefined) {
+        sanitized[field] = null;
+      } else {
+        const num = Number(val);
+        sanitized[field] = isNaN(num) ? null : num;
+      }
+    }
+  }
+
+  // Integer fields (PostgreSQL: integer, int4, smallint)
+  const intFields = [
+    'time_limit', 'video_start_time', 'video_end_time',
+    'essay_min_words', 'essay_max_words', 'usage_count',
+    'max_attempts', 'show_hint_after_attempts', 'likert_scale',
+    'code_time_limit_ms', 'code_memory_limit_mb', 'hotspot_tolerance_px',
+    'audio_playback_limit'
+  ];
+  for (const field of intFields) {
+    if (field in sanitized) {
+      const val = sanitized[field];
+      if (val === '' || val === null || val === undefined) {
+        sanitized[field] = null;
+      } else {
+        const intVal = parseInt(String(val), 10);
+        sanitized[field] = isNaN(intVal) ? null : intVal;
+      }
+    }
+  }
+
+  // Nullable string fields (empty string should be null)
+  const nullableStringFields = [
+    'title', 'hint', 'explanation', 'category', 'difficulty', 'bloom_level',
+    'question_image_url', 'media_url', 'video_url', 'model_3d_url', 'fill_blank_template',
+    'learning_objective', 'topic', 'code_language', 'code_starter_template',
+    'feedback_correct', 'feedback_incorrect', 'likert_min_label', 'likert_max_label'
+  ];
+  for (const field of nullableStringFields) {
+    if (field in sanitized) {
+      const val = sanitized[field];
+      if (typeof val === 'string' && val.trim() === '') {
+        sanitized[field] = null;
+      }
+    }
+  }
+
+  // Redundant title filter
+  if ('title' in sanitized && sanitized.title) {
+    if (!shouldDisplayQuestionTitle(sanitized.title, sanitized.question_text)) {
+      sanitized.title = null;
+    }
+  }
+
+  return sanitized as T;
+}
+
 // Create a new question
 export function useCreateQuestionBank() {
   const queryClient = useQueryClient();
@@ -381,11 +451,12 @@ export function useCreateQuestionBank() {
   return useMutation({
     mutationFn: async (question: Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'>) => {
       const { data: userData } = await supabase.auth.getUser();
+      const sanitized = sanitizeQuestionBankPayload(question);
 
       const { data, error } = await supabase
         .from('question_bank')
         .insert({
-          ...question,
+          ...sanitized,
           user_id: userData.user?.id || null,
         })
         .select()
@@ -412,9 +483,10 @@ export function useUpdateQuestionBank() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<QuestionBankItem> & { id: string }) => {
+      const sanitized = sanitizeQuestionBankPayload(updates);
       const { data, error } = await supabase
         .from('question_bank')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update({ ...sanitized, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
         .single();
@@ -492,9 +564,10 @@ export function useBulkUpdateQuestionBank() {
 
   return useMutation({
     mutationFn: async ({ ids, updates }: { ids: string[]; updates: Partial<QuestionBankItem> }) => {
+      const sanitized = sanitizeQuestionBankPayload(updates);
       const { error } = await supabase
         .from('question_bank')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update({ ...sanitized, updated_at: new Date().toISOString() })
         .in('id', ids);
 
       if (error) throw error;
@@ -522,7 +595,7 @@ export function useBulkCreateQuestionBank() {
       const userId = userData.user?.id || null;
 
       const questionsWithUser = questions.map((q) => ({
-        ...q,
+        ...sanitizeQuestionBankPayload(q),
         user_id: userId,
       }));
 

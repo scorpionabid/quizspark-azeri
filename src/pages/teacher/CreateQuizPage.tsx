@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { QuestionEditDialog } from '@/components/question-bank/QuestionEditDialog';
 import { QuestionPickerDialog } from '@/components/quiz/QuestionPickerDialog';
+import { shouldDisplayQuestionTitle } from '@/utils/questionConverters';
 import { QuizActionHeader } from '@/components/teacher/quiz-creation/QuizActionHeader';
 import { QuizMetadataForm } from '@/components/teacher/quiz-creation/QuizMetadataForm';
 import { QuizQuickActions } from '@/components/teacher/quiz-creation/QuizQuickActions';
@@ -196,6 +197,10 @@ function draftToDbInsert(q: DraftQuestion, quizId: string, index: number) {
     matching_pairs: normalizedPairs,
     quiz_id: quizId,
     order_index: index,
+    title: (rest.title && shouldDisplayQuestionTitle(rest.title, rest.question_text)) ? rest.title.trim() : null,
+    numerical_answer: rest.numerical_answer !== '' && rest.numerical_answer != null ? Number(rest.numerical_answer) : null,
+    numerical_tolerance: rest.numerical_tolerance !== '' && rest.numerical_tolerance != null ? Number(rest.numerical_tolerance) : 0,
+    time_limit: rest.time_limit !== '' && rest.time_limit != null ? Number(rest.time_limit) : null,
   };
 }
 

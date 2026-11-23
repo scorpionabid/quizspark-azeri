@@ -26,6 +26,7 @@ import { QUESTION_TYPES } from '@/types/question';
 import { cn } from '@/lib/utils';
 import { MathRenderer } from '@/components/common/MathRenderer';
 import { ImageViewerDialog } from '@/components/common/ImageViewerDialog';
+import { shouldDisplayQuestionTitle } from '@/utils/questionConverters';
 
 interface QuestionTableProps {
   questions: QuestionBankItem[];
@@ -165,7 +166,7 @@ export function QuestionTable({
                     className="mt-1"
                   />
                   <div className="flex-1 min-w-0">
-                    {question.title && (
+                    {shouldDisplayQuestionTitle(question.title, question.question_text) && (
                       <h4 className="text-sm font-semibold text-foreground truncate">
                         <MathRenderer text={question.title} />
                       </h4>
@@ -354,7 +355,9 @@ export function QuestionTable({
                         />
                       )}
                       <div>
-                        {question.title && <div className="font-semibold text-sm mb-1"><MathRenderer text={question.title} /></div>}
+                        {shouldDisplayQuestionTitle(question.title, question.question_text) && (
+                          <div className="font-semibold text-sm mb-1"><MathRenderer text={question.title} /></div>
+                        )}
                         <div className="font-medium line-clamp-2 text-muted-foreground text-sm">
                           <MathRenderer text={truncateText(question.question_text, 120)} />
                         </div>

@@ -24,6 +24,7 @@ import { VisualTimer } from "./VisualTimer";
 import { QuestionFeedbackDialog } from "./QuestionFeedbackDialog";
 import { QuestionTimerBar } from "./QuestionTimerBar";
 import { parseNumberedItems, isSequenceQuestion } from "./renderers/utils";
+import { shouldDisplayQuestionTitle } from "@/utils/questionConverters";
 
 import { Quiz, getSafeExamConfig } from "@/hooks/useQuizzes";
 import { Question } from "@/hooks/useQuestions";
@@ -475,7 +476,11 @@ export const QuizPlaying: React.FC<QuizPlayingProps> = ({
                         <>
                           <div className="flex justify-between items-start mb-6 gap-4">
                             <div className="font-display text-base sm:text-xl md:text-2xl font-medium text-foreground whitespace-pre-line leading-relaxed flex-1">
-                              {question.title && <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest"><MathRenderer text={question.title} /></span>}
+                              {shouldDisplayQuestionTitle(question.title, displayText) && (
+                                <span className="block text-[10px] sm:text-sm text-primary font-black mb-1 uppercase tracking-widest">
+                                  <MathRenderer text={question.title} />
+                                </span>
+                              )}
                               <span className="mr-2 text-muted-foreground">{quiz.questions_per_page! * currentPage + idx + 1}.</span>
                               <MathRenderer text={displayText} />
                             </div>

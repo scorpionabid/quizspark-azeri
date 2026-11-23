@@ -325,47 +325,53 @@ export function useQuestionEditForm(
     }
     setValidationErrors({});
 
+    const data = getCleanData();
+    onSave(data);
+    return true;
+  };
+
+  const getCleanData = (): Partial<QuestionBankItem> & Record<string, any> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: Partial<QuestionBankItem> & Record<string, any> = {
-      title: formData.title || null,
+      title: formData.title?.trim() || null,
       question_text: formData.question_text,
       question_type: formData.question_type,
       correct_answer: formData.correct_answer,
-      explanation: formData.explanation || null,
-      category: formData.category || null,
+      explanation: formData.explanation?.trim() || null,
+      category: formData.category?.trim() || null,
       difficulty: formData.difficulty || null,
-      bloom_level: formData.bloom_level || null,
+      bloom_level: formData.bloom_level?.trim() || null,
       tags: formData.tags.length > 0 ? formData.tags : null,
-      question_image_url: formData.question_image_url || null,
+      question_image_url: formData.question_image_url?.trim() || null,
       media_type: formData.media_type || null,
-      media_url: formData.media_url || null,
+      media_url: formData.media_url?.trim() || null,
       weight: Number(formData.weight) || 1.0,
-      hint: formData.hint || null,
-      time_limit: formData.time_limit ? Number(formData.time_limit) : null,
-      video_url: formData.video_url || null,
-      video_start_time: formData.video_start_time ? Number(formData.video_start_time) : null,
-      video_end_time: formData.video_end_time ? Number(formData.video_end_time) : null,
-      model_3d_url: formData.model_3d_url || null,
+      hint: formData.hint?.trim() || null,
+      time_limit: formData.time_limit !== '' && formData.time_limit != null ? Number(formData.time_limit) : null,
+      video_url: formData.video_url?.trim() || null,
+      video_start_time: formData.video_start_time !== '' && formData.video_start_time != null ? Number(formData.video_start_time) : null,
+      video_end_time: formData.video_end_time !== '' && formData.video_end_time != null ? Number(formData.video_end_time) : null,
+      model_3d_url: formData.model_3d_url?.trim() || null,
       model_3d_type: formData.model_3d_type || 'glb',
-      fill_blank_template: formData.fill_blank_template || null,
-      numerical_answer: formData.numerical_answer !== '' ? Number(formData.numerical_answer) : null,
-      numerical_tolerance: Number(formData.numerical_tolerance) || 0,
+      fill_blank_template: formData.fill_blank_template?.trim() || null,
+      numerical_answer: formData.numerical_answer !== '' && formData.numerical_answer != null ? Number(formData.numerical_answer) : null,
+      numerical_tolerance: formData.numerical_tolerance !== '' && formData.numerical_tolerance != null ? Number(formData.numerical_tolerance) : 0,
       // P1 fields
       accepted_answers: formData.accepted_answers.length > 0 ? formData.accepted_answers : null,
       answer_case_sensitive: formData.answer_case_sensitive,
       answer_trim_spaces: formData.answer_trim_spaces,
       answer_match_type: formData.answer_match_type || 'exact',
       essay_rubric: formData.essay_rubric || null,
-      essay_min_words: formData.essay_min_words !== '' ? Number(formData.essay_min_words) : null,
-      essay_max_words: formData.essay_max_words !== '' ? Number(formData.essay_max_words) : null,
+      essay_min_words: formData.essay_min_words !== '' && formData.essay_min_words != null ? Number(formData.essay_min_words) : null,
+      essay_max_words: formData.essay_max_words !== '' && formData.essay_max_words != null ? Number(formData.essay_max_words) : null,
       ai_grading_enabled: formData.ai_grading_enabled,
-      feedback_correct: formData.feedback_correct || null,
-      feedback_incorrect: formData.feedback_incorrect || null,
-      learning_objective: formData.learning_objective || null,
-      topic: formData.topic || null,
+      feedback_correct: formData.feedback_correct?.trim() || null,
+      feedback_incorrect: formData.feedback_incorrect?.trim() || null,
+      learning_objective: formData.learning_objective?.trim() || null,
+      topic: formData.topic?.trim() || null,
       // P2 fields
       code_language: formData.code_language || null,
-      code_starter_template: formData.code_starter_template || null,
+      code_starter_template: formData.code_starter_template?.trim() || null,
       code_test_cases: formData.code_test_cases.length > 0 ? formData.code_test_cases : null,
       fill_blank_answers: formData.fill_blank_answers || null,
       fill_blank_case_sensitive: formData.fill_blank_case_sensitive,
@@ -375,8 +381,8 @@ export function useQuestionEditForm(
       matrix_rows: formData.matrix_rows.length > 0 ? formData.matrix_rows : null,
       matrix_columns: formData.matrix_columns.length > 0 ? formData.matrix_columns : null,
       matrix_correct_answers: formData.matrix_correct_answers || null,
-      likert_min_label: formData.likert_min_label || null,
-      likert_max_label: formData.likert_max_label || null,
+      likert_min_label: formData.likert_min_label?.trim() || null,
+      likert_max_label: formData.likert_max_label?.trim() || null,
       likert_scale: formData.likert_scale || 5,
       diagram_labels: formData.diagram_labels.length > 0 ? formData.diagram_labels : null,
       is_graded: formData.is_graded,
@@ -432,8 +438,7 @@ export function useQuestionEditForm(
     }
 
     if (mode === 'edit' && question) data.id = question.id;
-    onSave(data);
-    return true;
+    return data;
   };
 
   return {
@@ -442,6 +447,7 @@ export function useQuestionEditForm(
     validationErrors,
     setValidationErrors,
     validateForm,
+    getCleanData,
     isUploading,
     is3DUploading,
     setIs3DUploading,

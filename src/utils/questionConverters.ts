@@ -8,6 +8,22 @@ const DIFFICULTY_MAP: Record<string, string> = {
 };
 
 /**
+ * Yalnız title həqiqətən müstəqil başlıq olduqda true qaytarır.
+ * Əgər title sual mətni ilə eynidirsə və ya sual mətninin ilk hissəsidirsə (kəsilibsə), false qaytarır.
+ */
+export function shouldDisplayQuestionTitle(title?: string | null, questionText?: string | null): boolean {
+  if (!title) return false;
+  const cleanTitle = title.trim().toLowerCase().replace(/['"`]/g, '');
+  if (!cleanTitle) return false;
+  const cleanText = (questionText || '').trim().toLowerCase().replace(/['"`]/g, '');
+  if (!cleanText) return true;
+  if (cleanTitle === cleanText) return false;
+  if (cleanText.startsWith(cleanTitle)) return false;
+  if (cleanTitle.startsWith(cleanText)) return false;
+  return true;
+}
+
+/**
  * GeneratedQuestion-u sual bankı DB formatına çevirir.
  */
 export function convertToQuestionBankItem(
@@ -29,7 +45,7 @@ export function convertToQuestionBankItem(
   })();
 
   return {
-    title: question.question.slice(0, 100),
+    title: null,
     question_text: question.question,
     question_type: qType,
     options,

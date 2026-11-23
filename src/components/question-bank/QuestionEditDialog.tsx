@@ -91,6 +91,7 @@ export function QuestionEditDialog({
     validationErrors,
     setValidationErrors,
     validateForm,
+    getCleanData,
     isUploading,
     is3DUploading,
     setIs3DUploading,
@@ -501,43 +502,11 @@ export function QuestionEditDialog({
                 handleSubmit();
                 return;
               }
+              const cleanData = getCleanData();
               if (saveToBank && showSaveToBank && mode === 'create') {
                 try {
-                  await createQuestionBank.mutateAsync({
-                    question_text: formData.question_text,
-                    question_type: formData.question_type,
-                    options: formData.options ?? null,
-                    correct_answer: formData.correct_answer ?? '',
-                    explanation: formData.explanation ?? null,
-                    title: formData.title ?? null,
-                    weight: formData.weight ?? null,
-                    hint: formData.hint ?? null,
-                    time_limit: formData.time_limit ?? null,
-                    difficulty: formData.difficulty ?? null,
-                    category: formData.category ?? null,
-                    bloom_level: formData.bloom_level ?? null,
-                    tags: formData.tags ?? null,
-                    per_option_explanations: formData.per_option_explanations ?? null,
-                    question_image_url: formData.question_image_url ?? null,
-                    option_images: formData.option_images ?? null,
-                    media_type: formData.media_type ?? null,
-                    media_url: formData.media_url ?? null,
-                    video_url: formData.video_url ?? null,
-                    video_start_time: formData.video_start_time ?? null,
-                    video_end_time: formData.video_end_time ?? null,
-                    model_3d_url: formData.model_3d_url ?? null,
-                    model_3d_type: formData.model_3d_type ?? null,
-                    hotspot_data: formData.hotspot_data ?? null,
-                    matching_pairs: formData.matching_pairs ?? null,
-                    sequence_items: formData.sequence_items ?? null,
-                    fill_blank_template: formData.fill_blank_template ?? null,
-                    numerical_answer: formData.numerical_answer ?? null,
-                    numerical_tolerance: formData.numerical_tolerance ?? null,
-                    source_document_id: null,
-                    quality_score: null,
-                    usage_count: null,
-                    feedback_enabled: null,
-                  });
+                  const { id: _ignoreId, ...bankPayload } = cleanData;
+                  await createQuestionBank.mutateAsync(bankPayload as any);
                 } catch {
                   return;
                 }
