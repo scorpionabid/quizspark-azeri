@@ -225,7 +225,20 @@ export function useSyncTrims() {
       const { data, error } = await supabase.functions.invoke('sync-trims', {
         body: payload,
       });
-      if (error) throw error;
+      if (error) {
+        // Extract detailed JSON error from FunctionsHttpError if available
+        let detailedMsg = error.message;
+        try {
+          const ctx = (error as { context?: Response }).context;
+          if (ctx) {
+            const body = await ctx.json();
+            if (body?.error) detailedMsg = body.error;
+          }
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(detailedMsg);
+      }
       return data as { success: boolean; queued?: number; skipped?: number; storagePath?: string };
     },
     onSuccess: () => {

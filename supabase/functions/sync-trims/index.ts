@@ -51,6 +51,16 @@ function detectCoreSubject(text: string): string | null {
   return null;
 }
 
+async function safeFetch(url: string, timeoutMs = 12000): Promise<Response> {
+  return await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; QuizPlatform/1.0)",
+      Accept: "text/html,application/pdf,*/*",
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -80,13 +90,19 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { mode = "catalog_core", textbookId, maxPages = 3 } = body;
+    const { mode = "catalog_core", textbookId, maxPages = 2 } = body;
 
     // Mode 1: Scan TRIMS catalog for the 10 core subjects and queue them
     if (mode === "catalog_core") {
       const resourceIds = new Set<string>();
       for (let page = 1; page <= maxPages; page++) {
-        const res = await fetch(`${TRIMS_BASE}search.php?search=ok&category_id=c-1&page=${page}`);
+        let res: Response;
+        try {
+          res = await safeFetch(`${TRIMS_BASE}search.php?search=ok&category_id=c-1&page=${page}`);
+        } catch (fetchErr) {
+          const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          throw new Error(`TRİMS saytına qoşulmaq mümkün olmadı: ${msg}`);
+        }
         if (!res.ok) break;
         const html = await res.text();
         const matches = [...html.matchAll(/resource\.php\?id=(\d+)/g)];
@@ -94,43 +110,58 @@ serve(async (req: Request) => {
         for (const m of matches) resourceIds.add(m[1]);
       }
 
+      const ids = [...resourceIds].slice(0, 20);
       let queued = 0;
       let skipped = 0;
 
-      for (const id of [...resourceIds].slice(0, 25)) {
-        const res = await fetch(`${TRIMS_BASE}resource.php?id=${id}`);
-        if (!res.ok) continue;
-        const html = await res.text();
-        const titleMatch = html.match(/<h[12][^>]*>([^<]+)<\/h[12]>/i);
-        const title = titleMatch ? titleMatch[1].trim() : `TRIMS Resurs #${id}`;
-        const grade = detectGrade(title) || detectGrade(html);
-        const subject = detectCoreSubject(title) || detectCoreSubject(html);
-        const pdfMatch = html.match(/href=["']([^"']*noduploads\/book\/[^"']+\.pdf)["']/i);
+      // Process in small parallel batches of 5 to avoid timeouts
+      for (let i = 0; i < ids.length; i += 5) {
+        const batch = ids.slice(i, i + 5);
+        await Promise.all(
+          batch.map(async (id) => {
+            try {
+              const res = await safeFetch(`${TRIMS_BASE}resource.php?id=${id}`);
+              if (!res.ok) {
+                skipped++;
+                return;
+              }
+              const html = await res.text();
+              const titleMatch = html.match(/<h[12][^>]*>([^<]+)<\/h[12]>/i);
+              const title = titleMatch ? titleMatch[1].trim() : `TRIMS Resurs #${id}`;
+              const grade = detectGrade(title) || detectGrade(html);
+              const subject = detectCoreSubject(title) || detectCoreSubject(html);
+              const pdfMatch = html.match(/href=["']([^"']*noduploads\/book\/[^"']+\.pdf)["']/i);
 
-        if (!grade || !subject || !pdfMatch) {
-          skipped++;
-          continue;
-        }
+              if (!grade || !subject || !pdfMatch) {
+                skipped++;
+                return;
+              }
 
-        const pdfUrl = `https://www.trims.edu.az/${pdfMatch[1].replace(/^\.\.\//, "")}`;
-        const { error: upsertErr } = await supabase.from("textbooks").upsert(
-          {
-            title,
-            grade,
-            subject,
-            is_core_subject: true,
-            source_type: "trims_sync",
-            source_url: pdfUrl,
-            status: "pending",
-            uploaded_by: user.id,
-          },
-          { onConflict: "grade,subject,title", ignoreDuplicates: true }
+              const pdfUrl = `https://www.trims.edu.az/${pdfMatch[1].replace(/^\.\.\//, "")}`;
+              const { error: upsertErr } = await supabase.from("textbooks").upsert(
+                {
+                  title,
+                  grade,
+                  subject,
+                  is_core_subject: true,
+                  source_type: "trims_sync",
+                  source_url: pdfUrl,
+                  status: "pending",
+                  uploaded_by: user.id,
+                },
+                { onConflict: "grade,subject,title", ignoreDuplicates: true }
+              );
+              if (!upsertErr) queued++;
+              else skipped++;
+            } catch {
+              skipped++;
+            }
+          })
         );
-        if (!upsertErr) queued++;
       }
 
       return new Response(
-        JSON.stringify({ success: true, queued, skipped }),
+        JSON.stringify({ success: true, queued, skipped, scanned: ids.length }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -149,7 +180,7 @@ serve(async (req: Request) => {
 
       await supabase.from("textbooks").update({ status: "processing" }).eq("id", textbookId);
 
-      const pdfRes = await fetch(book.source_url);
+      const pdfRes = await safeFetch(book.source_url, 30000);
       if (!pdfRes.ok) {
         await supabase
           .from("textbooks")
@@ -190,6 +221,7 @@ serve(async (req: Request) => {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Naməlum xəta";
+    console.error("sync-trims error:", msg);
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
