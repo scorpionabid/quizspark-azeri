@@ -19,7 +19,10 @@ import {
   Database,
   MessageCircle,
   TrendingUp,
-  QrCode
+  QrCode,
+  Award,
+  LayoutDashboard,
+  ShieldAlert,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -109,6 +112,7 @@ export function AppSidebar() {
       items: [
         { title: t('nav_home', 'Ana Səhifə'), url: "/", icon: Home, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_quizzes', 'Quizlər və Kurslar'), url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
+        { title: t('nav_progress', 'İnkişaf & AI Tyutor'), url: "/progress", icon: TrendingUp, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_official_exam', 'Rəsmi İmtahan Portalı'), url: "/imtahan", icon: Award, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_leaderboard', 'Liderlik Lövhəsi'), url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student'] },
         { title: t('nav_support', 'Dəstək'), url: "/support", icon: MessageCircle, roles: ['teacher', 'student'] },
@@ -118,7 +122,10 @@ export function AppSidebar() {
       label: t('nav_group_teacher', 'Müəllim'),
       items: [
         { title: t('nav_teacher_dashboard', 'İdarə Paneli'), url: "/teacher/dashboard", icon: LayoutDashboard, roles: ['admin', 'teacher'] },
+        { title: t('nav_assessment_builder', 'KSQ / BSQ / Sınaq'), url: "/teacher/create-assessment?type=ksq", icon: PlusCircle, roles: ['admin', 'teacher'] },
         { title: t('nav_my_quizzes', 'Quizlərim'), url: "/teacher/my-quizzes", icon: FileText, roles: ['admin', 'teacher'] },
+        { title: t('nav_scan_assessment', 'Kağız Yoxla (Kamera)'), url: "/teacher/scan", icon: QrCode, roles: ['admin', 'teacher'] },
+        { title: t('nav_class_roster', 'Siniflərim və Nəticələr'), url: "/teacher/classes", icon: Users, roles: ['admin', 'teacher'] },
         { title: t('nav_question_bank', 'Sual Bankı'), url: "/teacher/question-bank", icon: Database, roles: ['admin', 'teacher'] },
         { title: t('nav_ai_assistant', 'AI Köməkçi'), url: "/teacher/ai-assistant", icon: Sparkles, roles: ['admin', 'teacher'] },
       ],
@@ -128,6 +135,7 @@ export function AppSidebar() {
       items: [
         { title: t('nav_admin_dashboard', 'Admin Panel'), url: "/admin/dashboard", icon: Shield, roles: ['admin'] },
         { title: t('nav_admin_exams', 'Rəsmi İmtahanlar & İxrac'), url: "/admin/exams", icon: Award, roles: ['admin'] },
+        { title: t('nav_textbooks', 'Dərsliklər (TRİMS)'), url: "/admin/textbooks", icon: BookOpen, roles: ['admin'] },
         { title: t('nav_users', 'İstifadəçilər'), url: "/admin/users", icon: Users, roles: ['admin'] },
         { title: t('nav_messages', 'Mesajlar'), url: "/admin/chat", icon: MessageCircle, roles: ['admin'] },
         { title: t('nav_permissions', 'İcazələr'), url: "/admin/permissions", icon: Key, roles: ['admin'] },
