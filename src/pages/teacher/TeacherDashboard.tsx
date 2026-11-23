@@ -97,6 +97,8 @@ export default function TeacherDashboard() {
   const { data: studentStats, isLoading: studentsLoading } =
     useTeacherTopStudents(quizIds);
   const { data: rosterStats } = useTeacherRosterStats();
+  const topStudents = studentStats?.top ?? [];
+  const uniqueStudentsCount = studentStats?.uniqueCount ?? 0;
 
   const isLoading = quizzesLoading || metaLoading;
 
