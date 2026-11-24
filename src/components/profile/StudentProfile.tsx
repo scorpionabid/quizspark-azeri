@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { az } from "date-fns/locale";
 import { Link } from "react-router-dom";
+import { StudentMasteryAnalytics } from "./StudentMasteryAnalytics";
 
 interface StudentProfileProps {
     stats: {

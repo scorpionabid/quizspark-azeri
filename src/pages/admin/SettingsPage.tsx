@@ -45,6 +45,10 @@ function loadSavedSettings() {
 export default function SettingsPage() {
   const { role } = useAuth();
   const queryClient = useQueryClient();
+  const { currentFont, setFont, availableFonts, resetFont } = useFont();
+  const [customPreviewText, setCustomPreviewText] = useState(
+    "Azərbaycan Respublikası Elm və Təhsil Portalı 2026 — Sınaq İmtahanı (ქართული ენა)"
+  );
   const initial = loadSavedSettings();
   const [hasChanges, setHasChanges] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
