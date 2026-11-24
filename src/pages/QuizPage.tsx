@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuiz } from "@/hooks/useQuizzes";
 import { useQuestions } from "@/hooks/useQuestions";
-import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt } from "@/hooks/useQuizAttempts";
+import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt, useExamHeartbeat } from "@/hooks/useQuizAttempts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGamification } from "@/hooks/useGamification";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -25,7 +25,6 @@ import { QuizResult } from "@/components/quiz/QuizResult";
 
 // Types & Utils
 import { QuestionAnswer, QuestionType } from "@/types/question";
-import { supabase } from "@/integrations/supabase/client";
 import { evaluateAnswer } from "@/components/quiz/renderers/utils";
 import { getSynchronizedServerNow, syncServerClock } from "@/utils/serverTime";
 import { fisherYatesShuffle } from "@/utils/shuffle";
