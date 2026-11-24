@@ -43,6 +43,7 @@ export default function QuizPage() {
   const [rosterStudents, setRosterStudents] = useState<Array<{ id: string; full_name: string; student_number: number }>>([]);
   const [selectedRosterStudent, setSelectedRosterStudent] = useState<string>(rosterStudentId || '');
   const { user } = useAuth();
+  const { language, t } = useLanguage();
 
   useEffect(() => {
     if (rosterClassId && !rosterStudentId) {
