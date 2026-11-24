@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Quiz,
   useMyQuizzes,
   useDeleteQuiz,
   useQuizzesMeta,

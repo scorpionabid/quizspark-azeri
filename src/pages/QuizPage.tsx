@@ -4,8 +4,8 @@ import { toast } from "sonner";
 
 // Hooks & Context
 import { supabase } from "@/integrations/supabase/client";
-import { useQuiz } from "@/hooks/useQuizzes";
-import { useQuestions } from "@/hooks/useQuestions";
+import { useQuiz, getSafeExamConfig } from "@/hooks/useQuizzes";
+import { useQuestions, Question } from "@/hooks/useQuestions";
 import { useMyAttempts, useStartAttempt, useUpdateAttempt, useCompleteAttempt, useExamHeartbeat } from "@/hooks/useQuizAttempts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGamification } from "@/hooks/useGamification";
@@ -41,7 +41,12 @@ export default function QuizPage() {
   const rosterStudentId = searchParams.get('studentId');
   const [rosterStudents, setRosterStudents] = useState<Array<{ id: string; full_name: string; student_number: number }>>([]);
   const [selectedRosterStudent, setSelectedRosterStudent] = useState<string>(rosterStudentId || '');
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isUnlimitedUser =
+    user?.email === 'boyukemilli1972@gmail.com' ||
+    user?.email === 'scorpionabid82@gmail.com' ||
+    role === 'teacher' ||
+    role === 'admin';
   const { language, t } = useLanguage();
 
   useEffect(() => {

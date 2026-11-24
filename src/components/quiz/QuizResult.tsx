@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, BookOpen, Share2, Brain, Sparkles } from "lucide-react";
-import { Link } from 'react-router-dom';
+import { Trophy, Star, RotateCcw, Home, Clock, ChevronDown, ChevronUp, Check, X, BookOpen, Share2, Brain, Sparkles, CheckCircle2, Minus } from "lucide-react";
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
