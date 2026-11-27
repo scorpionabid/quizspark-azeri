@@ -10,6 +10,7 @@ export interface CareerQuestion {
   stageTitle: string;
   category: RiasecKey | SkillKey | ValueKey;
   text: string;
+  example: string;
   iconName: string;
 }
 

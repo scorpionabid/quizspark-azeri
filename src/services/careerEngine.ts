@@ -65,6 +65,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'realistic',
     text: 'Cihazları, elektronikanı və ya kompüter hissələrini söküb onların necə işlədiyini öyrənmək.',
+    example: 'Xarab olmuş qulaqlığı, oyuncaq pultunu və ya kompüter blokunu açıb naqilləri, mikrosxemləri araşdırmaq və təmir etmək.',
     iconName: 'Wrench'
   },
   {
@@ -73,6 +74,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'realistic',
     text: 'Əllə işləmək, fiziki modellər, robot və ya mexaniki konstruksiyalar yığmaq.',
+    example: 'Lego, taxta maketlər, sadə robot hissələri və ya mexaniki fiqurlar yığmaqdan zövq almaq.',
     iconName: 'Cpu'
   },
   {
@@ -81,6 +83,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'realistic',
     text: 'Texniki laboratoriyalarda və ya açıq təbiətdə təcrübələr və sınaqlar aparmaq.',
+    example: 'Məktəb laboratoriyasında cihazlarla ölçmələr aparmaq və ya təbiətdə bitki və mineralları araşdırmaq.',
     iconName: 'Compass'
   },
   {
@@ -89,6 +92,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'realistic',
     text: 'Müasir texniki avadanlıqlar, dronlar və 3D çap texnologiyaları ilə işləmək.',
+    example: 'Pultla idarə olunan dron uçurmaq, 3D printerdə fiqur çap etmək və ya ağıllı cihazları sazlamaq.',
     iconName: 'Laptop'
   },
 
@@ -99,6 +103,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'investigative',
     text: 'Mürəkkəb riyazi məsələləri, alqoritmləri və məntiqi tapmacaları həll etmək.',
+    example: 'Çətin olimpiada misalını, şahmat taktikasını və ya məntiqi başsındıran tapmacaları saatlarla həvəslə düşünmək.',
     iconName: 'Binary'
   },
   {
@@ -107,6 +112,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'investigative',
     text: 'Təbiət qanunlarını, fizika, kimya və kosmos hadisələrini dərindən araşdırmaq.',
+    example: 'Qara dəliklər, atomların quruluşu və ya kimyəvi elementlərin reaksiyası barədə elmi verilişlərə maraqla baxmaq.',
     iconName: 'Atom'
   },
   {
@@ -115,6 +121,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'investigative',
     text: 'Böyük məlumatları (data), qrafikləri və statistik göstəriciləri analiz etmək.',
+    example: 'Futbolçuların oyun statistikalarını, havanın temperatur qrafikini və ya ölkələrin iqtisadi rəqəmlərini müqayisə etmək.',
     iconName: 'BarChart3'
   },
   {
@@ -123,6 +130,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'investigative',
     text: 'Canlı orqanizmlərin quruluşunu, genetikanı və ya insan biologiyasını öyrənmək.',
+    example: 'İnsan beyninin necə işlədiyini, DNT-nin irsiyyətə təsirini və ya xəstəliklərin necə yarandığını araşdırmaq.',
     iconName: 'Dna'
   },
 
@@ -133,6 +141,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'artistic',
     text: 'Rəsm çəkmək, qrafik dizayn etmək və ya vizual layihələr hazırlamaq.',
+    example: 'Dəftər kənarına qəşəng eskizlər çəkmək, Canva və ya kompüterdə loqo, afişa və vizual posterlər düzəltmək.',
     iconName: 'Palette'
   },
   {
@@ -141,6 +150,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'artistic',
     text: 'Hekayələr, ssenarilər, bloq məqalələri yazmaq və ya fikirləri sözlərlə zəngin ifadə etmək.',
+    example: 'Özündən maraqlı hekayə və ya ssenari uydurmaq, sosial şəbəkələrdə təsirli və dərin yazılar paylaşmaq.',
     iconName: 'PenTool'
   },
   {
@@ -149,6 +159,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'artistic',
     text: 'Video montaj etmək, animasiya yaratmaq və ya musiqi ilə məşğul olmaq.',
+    example: 'CapCut və ya kompüterdə videoları kəsib musiqi ilə sinxronlaşdırmaq, maraqlı reels/tiktok montajları hazırlamaq.',
     iconName: 'Video'
   },
   {
@@ -157,6 +168,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'artistic',
     text: 'Veb-sayt, geyim və ya otaq interyeri üçün estetik və orijinal dizayn ideyaları irəli sürmək.',
+    example: 'Öz otağının mebellərini zövqlə yerləşdirmək, saytların dizaynındakı estetik xətaları dərhal hiss etmək.',
     iconName: 'Sparkles'
   },
 
@@ -167,6 +179,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'social',
     text: 'İnsanlara yeni biliklər öyrətmək, mövzuları başa salmaq və mentorluq etmək.',
+    example: 'Sinif yoldaşına başa düşmədiyi dərsi səbirlə izah etmək və ya kiçik qardaş/bacına ev tapşırıqlarında kömək etmək.',
     iconName: 'GraduationCap'
   },
   {
@@ -175,6 +188,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'social',
     text: 'Başqalarının problemlərini, hisslərini dinləmək və onlara məsləhətlə dəstək olmaq.',
+    example: 'Dostun kefsiz olanda onun ürək sözlərini dinləyib ona təsəlli vermək və doğru yol göstərmək.',
     iconName: 'HeartHandshake'
   },
   {
@@ -183,6 +197,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'social',
     text: 'Xeyriyyə və könüllülük tədbirlərində iştirak edərək cəmiyyətə fayda vermək.',
+    example: 'Məktəbdə xeyriyyə yarmarkası təşkil etmək, kimsəsiz heyvanlara yemək vermək və ya ağacəkmə aksiyasında iştirak etmək.',
     iconName: 'Users'
   },
   {
@@ -191,6 +206,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'social',
     text: 'Qrup müzakirələrini təşkil etmək və komandada mehriban ab-hava yaratmaq.',
+    example: 'Sinif tədbirində hər kəsin söz deməsinə şərait yaratmaq və komanda daxilində mehriban əhval-ruhiyyə saxlamaq.',
     iconName: 'MessageSquare'
   },
 
@@ -201,6 +217,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'enterprising',
     text: 'Yeni bir biznes və ya startap ideyası düşünüb onu reallaşdırmaq.',
+    example: 'Məktəb yarmarkasında ləvazimat satıb qazanc əldə etmək və ya internetdə kiçik bir satış səhifəsi açmaq.',
     iconName: 'Rocket'
   },
   {
@@ -209,6 +226,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'enterprising',
     text: 'İnsanları bir məqsəd ətrafında toplamaq, komandaya liderlik etmək və təşviq etmək.',
+    example: 'Qrup layihəsində hamıya vəzifələri bölüşdürmək və komandanı birincilik qazanmağa həvəsləndirmək.',
     iconName: 'Award'
   },
   {
@@ -217,6 +235,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'enterprising',
     text: 'Danışıqlar aparmaq, insanları inandırmaq və ya layihənin təqdimatını etmək.',
+    example: 'Mübahisəli məsələdə öz fikrini faktlarla müdafiə edib ətrafdakıları öz haqlılığına inandırmaq.',
     iconName: 'Target'
   },
   {
@@ -225,6 +244,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'enterprising',
     text: 'Maliyyə imkanlarını qiymətləndirmək və qazanclı fürsətləri dərhal görmək.',
+    example: 'Cib xərcliyini yığıb daha sərfəli alış-veriş etmək və ya haradan daha çox qazanmağın yollarını düşünmək.',
     iconName: 'TrendingUp'
   },
 
@@ -235,6 +255,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'conventional',
     text: 'Məlumatları səliqəli cədvəllərdə, fayllarda sistemləşdirmək və nizamda saxlamaq.',
+    example: 'Telefon və ya kompüterdəki faylları, şəkilləri qovluqlara səliqə ilə yığmaq, Excel-də siyahılar tutmaq.',
     iconName: 'Table'
   },
   {
@@ -243,6 +264,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'conventional',
     text: 'Qaydalar, dəqiq təlimatlar və standartlar əsasında işləməyi üstün tutmaq.',
+    example: 'Hər hansı oyunu və ya tapşırığı qaydaları pozmadan, addım-addım və tam düzgün icra etmək.',
     iconName: 'CheckSquare'
   },
   {
@@ -251,6 +273,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'conventional',
     text: 'Gəlir-xərc büdcəsini dəqiqliklə hesablamaq və planlaşdırmaq.',
+    example: 'Bir aylıq xərclərini qabaqcadan qeyd etmək, lazımsız xərclərdən qaçaraq puluna qənaət etmək.',
     iconName: 'Calculator'
   },
   {
@@ -259,6 +282,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Maraqlar və Həvəslər',
     category: 'conventional',
     text: 'Gündəlik iş qrafikini öncədən saatbasaat planlaşdırmaq və nizam-intizama riayət etmək.',
+    example: 'Günün rejimini (dərs, idman, istirahət saatlarını) cədvələ yazıb ona dəqiqliklə əməl etmək.',
     iconName: 'Calendar'
   },
 
@@ -270,6 +294,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'technical',
     text: 'Kompüter proqramları, rəqəmsal platformalar və kodlaşdırmadan tez baş çıxarmaq.',
+    example: 'Yeni bir proqramı və ya tətbiqi heç kim kömək etmədən 5 dəqiqəyə sərbəst öyrənib istifadə etmək.',
     iconName: 'Terminal'
   },
   {
@@ -278,6 +303,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'technical',
     text: 'Texniki nasazlığı və ya proqram xətasını tez tapıb həll etmək.',
+    example: 'Telefon donanda, internet sönəndə və ya proqram xəta verəndə problemin səbəbini tapıb düzəltmək.',
     iconName: 'ShieldAlert'
   },
   {
@@ -286,6 +312,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'technical',
     text: 'Məsələyə ardıcıl alqoritmik addımlarla yanaşaraq həll modeli qurmaq.',
+    example: 'Hər hansı qarışıq tapşırığı hissələrə bölərək: "1-ci addım bu, 2-ci addım bu" prinsipi ilə ardıcıl həll etmək.',
     iconName: 'Code'
   },
 
@@ -296,6 +323,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'analytical',
     text: 'Faktları, rəqəmləri və dəlilləri müqayisə edərək məntiqli nəticə çıxarmaq.',
+    example: 'İki fərqli telefon modelinin və ya ideyanın üstünlüklərini rəqəmlərlə ölçüb ən doğrusunu seçmək.',
     iconName: 'Scale'
   },
   {
@@ -304,6 +332,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'analytical',
     text: 'Böyük bir mətndən və ya hadisədən ən əsas mahiyyəti dərhal fərqləndirmək.',
+    example: 'Uzun bir paraqrafı və ya xəbəri oxuyub 1 cümlə ilə əsas fikri başqalarına çatdıra bilmək.',
     iconName: 'FileText'
   },
   {
@@ -312,6 +341,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'analytical',
     text: 'Hadisələrin səbəb və nəticə əlaqələrini dərindən izah edə bilmək.',
+    example: 'Tarixi bir qərarın və ya təbiət hadisəsinin niyə baş verdiyini və nəyə səbəb olduğunu məntiqlə əsaslandırmaq.',
     iconName: 'GitBranch'
   },
 
@@ -322,6 +352,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'creative',
     text: 'Hər kəsin düşündüyündən fərqli, qeyri-adi və yaradıcı ideyalar tapmaq.',
+    example: 'Sinifdə standart təqdimat etmək əvəzinə, maraqlı videoçarx və ya interaktiv oyun formatı təklif etmək.',
     iconName: 'Lightbulb'
   },
   {
@@ -330,6 +361,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'creative',
     text: 'Gözəl rəng uyğunluğu, forma və vizual kompozisiya yaratmaq.',
+    example: 'Təqdimat slaydlarında rəngləri, şriftləri və şəkilləri göz oxşayan şəkildə düzmək.',
     iconName: 'Eye'
   },
   {
@@ -338,6 +370,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'creative',
     text: 'Fikirləri təsirli hekayə, bənzətmə və ya metafora ilə başqalarına çatdırmaq.',
+    example: 'Mövzunu quru faktlarla deyil, maraqlı bir həyat hadisəsi və ya bənzətmə ilə danışıb yadda qalan etmək.',
     iconName: 'Feather'
   },
 
@@ -348,6 +381,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'interpersonal',
     text: 'Xarakteri fərqli olan insanlarla rahat ünsiyyət qurmaq və ortaq dil tapmaq.',
+    example: 'İlk dəfə gördüyün insanla belə bir neçə dəqiqəyə səmimi söhbət bağlamaq və dostlaşmaq.',
     iconName: 'Smile'
   },
   {
@@ -356,6 +390,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'interpersonal',
     text: 'Başqalarının gizli hisslərini, narahatlığını və ya sevincini hiss etmək.',
+    example: 'Dostun "hər şey yaxşıdır" desə də, səsindən və baxışından onun nəyəsə kədərləndiyini dərhal duymaq.',
     iconName: 'Heart'
   },
   {
@@ -364,6 +399,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'interpersonal',
     text: 'Mübahisəli anlarda tərəfləri barışdırmaq və razılıq əldə etmək.',
+    example: 'İki yoldaşın dalaşdığı vaxt araya girib hər iki tərəfi sakitləşdirmək və ədalətli çıxış yolu tapmaq.',
     iconName: 'ShieldCheck'
   },
 
@@ -374,6 +410,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'organizational',
     text: 'Dərsləri və tapşırıqları son ana saxlamadan vaxtında və nizamla bitirmək.',
+    example: 'Sabaha olan layihəni axşam saat 11-də yox, bir neçə gün öncədən rahat şəkildə hazırlayıb qurtarmaq.',
     iconName: 'Clock'
   },
   {
@@ -382,6 +419,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'organizational',
     text: 'İşlərdə gözdən qaçan kiçik detalları və xətaları dərhal görmək.',
+    example: 'Mətndəki hərf səhvlərini, rəqəm uyğunsuzluqlarını və ya dizayndakı əyriliyi ilk baxışda tutmaq.',
     iconName: 'CheckCircle'
   },
   {
@@ -390,6 +428,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'Bacarıqlar və Güclü Tərəflər',
     category: 'organizational',
     text: 'Qoyulmuş qaydalara və struktura səbirlə əməl etmək.',
+    example: 'İmtahan və ya laboratoriya təlimatlarını dəqiqliklə oxuyub heç bir bəndi ötürmədən icra etmək.',
     iconName: 'Layers'
   },
 
@@ -401,6 +440,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'İş Mühiti və Dəyərlər',
     category: 'innovation',
     text: 'Sərbəst qərarlar verə biləcəyim və daimi yeniliklər yaradılan sərbəst mühit.',
+    example: 'Səhər 9-dan axşam 6-ya kimi bir yerdə oturmaq əvəzinə, sərbəst qrafiklə işləmək və yeni ideyalar sınamaq.',
     iconName: 'Compass'
   },
   {
@@ -409,6 +449,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'İş Mühiti və Dəyərlər',
     category: 'innovation',
     text: 'Ən son texnologiyalar və qlobal layihələrlə işləmək imkanı.',
+    example: 'Süni intellekt alətlərindən istifadə edərək xarici ölkələrdəki komandalarla beynəlxalq layihələrdə işləmək.',
     iconName: 'Globe'
   },
   {
@@ -417,6 +458,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'İş Mühiti və Dəyərlər',
     category: 'innovation',
     text: 'Təkrarçılıqdan (rutin) uzaq, hər gün yeni çağırışlarla dolu bir iş həyatı.',
+    example: 'Hər gün eyni kağızları doldurmaq əvəzinə, hər həftə fərqli problemləri həll etmək və dinamik olmaq.',
     iconName: 'Zap'
   },
 
@@ -427,6 +469,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'İş Mühiti və Dəyərlər',
     category: 'impact',
     text: 'İnsanların həyatını yaxşılaşdırmaq, xəstələrə kömək etmək və ya təbiəti qorumaq.',
+    example: 'Gördüyün iş nəticəsində bir xəstənin sağaldığını və ya təbiətin təmizləndiyini görüb qürur duymaq.',
     iconName: 'ShieldAlert'
   },
   {
@@ -435,6 +478,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'İş Mühiti və Dəyərlər',
     category: 'impact',
     text: 'Cəmiyyətdə ədaləti, qanunçuluğu və insan hüquqlarını müdafiə etmək.',
+    example: 'Haqsızlığa məruz qalmış bir insanın hüququnu məhkəmədə qorumaq və ədaləti bərpa etmək.',
     iconName: 'Award'
   },
   {
@@ -443,6 +487,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'İş Mühiti və Dəyərlər',
     category: 'impact',
     text: 'Mehriban komanda ilə birlikdə böyük ictimai məqsədlərə çatmaq.',
+    example: 'Təkbaşına deyil, bir-birinə dəstək olan mehriban kollektivlə çiyin-çiyinə böyük işlər görmək.',
     iconName: 'Users'
   },
 
@@ -453,6 +498,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'İş Mühiti və Dəyərlər',
     category: 'stability',
     text: 'Zəmanətli və yüksək gəlir, aydın iş qrafiki və sabit karyera.',
+    example: 'Ayın sonunda maaşının gecikməyəcəyindən əmin olmaq və gələcəyini arxayınlıqla planlaşdıra bilmək.',
     iconName: 'TrendingUp'
   },
   {
@@ -461,6 +507,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'İş Mühiti və Dəyərlər',
     category: 'stability',
     text: 'Böyük şirkətlərdə və ya dövlət orqanlarında rəhbər pillələrə yüksəlmək.',
+    example: 'Böyük bir şöbənin və ya nazirliyin rəhbəri olub mühüm strateji qərarlar qəbul etmək.',
     iconName: 'Briefcase'
   },
   {
@@ -469,6 +516,7 @@ export const CAREER_QUESTIONS: CareerQuestion[] = [
     stageTitle: 'İş Mühiti və Dəyərlər',
     category: 'stability',
     text: 'Beynəlxalq arenada tanınmaq və qlobal imkanlar qazanmaq.',
+    example: 'Xarici konfranslarda çıxış etmək, beynəlxalq dərəcəli ekspert kimi xaricə ezamiyyətlərə getmək.',
     iconName: 'Award'
   }
 ];

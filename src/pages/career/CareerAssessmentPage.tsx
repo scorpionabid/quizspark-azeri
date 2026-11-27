@@ -28,7 +28,8 @@ import {
   RotateCcw,
   PlayCircle,
   Keyboard,
-  LogOut
+  LogOut,
+  Lightbulb,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -561,27 +562,54 @@ export default function CareerAssessmentPage() {
               </span>
             </div>
 
-            <CardContent className="p-6 sm:p-10 space-y-8">
-              {/* Question Text with Dynamic Icon */}
-              <div className="flex items-start gap-4">
+            <CardContent className="p-6 sm:p-10 space-y-6 sm:space-y-8">
+              {/* 1. Prominent Guiding Question Banner (Fix for header hierarchy) */}
+              <div className="flex items-center gap-3 px-4 sm:px-5 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/80 dark:border-indigo-800/50 text-indigo-950 dark:text-indigo-200 shadow-sm">
+                <span className="text-xl sm:text-2xl shrink-0">💭</span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-0.5">
+                    Sənə sualımız:
+                  </span>
+                  <p className="text-sm sm:text-base font-bold leading-snug">
+                    &ldquo;{currentMeta.subtitle}&rdquo;
+                  </p>
+                </div>
+              </div>
+
+              {/* 2. Main Question Statement with Dynamic Icon */}
+              <div className="flex items-start gap-4 pt-1">
                 <div className="p-3.5 rounded-2xl bg-primary/10 text-primary border border-primary/20 shrink-0 hidden sm:flex items-center justify-center">
                   <CareerQuestionIcon name={currentQuestion.iconName} className="w-7 h-7" />
                 </div>
                 <div className="space-y-2 min-w-0 flex-1">
-                  <div className="flex items-center gap-2 sm:hidden">
+                  <div className="flex items-center gap-2 sm:hidden mb-1">
                     <CareerQuestionIcon name={currentQuestion.iconName} className="w-5 h-5 text-primary" />
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-                      {currentMeta.subtitle}
-                    </p>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      {currentQuestionIndex + 1} / {CAREER_QUESTIONS.length}
+                    </Badge>
                   </div>
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold hidden sm:block">
-                    {currentMeta.subtitle}
-                  </p>
-                  <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-snug">
+                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-foreground leading-snug tracking-tight">
                     {currentQuestion.text}
                   </h2>
                 </div>
               </div>
+
+              {/* 3. Real-Life Example Box (Həyati Misal) */}
+              {currentQuestion.example && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 flex items-start gap-3.5">
+                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                    <Lightbulb className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                      Real həyatdan misal:
+                    </p>
+                    <p className="text-xs sm:text-sm text-foreground/90 font-medium leading-relaxed">
+                      &ldquo;{currentQuestion.example}&rdquo;
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Options Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
