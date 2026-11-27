@@ -16,7 +16,7 @@ interface CareerRadarChartProps {
 
 export const CareerRadarChart: React.FC<CareerRadarChartProps> = ({ data }) => {
   return (
-    <div className="w-full h-[320px] sm:h-[380px] flex items-center justify-center">
+    <div className="w-full h-[320px] sm:h-[380px] print:h-[280px] print:w-[400px] print:mx-auto flex items-center justify-center print:break-inside-avoid">
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart cx="50%" cy="50%" outerRadius="75%" data={data}>
           <PolarGrid stroke="currentColor" className="text-muted/40" />

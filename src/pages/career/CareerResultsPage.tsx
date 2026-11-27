@@ -144,21 +144,27 @@ export default function CareerResultsPage() {
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-8"
+        className="space-y-8 print:space-y-4"
       >
+        {/* Official Print-Only Header */}
+        <div className="hidden print:block text-center border-b pb-4 mb-2">
+          <h2 className="text-2xl font-black tracking-tight text-black">İMTAHAN.STORE — KARYERA VƏ İXTİSAS SERTİFİKATI</h2>
+          <p className="text-xs text-gray-600 mt-0.5">Holland (RIASEC) Beynəlxalq Qiymətləndirmə və DİM İxtisas Qrupları Portreti</p>
+        </div>
+
         {/* Student Header Card */}
-        <Card className="border-border/80 shadow-md overflow-hidden bg-gradient-to-br from-card via-card/90 to-primary/5">
-          <CardContent className="p-6 sm:p-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-6 mb-6">
+        <Card className="border-border/80 shadow-md overflow-hidden bg-gradient-to-br from-card via-card/90 to-primary/5 print:border print:border-gray-300 print:shadow-none print:bg-white print:break-inside-avoid">
+          <CardContent className="p-6 sm:p-8 print:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-6 mb-6 print:pb-3 print:mb-3">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-2xl border border-primary/20 shrink-0">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-2xl border border-primary/20 shrink-0 print:border-gray-400 print:text-black">
                   {result.studentName ? result.studentName.charAt(0).toUpperCase() : 'Ş'}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-foreground">
+                  <h2 className="text-xl font-bold text-foreground print:text-black">
                     {result.studentName || 'Şagird'}
                   </h2>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-0.5 print:text-gray-700">
                     {result.schoolName && (
                       <span className="flex items-center gap-1">
                         <School className="w-3.5 h-3.5" /> {result.schoolName}
@@ -170,7 +176,7 @@ export default function CareerResultsPage() {
                       </span>
                     )}
                     {result.utisCode && (
-                      <Badge variant="outline" className="text-[11px] font-mono">
+                      <Badge variant="outline" className="text-[11px] font-mono print:text-black print:border-gray-400">
                         UTIS: {result.utisCode}
                       </Badge>
                     )}
@@ -179,32 +185,32 @@ export default function CareerResultsPage() {
               </div>
 
               <div className="text-left sm:text-right">
-                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs py-1 px-3">
+                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs py-1 px-3 print:bg-gray-100 print:text-black print:border-gray-400">
                   ✓ Sertifikatlaşdırılmış Analiz
                 </Badge>
-                <p className="text-[11px] text-muted-foreground mt-1">
+                <p className="text-[11px] text-muted-foreground mt-1 print:text-gray-600">
                   Tarix: {new Date(result.createdAt || Date.now()).toLocaleDateString('az-AZ')}
                 </p>
               </div>
             </div>
 
             {/* Dominant Direction Banner */}
-            <div className="rounded-2xl p-6 bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white shadow-lg space-y-3">
+            <div className="rounded-2xl p-6 bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white shadow-lg space-y-3 print:bg-none print:bg-white print:text-black print:border-2 print:border-gray-700 print:shadow-none print:p-4 print:break-inside-avoid">
               <div className="flex items-center gap-2">
-                <Badge className="bg-indigo-500/30 text-indigo-300 border-indigo-400/40 text-xs">
+                <Badge className="bg-indigo-500/30 text-indigo-300 border-indigo-400/40 text-xs print:bg-gray-100 print:text-black print:border-gray-400">
                   Ən Yüksək Uyğunluq
                 </Badge>
-                <span className="text-xs text-indigo-200">Dominant Potensial Sahəsi</span>
+                <span className="text-xs text-indigo-200 print:text-gray-600">Dominant Potensial Sahəsi</span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-extrabold text-white">
+              <h3 className="text-2xl sm:text-3xl font-extrabold text-white print:text-black">
                 {result.dominantCluster}
               </h3>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white font-semibold text-sm">
-                <Trophy className="w-4 h-4 text-amber-400" />
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white font-semibold text-sm print:bg-gray-100 print:text-black print:border print:border-gray-300">
+                <Trophy className="w-4 h-4 text-amber-400 print:text-black" />
                 Tövsiyə olunan: {result.dimGroup}
               </div>
               {result.dimGroupDescription && (
-                <p className="text-indigo-200/90 text-sm leading-relaxed pt-1">
+                <p className="text-indigo-200/90 text-sm leading-relaxed pt-1 print:text-gray-800">
                   {result.dimGroupDescription}
                 </p>
               )}
@@ -213,9 +219,9 @@ export default function CareerResultsPage() {
         </Card>
 
         {/* Radar Chart & Personality Matrix */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch print:grid-cols-1 print:gap-4">
           {/* Radar Chart */}
-          <Card className="lg:col-span-7 border-border/80 shadow-md">
+          <Card className="lg:col-span-7 border-border/80 shadow-md print:border print:border-gray-300 print:shadow-none print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 <BrainCircuit className="w-5 h-5 text-indigo-500" />
@@ -231,7 +237,7 @@ export default function CareerResultsPage() {
           </Card>
 
           {/* Breakdown bars */}
-          <Card className="lg:col-span-5 border-border/80 shadow-md flex flex-col justify-between">
+          <Card className="lg:col-span-5 border-border/80 shadow-md flex flex-col justify-between print:border print:border-gray-300 print:shadow-none print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-emerald-500" />
@@ -269,11 +275,11 @@ export default function CareerResultsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-3">
             {result.recommendedCareers.map((career, idx) => (
               <Card
                 key={career.id || idx}
-                className="border-border/70 hover:border-primary/50 transition-all shadow-sm overflow-hidden flex flex-col justify-between"
+                className="border-border/70 hover:border-primary/50 transition-all shadow-sm overflow-hidden flex flex-col justify-between print:border print:border-gray-300 print:shadow-none print:break-inside-avoid"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3 mb-1">
@@ -321,26 +327,26 @@ export default function CareerResultsPage() {
         </div>
 
         {/* Recommended School Subjects & Roadmap */}
-        <Card className="border-border/80 shadow-md">
-          <CardHeader>
+        <Card className="border-border/80 shadow-md print:border print:border-gray-300 print:shadow-none print:break-inside-avoid">
+          <CardHeader className="print:pb-2">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold print:hidden">
                 <BookOpen className="w-4 h-4" />
               </div>
               <div>
                 <CardTitle className="text-lg">Məktəb Fənləri Üzrə Yol Xəritəsi</CardTitle>
-                <CardDescription className="text-xs">
+                <CardDescription className="text-xs print:hidden">
                   Gələcək hədəflərinə çatmaq üçün hazırda hansı dərslərə daha çox diqqət yetirməlisən?
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2 print:gap-2">
               {result.recommendedSubjects.map((sub, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-2xl border border-border/70 bg-card/60 space-y-2 flex flex-col justify-between"
+                  className="p-4 rounded-2xl border border-border/70 bg-card/60 space-y-2 flex flex-col justify-between print:border print:border-gray-300 print:p-2.5 print:break-inside-avoid"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-bold text-sm text-foreground">{sub.subject}</p>

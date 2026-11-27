@@ -34,6 +34,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      career_assessments: {
+        Row: {
+          id: string
+          user_id: string | null
+          utis_code: string | null
+          student_name: string | null
+          school_name: string | null
+          grade_level: string | null
+          interests_score: Json
+          skills_score: Json
+          values_score: Json
+          radar_data: Json
+          dominant_cluster: string
+          dim_group: string
+          recommended_careers: Json
+          recommended_subjects: Json
+          raw_answers: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          utis_code?: string | null
+          student_name?: string | null
+          school_name?: string | null
+          grade_level?: string | null
+          interests_score?: Json
+          skills_score?: Json
+          values_score?: Json
+          radar_data?: Json
+          dominant_cluster: string
+          dim_group: string
+          recommended_careers?: Json
+          recommended_subjects?: Json
+          raw_answers?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          utis_code?: string | null
+          student_name?: string | null
+          school_name?: string | null
+          grade_level?: string | null
+          interests_score?: Json
+          skills_score?: Json
+          values_score?: Json
+          radar_data?: Json
+          dominant_cluster?: string
+          dim_group?: string
+          recommended_careers?: Json
+          recommended_subjects?: Json
+          raw_answers?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       official_exam_settings: {
         Row: {
           id: string

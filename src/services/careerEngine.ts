@@ -915,6 +915,23 @@ export async function saveCareerAssessment(result: CareerAssessmentResult): Prom
   }
 }
 
+// Helper to get description for DİM group
+export function getDimGroupDescription(dimGroup: string, dominantCluster?: string): string {
+  if (dimGroup.includes('I İxtisas') || (dominantCluster && dominantCluster.includes('Texniki'))) {
+    return 'Sənin düşüncə tərzin sistemli, analitik və alqoritmik problemləri həll etməyə çox meyillidir. Müasir rəqəmsal dünyada ən çox axtarılan texnoloji və mühəndislik peşələri sənin üçün idealdır.';
+  }
+  if (dimGroup.includes('II İxtisas') || (dominantCluster && dominantCluster.includes('İqtisadiyyat'))) {
+    return 'Səndə liderlik qabiliyyəti, strateji görmə qabiliyyəti və iqtisadi fürsətləri qiymətləndirmək istedadı var. Komandaları yönləndirmək və biznesi böyütmək sənin təbii istiqamətindir.';
+  }
+  if (dimGroup.includes('III İxtisas') || (dominantCluster && dominantCluster.includes('Humanitar'))) {
+    return 'Sənin güclü empatiyan, zəngin söz ehtiyatın və insan münasibətlərini təhlil etmək qabiliyyətin var. Ədalət, hüquq, təhsil və cəmiyyətə rəhbərlik edən sahələrdə çox uğurlu olacaqsan.';
+  }
+  if (dimGroup.includes('IV İxtisas') || (dominantCluster && dominantCluster.includes('Təbiət'))) {
+    return 'Səndə təbiət hadisələrinə, canlı aləmə və laboratoriya tədqiqatlarına qarşı böyük maraq və dəqiqlik var. İnsanların sağlamlığını qorumaq və elmi kəşflər etmək sənin missiyandır.';
+  }
+  return 'Sənin zəngin vizual təxəyyülün, estetik duyumun və yaradıcı baxış bucağın var. Boş kətanı, ekranı və ya məkanı sənət və funksionallıqla canlandırmaq sənin təbii istedadındır.';
+}
+
 // Fetch single assessment by ID
 export async function getCareerAssessmentById(id: string): Promise<CareerAssessmentResult | null> {
   try {
@@ -935,7 +952,7 @@ export async function getCareerAssessmentById(id: string): Promise<CareerAssessm
       gradeLevel: data.grade_level,
       dominantCluster: data.dominant_cluster,
       dimGroup: data.dim_group,
-      dimGroupDescription: '',
+      dimGroupDescription: getDimGroupDescription(data.dim_group || '', data.dominant_cluster || ''),
       riasecScores: (data.interests_score || {}) as Record<RiasecKey, number>,
       skillScores: (data.skills_score || {}) as Record<SkillKey, number>,
       valueScores: (data.values_score || {}) as Record<ValueKey, number>,
@@ -947,6 +964,51 @@ export async function getCareerAssessmentById(id: string): Promise<CareerAssessm
     };
   } catch (err) {
     console.error('Error fetching career assessment:', err);
+    return null;
+  }
+}
+
+// Fetch latest assessment for logged-in user or UTIS code
+export async function getLatestCareerAssessmentForUser(userId?: string, utisCode?: string): Promise<CareerAssessmentResult | null> {
+  if (!userId && !utisCode) return null;
+  try {
+    let query = supabase
+      .from('career_assessments')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else if (utisCode) {
+      query = query.eq('utis_code', utisCode);
+    }
+
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) return null;
+
+    const row = data[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      utisCode: row.utis_code,
+      studentName: row.student_name,
+      schoolName: row.school_name,
+      gradeLevel: row.grade_level,
+      dominantCluster: row.dominant_cluster,
+      dimGroup: row.dim_group,
+      dimGroupDescription: getDimGroupDescription(row.dim_group || '', row.dominant_cluster || ''),
+      riasecScores: (row.interests_score || {}) as Record<RiasecKey, number>,
+      skillScores: (row.skills_score || {}) as Record<SkillKey, number>,
+      valueScores: (row.values_score || {}) as Record<ValueKey, number>,
+      radarData: (row.radar_data || []) as CareerRadarPoint[],
+      recommendedCareers: (row.recommended_careers || []) as RecommendedCareer[],
+      recommendedSubjects: (row.recommended_subjects || []) as SubjectAdvice[],
+      rawAnswers: (row.raw_answers || {}) as Record<number, number>,
+      createdAt: row.created_at
+    };
+  } catch (err) {
+    console.error('Error fetching latest career assessment:', err);
     return null;
   }
 }

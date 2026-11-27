@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,7 @@ import {
 } from '@/services/careerEngine';
 import { CareerStage, CareerQuestion } from '@/types/career';
 import { CareerProgressBar } from '@/components/career/CareerProgressBar';
+import { CareerQuestionIcon } from '@/components/career/CareerQuestionIcon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,16 +20,29 @@ import {
   Sparkles,
   ArrowRight,
   ArrowLeft,
-  Compass,
   CheckCircle2,
   Brain,
-  Target,
   Trophy,
   Loader2,
-  School,
-  GraduationCap
+  GraduationCap,
+  RotateCcw,
+  PlayCircle,
+  Keyboard,
+  LogOut
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+
+const STORAGE_KEY = 'imtahan_career_test_session';
+
+interface SavedSession {
+  answers: Record<number, number>;
+  currentQuestionIndex: number;
+  studentName: string;
+  utisCode: string;
+  schoolName: string;
+  gradeLevel: string;
+  timestamp: number;
+}
 
 export default function CareerAssessmentPage() {
   const navigate = useNavigate();
@@ -46,7 +60,25 @@ export default function CareerAssessmentPage() {
   const [schoolName, setSchoolName] = useState('');
   const [gradeLevel, setGradeLevel] = useState('9-cu sinif');
 
-  // Load from local storage or profile if available
+  // Saved resume banner state
+  const [savedSession, setSavedSession] = useState<SavedSession | null>(null);
+
+  // Check saved session in localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed: SavedSession = JSON.parse(raw);
+        if (parsed.answers && Object.keys(parsed.answers).length > 0) {
+          setSavedSession(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read saved career session', e);
+    }
+  }, []);
+
+  // Pre-fill profile info if logged in
   useEffect(() => {
     if (user) {
       if (user.user_metadata?.full_name) setStudentName(user.user_metadata.full_name);
@@ -56,7 +88,23 @@ export default function CareerAssessmentPage() {
     }
   }, [user]);
 
-  const currentQuestion: CareerQuestion = CAREER_QUESTIONS[currentQuestionIndex];
+  // Auto-save in localStorage when answering
+  useEffect(() => {
+    if (viewState === 'testing' || viewState === 'stage_transition') {
+      const sessionData: SavedSession = {
+        answers,
+        currentQuestionIndex,
+        studentName,
+        utisCode,
+        schoolName,
+        gradeLevel,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+    }
+  }, [answers, currentQuestionIndex, viewState, studentName, utisCode, schoolName, gradeLevel]);
+
+  const currentQuestion: CareerQuestion = CAREER_QUESTIONS[currentQuestionIndex] || CAREER_QUESTIONS[0];
   const currentStage: CareerStage = currentQuestion ? currentQuestion.stage : 1;
   const currentMeta = STAGE_META[currentStage];
   const options = STAGE_OPTIONS[currentStage];
@@ -66,37 +114,34 @@ export default function CareerAssessmentPage() {
     setCurrentQuestionIndex(0);
   };
 
-  const handleSelectOption = (value: number) => {
-    const nextAnswers = { ...answers, [currentQuestion.id]: value };
-    setAnswers(nextAnswers);
-
-    const isLastQuestion = currentQuestionIndex === CAREER_QUESTIONS.length - 1;
-    if (isLastQuestion) {
-      handleFinish(nextAnswers);
-      return;
-    }
-
-    const nextIndex = currentQuestionIndex + 1;
-    const nextQuestion = CAREER_QUESTIONS[nextIndex];
-
-    // Check if stage changed
-    if (nextQuestion.stage !== currentQuestion.stage) {
-      setViewState('stage_transition');
-    } else {
-      setCurrentQuestionIndex(nextIndex);
+  const handleResume = () => {
+    if (savedSession) {
+      setAnswers(savedSession.answers || {});
+      setCurrentQuestionIndex(savedSession.currentQuestionIndex || 0);
+      if (savedSession.studentName) setStudentName(savedSession.studentName);
+      if (savedSession.utisCode) setUtisCode(savedSession.utisCode);
+      if (savedSession.schoolName) setSchoolName(savedSession.schoolName);
+      if (savedSession.gradeLevel) setGradeLevel(savedSession.gradeLevel);
+      setViewState('testing');
+      toast({
+        title: 'Sessiya bərpa olundu',
+        description: `Qaldığınız yerdən (${Object.keys(savedSession.answers || {}).length}/${CAREER_QUESTIONS.length} sual) davam edirsiniz.`
+      });
     }
   };
 
-  const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-      if (viewState === 'stage_transition') {
-        setViewState('testing');
-      }
-    }
+  const handleDiscardSaved = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setSavedSession(null);
+    setAnswers({});
+    setCurrentQuestionIndex(0);
+    toast({
+      title: 'Yaddaş sıfırlandı',
+      description: 'Testə sıfırdan başlaya bilərsiniz.'
+    });
   };
 
-  const handleFinish = async (finalAnswers: Record<number, number>) => {
+  const handleFinish = useCallback(async (finalAnswers: Record<number, number>) => {
     setViewState('calculating');
 
     try {
@@ -111,7 +156,10 @@ export default function CareerAssessmentPage() {
       // Save to Supabase
       const savedId = await saveCareerAssessment(result);
 
-      // Save in session storage for fallback
+      // Clean up in-progress storage
+      localStorage.removeItem(STORAGE_KEY);
+
+      // Save in session storage for fast display
       sessionStorage.setItem('latest_career_result', JSON.stringify({ ...result, id: savedId }));
 
       setTimeout(() => {
@@ -130,7 +178,66 @@ export default function CareerAssessmentPage() {
       });
       setViewState('testing');
     }
-  };
+  }, [user, utisCode, studentName, schoolName, gradeLevel, navigate, toast]);
+
+  const handleSelectOption = useCallback((value: number) => {
+    const nextAnswers = { ...answers, [currentQuestion.id]: value };
+    setAnswers(nextAnswers);
+
+    const isLastQuestion = currentQuestionIndex === CAREER_QUESTIONS.length - 1;
+    if (isLastQuestion) {
+      handleFinish(nextAnswers);
+      return;
+    }
+
+    const nextIndex = currentQuestionIndex + 1;
+    const nextQuestion = CAREER_QUESTIONS[nextIndex];
+
+    // Check if stage changed
+    if (nextQuestion.stage !== currentQuestion.stage) {
+      setViewState('stage_transition');
+    } else {
+      setCurrentQuestionIndex(nextIndex);
+    }
+  }, [answers, currentQuestion.id, currentQuestion.stage, currentQuestionIndex, handleFinish]);
+
+  const handlePrevious = useCallback(() => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+      if (viewState === 'stage_transition') {
+        setViewState('testing');
+      }
+    }
+  }, [currentQuestionIndex, viewState]);
+
+  // Keyboard Navigation: 1, 2, 3, 4 and Arrow keys
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      if (viewState === 'testing') {
+        if (e.key === '1' && options[0]) {
+          handleSelectOption(options[0].value);
+        } else if (e.key === '2' && options[1]) {
+          handleSelectOption(options[1].value);
+        } else if (e.key === '3' && options[2]) {
+          handleSelectOption(options[2].value);
+        } else if (e.key === '4' && options[3]) {
+          handleSelectOption(options[3].value);
+        } else if (e.key === 'ArrowLeft') {
+          handlePrevious();
+        } else if (e.key === 'ArrowRight' && answers[currentQuestion.id] !== undefined && currentQuestionIndex < CAREER_QUESTIONS.length - 1) {
+          setCurrentQuestionIndex(prev => prev + 1);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewState, options, handleSelectOption, handlePrevious, answers, currentQuestion.id, currentQuestionIndex]);
 
   // 1. INTRO VIEW
   if (viewState === 'intro') {
@@ -142,6 +249,47 @@ export default function CareerAssessmentPage() {
           transition={{ duration: 0.4 }}
           className="space-y-8"
         >
+          {/* Saved Session Alert Banner */}
+          {savedSession && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  <PlayCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">
+                    Yarımçıq qalmış sınaq tapıldı
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Əvvəlki sessiyanızdan {Object.keys(savedSession.answers || {}).length} sual yaddaşda saxlanılıb.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDiscardSaved}
+                  className="gap-1.5 text-xs h-9 text-muted-foreground hover:text-foreground"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Sıfırla
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleResume}
+                  className="gap-1.5 text-xs h-9 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                >
+                  <ArrowRight className="w-4 h-4" /> Qaldığım Yerdən Davam Et
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
           {/* Hero Banner */}
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white p-6 sm:p-10 border border-indigo-500/20 shadow-2xl">
             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -363,6 +511,25 @@ export default function CareerAssessmentPage() {
 
   return (
     <div className="container max-w-3xl mx-auto px-4 py-6 sm:py-10">
+      {/* Top action header: Exit test & Keyboard hint */}
+      <div className="flex items-center justify-between mb-3 text-xs text-muted-foreground">
+        <button
+          onClick={() => {
+            if (window.confirm('Testdən çıxmaq istəyirsiniz? Cavablarınız yaddaşda saxlanacaq.')) {
+              setViewState('intro');
+            }
+          }}
+          className="flex items-center gap-1.5 hover:text-foreground transition-colors font-medium"
+        >
+          <LogOut className="w-3.5 h-3.5" /> Fasilə ver / Çıxış
+        </button>
+
+        <div className="hidden sm:flex items-center gap-2 text-[11px] bg-muted/50 px-2.5 py-1 rounded-lg border border-border/50">
+          <Keyboard className="w-3.5 h-3.5 text-primary" />
+          <span>Klaviaturada <strong>1-4</strong> ilə seç, <strong>←/→</strong> ilə keç</span>
+        </div>
+      </div>
+
       {/* Progress Bar */}
       <CareerProgressBar
         currentStage={currentStage}
@@ -389,25 +556,36 @@ export default function CareerAssessmentPage() {
                 </Badge>
                 <span className="text-xs sm:text-sm font-semibold">{currentMeta.title}</span>
               </div>
-              <span className="text-xs text-white/80 hidden sm:inline">
+              <span className="text-xs text-white/80 hidden sm:inline font-mono">
                 {currentQuestionIndex + 1} / {CAREER_QUESTIONS.length}
               </span>
             </div>
 
             <CardContent className="p-6 sm:p-10 space-y-8">
-              {/* Question Text */}
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-                  {currentMeta.subtitle}
-                </p>
-                <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-snug">
-                  {currentQuestion.text}
-                </h2>
+              {/* Question Text with Dynamic Icon */}
+              <div className="flex items-start gap-4">
+                <div className="p-3.5 rounded-2xl bg-primary/10 text-primary border border-primary/20 shrink-0 hidden sm:flex items-center justify-center">
+                  <CareerQuestionIcon name={currentQuestion.iconName} className="w-7 h-7" />
+                </div>
+                <div className="space-y-2 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 sm:hidden">
+                    <CareerQuestionIcon name={currentQuestion.iconName} className="w-5 h-5 text-primary" />
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                      {currentMeta.subtitle}
+                    </p>
+                  </div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold hidden sm:block">
+                    {currentMeta.subtitle}
+                  </p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-foreground leading-snug">
+                    {currentQuestion.text}
+                  </h2>
+                </div>
               </div>
 
               {/* Options Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                {options.map((opt) => {
+                {options.map((opt, optIdx) => {
                   const isSelected = currentAnswer === opt.value;
                   return (
                     <button
@@ -424,13 +602,20 @@ export default function CareerAssessmentPage() {
                         {opt.emoji}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p
-                          className={`font-semibold text-sm sm:text-base ${
-                            isSelected ? 'text-primary-foreground' : 'text-foreground'
-                          }`}
-                        >
-                          {opt.label}
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p
+                            className={`font-semibold text-sm sm:text-base ${
+                              isSelected ? 'text-primary-foreground' : 'text-foreground'
+                            }`}
+                          >
+                            {opt.label}
+                          </p>
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border hidden sm:inline ${
+                            isSelected ? 'bg-primary-foreground/20 border-primary-foreground/30 text-primary-foreground' : 'bg-muted border-border text-muted-foreground'
+                          }`}>
+                            {optIdx + 1}
+                          </span>
+                        </div>
                       </div>
                       {isSelected && (
                         <CheckCircle2 className="w-5 h-5 text-primary-foreground shrink-0" />
@@ -456,7 +641,7 @@ export default function CareerAssessmentPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentQuestionIndex(currentQuestionIndex + 1)}
+                    onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
                     className="gap-2 text-xs"
                   >
                     Növbəti <ArrowRight className="w-4 h-4" />
