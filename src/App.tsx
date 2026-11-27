@@ -32,6 +32,10 @@ const SupportChatPage = lazy(() => import("./pages/chat/SupportChatPage"));
 // Student Progress Page — lazy
 const StudentProgressPage = lazy(() => import("./pages/student/StudentProgressPage"));
 
+// Career Guidance Pages — lazy
+const CareerAssessmentPage = lazy(() => import("./pages/career/CareerAssessmentPage"));
+const CareerResultsPage = lazy(() => import("./pages/career/CareerResultsPage"));
+
 // Teacher Pages — lazy (dnd-kit ayrı chunk-da olsun, quiz path-ına qarışmasın)
 const TeacherDashboard = lazy(() => import("./pages/teacher/TeacherDashboard"));
 const CreateQuizPage = lazy(() => import("./pages/teacher/CreateQuizPage"));
@@ -135,6 +139,19 @@ function AppRoutes() {
         <Route path="/quizzes" element={<MainLayout><QuizzesPage /></MainLayout>} />
         <Route path="/quiz/:id" element={<MainLayout><QuizPage /></MainLayout>} />
         <Route path="/leaderboard" element={<MainLayout><LeaderboardPage /></MainLayout>} />
+        
+        {/* Career Guidance Routes */}
+        <Route path="/career" element={<Navigate to="/career/test" replace />} />
+        <Route path="/career/test" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <MainLayout><CareerAssessmentPage /></MainLayout>
+          </Suspense>
+        } />
+        <Route path="/career/results" element={
+          <Suspense fallback={<PageLoader text="Yüklənir..." />}>
+            <MainLayout><CareerResultsPage /></MainLayout>
+          </Suspense>
+        } />
         <Route path="/progress" element={
           <Suspense fallback={<PageLoader text="Yüklənir..." />}>
             <MainLayout><StudentProgressPage /></MainLayout>

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap, PlayCircle, Brain, ArrowRight } from "lucide-react";
+import { Search, TrendingUp, Sparkles, Trophy, Target, BookOpen, Zap, PlayCircle, Brain, ArrowRight, Compass } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -226,20 +226,20 @@ export default function Index() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
               <Button 
                   size="lg" 
-                  className="h-14 px-8 rounded-full shadow-lg hover:shadow-primary/25 transition-all text-base"
-                  onClick={() => document.getElementById('all-quizzes')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="h-14 px-8 rounded-full shadow-lg bg-gradient-to-r from-indigo-600 to-primary text-white hover:shadow-indigo-500/25 transition-all text-base"
+                  onClick={() => navigate('/career/test')}
               >
-                <PlayCircle className="mr-2 h-5 w-5" />
-                {t('all_quizzes_btn')}
+                <Compass className="mr-2 h-5 w-5" />
+                Karyera Bələdçisi Testi
               </Button>
               <Button 
                   variant="outline"
                   size="lg" 
                   className="h-14 px-8 rounded-full bg-background/50 backdrop-blur text-base"
-                  onClick={() => navigate('/leaderboard')}
+                  onClick={() => document.getElementById('all-quizzes')?.scrollIntoView({ behavior: 'smooth' })}
               >
-                <Trophy className="mr-2 h-5 w-5" />
-                {t('leaderboard_btn')}
+                <PlayCircle className="mr-2 h-5 w-5" />
+                {t('all_quizzes_btn')}
               </Button>
             </div>
 

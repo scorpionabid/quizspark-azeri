@@ -11,6 +11,7 @@ import {
   TrendingUp,
   ArrowRight,
   Eye,
+  Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -188,6 +189,36 @@ export const StudentLearningHub: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── 2.7 Career Guidance & Aptitude Banner ── */}
+      <div className="rounded-2xl sm:rounded-3xl border border-indigo-500/20 bg-gradient-to-r from-indigo-950/80 via-slate-900 to-indigo-900/80 p-4 sm:p-6 shadow-md text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="p-3 rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 shrink-0 mt-0.5">
+            <Compass className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-indigo-500/25 text-indigo-200 border-indigo-400/30 text-[10px] px-2 py-0.5">
+                Yeni Funksionallıq
+              </Badge>
+              <span className="text-xs text-indigo-200 font-semibold">Peşə və İxtisas Bələdçisi</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-white">
+              Gələcək peşəni və DİM ixtisas qrupunu kəşf et
+            </h3>
+            <p className="text-xs text-indigo-200/80 max-w-xl leading-relaxed">
+              Holland (RIASEC) modeli əsasında hazırlanmış 3 mərhələli testdən keç, güclü tərəflərini və sənə ən uyğun peşələri öyrən.
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={() => navigate('/career/test')}
+          className="shrink-0 w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-primary text-white font-bold hover:shadow-lg hover:shadow-indigo-500/20 rounded-xl px-5 h-10 gap-2 text-xs sm:text-sm"
+        >
+          <span>Testə Başla</span>
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
 
       {/* ── 3. Quick Actions Grid ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 w-full min-w-0">

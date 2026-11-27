@@ -23,6 +23,7 @@ import {
   Award,
   LayoutDashboard,
   ShieldAlert,
+  Compass,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -64,6 +65,7 @@ const navigationGroups: NavGroup[] = [
     items: [
       { title: "Ana Səhifə", url: "/", icon: Home, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Quizlər", url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
+      { title: "Karyera Bələdçisi", url: "/career/test", icon: Compass, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "İnkişaf & AI Tyutor", url: "/progress", icon: TrendingUp, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Liderlik Lövhəsi", url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student', 'guest'] },
       { title: "Dəstək", url: "/support", icon: MessageCircle, roles: ['admin', 'teacher', 'student', 'guest'] },
@@ -112,6 +114,7 @@ export function AppSidebar() {
       items: [
         { title: t('nav_home', 'Ana Səhifə'), url: "/", icon: Home, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_quizzes', 'Quizlər və Kurslar'), url: "/quizzes", icon: BookOpen, roles: ['admin', 'teacher', 'student', 'guest'] },
+        { title: t('nav_career', 'Karyera Bələdçisi'), url: "/career/test", icon: Compass, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_progress', 'İnkişaf & AI Tyutor'), url: "/progress", icon: TrendingUp, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_official_exam', 'Rəsmi İmtahan Portalı'), url: "/imtahan", icon: Award, roles: ['admin', 'teacher', 'student', 'guest'] },
         { title: t('nav_leaderboard', 'Liderlik Lövhəsi'), url: "/leaderboard", icon: Trophy, roles: ['admin', 'teacher', 'student'] },
