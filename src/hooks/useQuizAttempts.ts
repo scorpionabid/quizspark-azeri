@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { syncStudentMasteryAfterQuiz } from './useStudentMastery';
@@ -145,7 +146,10 @@ export function useUpdateAttempt() {
       answers: Record<string, string>[];
       currentQuestionIndex?: number;
     }) => {
-      const updateData: Record<string, any> = { answers };
+      const updateData: {
+        answers: Record<string, string>[];
+        current_question_index?: number;
+      } = { answers };
       if (currentQuestionIndex !== undefined) {
         updateData.current_question_index = currentQuestionIndex;
       }
@@ -228,12 +232,13 @@ export function useCompleteAttempt() {
         p_score: score,
         p_total_questions: totalQuestions,
         p_time_spent: timeSpent,
-        p_answers: answers as unknown as any,
+        p_answers: answers as unknown as Json,
       });
 
       if (!atomicError && atomicData) {
+        const atomicResult = atomicData as { result_id?: string };
         resultData = {
-          id: (atomicData as any).result_id || attemptId,
+          id: atomicResult.result_id || attemptId,
           quiz_id: quizId,
           user_id: activeUser.id,
           score,

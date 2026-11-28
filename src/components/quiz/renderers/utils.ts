@@ -139,7 +139,9 @@ export function getNormalizedMultiSelectIndices(raw: string, question: Question)
     if (Array.isArray(parsed) && parsed.every(n => typeof n === 'number')) {
       return Array.from(new Set(parsed as number[])).sort((a, b) => a - b);
     }
-  } catch {}
+  } catch {
+    // Fallback to comma-separated parsing
+  }
 
   const tokens = raw.split(',').map(s => s.trim()).filter(Boolean);
   const result = new Set<number>();

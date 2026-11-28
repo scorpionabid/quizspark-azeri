@@ -60,20 +60,37 @@ export function useUsers() {
             const { data: rpcData, error: rpcError } = await supabase.rpc('admin_get_all_users');
 
             if (!rpcError && Array.isArray(rpcData)) {
-                return (rpcData as any[]).map((p) => ({
+                interface RpcUserRow {
+                    id: string;
+                    name?: string | null;
+                    email?: string | null;
+                    phone?: string | null;
+                    school?: string | null;
+                    specialty?: string | null;
+                    fin?: string | null;
+                    utisCode?: string | null;
+                    status?: string | null;
+                    role?: UserItem['role'] | null;
+                    subscriptionTier?: string | null;
+                    createdAt?: string;
+                    lastActiveAt?: string | null;
+                    quizCount?: number | null;
+                    questionCount?: number | null;
+                }
+                return (rpcData as RpcUserRow[]).map((p) => ({
                     id: p.id,
                     name: p.name || "İstifadəçi",
                     email: p.email || "",
-                    phone: p.phone,
-                    school: p.school,
-                    specialty: p.specialty,
-                    fin: p.fin,
-                    utisCode: p.utisCode,
-                    status: p.status || 'active',
+                    phone: p.phone ?? undefined,
+                    school: p.school ?? undefined,
+                    specialty: p.specialty ?? undefined,
+                    fin: p.fin ?? undefined,
+                    utisCode: p.utisCode ?? undefined,
+                    status: (p.status as UserItem['status']) || 'active',
                     role: p.role || 'student',
                     subscriptionTier: (p.subscriptionTier as 'vip' | 'quest') || 'quest',
-                    createdAt: p.createdAt,
-                    lastActiveAt: p.lastActiveAt,
+                    createdAt: p.createdAt || '',
+                    lastActiveAt: p.lastActiveAt ?? undefined,
                     quizCount: p.quizCount || 0,
                     questionCount: p.questionCount || 0,
                 }));

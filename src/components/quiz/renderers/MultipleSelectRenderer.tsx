@@ -21,7 +21,9 @@ export const MultipleSelectRenderer: React.FC<RendererProps> = ({
     try {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) return parsed.map(String);
-    } catch {}
+    } catch {
+      // Fallback to comma-separated parsing
+    }
 
     const rawTokens = value.split(',').map(s => s.trim());
     const matched: string[] = [];

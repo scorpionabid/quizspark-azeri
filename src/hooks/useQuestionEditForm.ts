@@ -330,9 +330,8 @@ export function useQuestionEditForm(
     return true;
   };
 
-  const getCleanData = (): Partial<QuestionBankItem> & Record<string, any> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data: Partial<QuestionBankItem> & Record<string, any> = {
+  const getCleanData = (): Partial<QuestionBankItem> & Record<string, unknown> => {
+    const data: Partial<QuestionBankItem> & Record<string, unknown> = {
       title: formData.title?.trim() || null,
       question_text: formData.question_text,
       question_type: formData.question_type,

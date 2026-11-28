@@ -43,7 +43,9 @@ const setCachedRole = (userId: string, role: AppRole) => {
   try {
     localStorage.setItem(`auth_last_role_${userId}`, role);
     localStorage.setItem('auth_last_role_current', role);
-  } catch {}
+  } catch {
+    // Ignore storage access errors
+  }
 };
 
 const clearCachedRole = (userId?: string | null) => {
@@ -53,7 +55,9 @@ const clearCachedRole = (userId?: string | null) => {
       localStorage.removeItem(`auth_last_role_${userId}`);
     }
     localStorage.removeItem('auth_last_role_current');
-  } catch {}
+  } catch {
+    // Ignore storage access errors
+  }
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

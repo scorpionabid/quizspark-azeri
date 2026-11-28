@@ -506,7 +506,9 @@ export function QuestionEditDialog({
               if (saveToBank && showSaveToBank && mode === 'create') {
                 try {
                   const { id: _ignoreId, ...bankPayload } = cleanData;
-                  await createQuestionBank.mutateAsync(bankPayload as any);
+                  await createQuestionBank.mutateAsync(
+                    bankPayload as Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'>
+                  );
                 } catch {
                   return;
                 }

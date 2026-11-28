@@ -380,9 +380,9 @@ export function useQuestionBankCategories() {
  * Boş string ("") dəyərlərinin numeric/integer sütunlara göndərilərək SQL xətası ("invalid input syntax for type numeric: """)
  * verməsinin qarşısını tam alır.
  */
-export function sanitizeQuestionBankPayload<T extends Record<string, any>>(item: T): T {
+export function sanitizeQuestionBankPayload<T extends object>(item: T): T {
   if (!item || typeof item !== 'object') return item;
-  const sanitized = { ...item } as any;
+  const sanitized: Record<string, unknown> = { ...(item as Record<string, unknown>) };
 
   // Numeric fields (PostgreSQL: numeric, real, double precision)
   const numericFields = ['numerical_answer', 'numerical_tolerance', 'weight', 'quality_score'];
@@ -435,8 +435,9 @@ export function sanitizeQuestionBankPayload<T extends Record<string, any>>(item:
   }
 
   // Redundant title filter
-  if ('title' in sanitized && sanitized.title) {
-    if (!shouldDisplayQuestionTitle(sanitized.title, sanitized.question_text)) {
+  if (typeof sanitized.title === 'string' && sanitized.title) {
+    const qText = typeof sanitized.question_text === 'string' ? sanitized.question_text : '';
+    if (!shouldDisplayQuestionTitle(sanitized.title, qText)) {
       sanitized.title = null;
     }
   }

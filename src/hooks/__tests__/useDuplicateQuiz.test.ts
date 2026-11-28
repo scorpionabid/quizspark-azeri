@@ -46,7 +46,7 @@ describe('useDuplicateQuiz', () => {
       creator_id: 'test-user-id',
     };
 
-    let insertedQuizPayload: any = null;
+    let insertedQuizPayload: Record<string, unknown> | null = null;
 
     // Setup supabase mocks
     vi.mocked(supabase.from).mockImplementation((table: string) => {
@@ -57,7 +57,7 @@ describe('useDuplicateQuiz', () => {
               single: vi.fn(() => Promise.resolve({ data: mockSourceQuiz, error: null })),
             })),
           })),
-          insert: vi.fn((payload: any) => {
+          insert: vi.fn((payload: Record<string, unknown>) => {
             insertedQuizPayload = payload;
             return {
               select: vi.fn(() => ({
@@ -65,7 +65,7 @@ describe('useDuplicateQuiz', () => {
               })),
             };
           }),
-        } as any;
+        } as unknown as ReturnType<typeof supabase.from>;
       }
       if (table === 'questions') {
         return {
@@ -75,9 +75,9 @@ describe('useDuplicateQuiz', () => {
             })),
           })),
           insert: vi.fn(() => Promise.resolve({ error: null })),
-        } as any;
+        } as unknown as ReturnType<typeof supabase.from>;
       }
-      return {} as any;
+      return {} as unknown as ReturnType<typeof supabase.from>;
     });
 
     const { result } = renderHook(() => useDuplicateQuiz(), { wrapper: createWrapper() });
@@ -86,13 +86,13 @@ describe('useDuplicateQuiz', () => {
       await result.current.mutateAsync('quiz-original');
     });
 
-    expect(insertedQuizPayload).toBeDefined();
+    expect(insertedQuizPayload).not.toBeNull();
     // Verify title has (Kopya)
-    expect(insertedQuizPayload.title).toBe('AR Konstitusiyası (Kopya)');
+    expect(insertedQuizPayload?.title).toBe('AR Konstitusiyası (Kopya)');
     // Verify share_code is null (to let trigger generate a fresh unique PIN)
-    expect(insertedQuizPayload.share_code).toBeNull();
+    expect(insertedQuizPayload?.share_code).toBeNull();
     // Verify question_count is not carried over from source
-    expect(insertedQuizPayload.question_count).toBeUndefined();
+    expect(insertedQuizPayload?.question_count).toBeUndefined();
     // Verify play_count reset
     expect(insertedQuizPayload.play_count).toBe(0);
   });
