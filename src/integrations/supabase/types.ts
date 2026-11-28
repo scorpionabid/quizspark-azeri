@@ -697,6 +697,7 @@ export type Database = {
           ai_grading_prompt: string | null
           alt_text: string | null
           answer_case_sensitive: boolean
+          answer_lines: number | null
           answer_match_type: string
           answer_trim_spaces: boolean
           audio_playback_limit: number | null
@@ -714,6 +715,7 @@ export type Database = {
           curriculum_standard: string | null
           diagram_labels: Json | null
           difficulty: string | null
+          difficulty_level: string | null
           embedding: string | null
           essay_max_words: number | null
           essay_min_words: number | null
@@ -725,6 +727,7 @@ export type Database = {
           fill_blank_answers: Json | null
           fill_blank_case_sensitive: boolean
           fill_blank_template: string | null
+          grade: string | null
           hint: string | null
           hotspot_data: Json | null
           hotspot_tolerance_px: number | null
@@ -762,10 +765,12 @@ export type Database = {
           question_text: string
           question_type: string
           read_aloud_text: string | null
+          sample_answer: string | null
           sequence_items: Json | null
           show_hint_after_attempts: number | null
           shuffle_options: boolean
           source_document_id: string | null
+          subject: string | null
           tags: string[] | null
           time_limit: number | null
           title: string | null
@@ -784,6 +789,7 @@ export type Database = {
           ai_grading_prompt?: string | null
           alt_text?: string | null
           answer_case_sensitive?: boolean
+          answer_lines?: number | null
           answer_match_type?: string
           answer_trim_spaces?: boolean
           audio_playback_limit?: number | null
@@ -801,6 +807,7 @@ export type Database = {
           curriculum_standard?: string | null
           diagram_labels?: Json | null
           difficulty?: string | null
+          difficulty_level?: string | null
           embedding?: string | null
           essay_max_words?: number | null
           essay_min_words?: number | null
@@ -812,6 +819,7 @@ export type Database = {
           fill_blank_answers?: Json | null
           fill_blank_case_sensitive?: boolean
           fill_blank_template?: string | null
+          grade?: string | null
           hint?: string | null
           hotspot_data?: Json | null
           hotspot_tolerance_px?: number | null
@@ -849,10 +857,12 @@ export type Database = {
           question_text: string
           question_type?: string
           read_aloud_text?: string | null
+          sample_answer?: string | null
           sequence_items?: Json | null
           show_hint_after_attempts?: number | null
           shuffle_options?: boolean
           source_document_id?: string | null
+          subject?: string | null
           tags?: string[] | null
           time_limit?: number | null
           title?: string | null
@@ -871,6 +881,7 @@ export type Database = {
           ai_grading_prompt?: string | null
           alt_text?: string | null
           answer_case_sensitive?: boolean
+          answer_lines?: number | null
           answer_match_type?: string
           answer_trim_spaces?: boolean
           audio_playback_limit?: number | null
@@ -888,6 +899,7 @@ export type Database = {
           curriculum_standard?: string | null
           diagram_labels?: Json | null
           difficulty?: string | null
+          difficulty_level?: string | null
           embedding?: string | null
           essay_max_words?: number | null
           essay_min_words?: number | null
@@ -899,6 +911,7 @@ export type Database = {
           fill_blank_answers?: Json | null
           fill_blank_case_sensitive?: boolean
           fill_blank_template?: string | null
+          grade?: string | null
           hint?: string | null
           hotspot_data?: Json | null
           hotspot_tolerance_px?: number | null
@@ -936,10 +949,12 @@ export type Database = {
           question_text?: string
           question_type?: string
           read_aloud_text?: string | null
+          sample_answer?: string | null
           sequence_items?: Json | null
           show_hint_after_attempts?: number | null
           shuffle_options?: boolean
           source_document_id?: string | null
+          subject?: string | null
           tags?: string[] | null
           time_limit?: number | null
           title?: string | null

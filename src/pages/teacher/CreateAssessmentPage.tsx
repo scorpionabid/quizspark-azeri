@@ -20,6 +20,9 @@ import {
   Check,
   ChevronDown,
   KeyRound,
+  Database,
+  Layers,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -55,6 +58,16 @@ import {
   PrintableQuestion,
 } from '@/components/quiz/PrintableAssessmentView';
 import { AssessmentSpecificationCard } from '@/components/quiz/AssessmentSpecificationCard';
+import { BankTopicPicker, BankBlueprintMatrix } from '@/components/quiz/BankBlueprintBuilder';
+import { useBankQuestionsForBuilder } from '@/hooks/useQuestionBank';
+import {
+  TopicBlueprintSlot,
+  BankTopicStats,
+  summarizeBankByTopics,
+  assembleExamFromBlueprint,
+  findSwapCandidate,
+  bankItemToPrintableQuestion,
+} from '@/utils/examBlueprint';
 import {
   getQuestionTypeLabelAz,
   normalizeDifficultyLevel,
@@ -68,6 +81,7 @@ import { Switch } from '@/components/ui/switch';
 const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 type AssessmentType = 'ksq' | 'bsq' | 'sinaq';
+type SourceMode = 'bank' | 'hybrid' | 'ai';
 
 interface GeneratedRawQuestion {
   question: string;
@@ -369,13 +383,110 @@ export default function CreateAssessmentPage() {
   const initialType: AssessmentType =
     paramType === 'bsq' ? 'bsq' : paramType === 'sinaq' ? 'sinaq' : 'ksq';
 
+  const paramSource = searchParams.get('source');
+  const initialSource: SourceMode =
+    paramSource === 'bank' ? 'bank' : paramSource === 'hybrid' ? 'hybrid' : 'bank';
+
   const [assessmentType, setAssessmentType] = useState<AssessmentType>(initialType);
+  const [sourceMode, setSourceMode] = useState<SourceMode>(initialSource);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Step 1: Grade & Subject(s)
   const [grade, setGrade] = useState<number>(6);
   const [subject, setSubject] = useState<string>(CORE_SUBJECTS[1]); // Riyaziyyat (for KSQ/BSQ)
   const [title, setTitle] = useState<string>('');
+
+  // Question Bank Blueprint state (for bank / hybrid modes)
+  const [includeUntaggedBank, setIncludeUntaggedBank] = useState<boolean>(false);
+  const [blueprintSlots, setBlueprintSlots] = useState<TopicBlueprintSlot[]>([]);
+
+  const isBankBlueprintMode = assessmentType !== 'sinaq' && sourceMode !== 'ai';
+  const { data: bankQuestions = [], isLoading: bankLoading } = useBankQuestionsForBuilder(
+    includeUntaggedBank ? undefined : subject,
+    includeUntaggedBank ? undefined : `${grade}-ci sinif`,
+    isBankBlueprintMode
+  );
+
+  const bankTopicStats = useMemo(() => summarizeBankByTopics(bankQuestions), [bankQuestions]);
+  const bankTopicStatsMap = useMemo(() => {
+    const map = new Map<string, BankTopicStats>();
+    for (const s of bankTopicStats) map.set(s.topic, s);
+    return map;
+  }, [bankTopicStats]);
+
+  const handleToggleBankTopic = (stat: BankTopicStats) => {
+    setBlueprintSlots((prev) => {
+      const exists = prev.some((s) => s.topic === stat.topic);
+      if (exists) return prev.filter((s) => s.topic !== stat.topic);
+      return [
+        ...prev,
+        {
+          topic: stat.topic,
+          count: Math.min(5, Math.max(1, stat.count)),
+          pointsPerQuestion: Math.max(1, Math.round(stat.avgWeight) || 5),
+          useBankWeight: false,
+          difficultyFilter: 'balanced',
+          questionTypeFilter: 'all',
+        },
+      ];
+    });
+  };
+
+  const handleSelectAllBankTopics = () => {
+    setBlueprintSlots(
+      bankTopicStats.map((stat) => ({
+        topic: stat.topic,
+        count: Math.min(5, Math.max(1, stat.count)),
+        pointsPerQuestion: Math.max(1, Math.round(stat.avgWeight) || 5),
+        useBankWeight: false,
+        difficultyFilter: 'balanced',
+        questionTypeFilter: 'all',
+      }))
+    );
+  };
+
+  const handleUpdateBlueprintSlot = (
+    topic: string,
+    updater: (slot: TopicBlueprintSlot) => TopicBlueprintSlot
+  ) => {
+    setBlueprintSlots((prev) => prev.map((s) => (s.topic === topic ? updater(s) : s)));
+  };
+
+  const handleRemoveBlueprintSlot = (topic: string) => {
+    setBlueprintSlots((prev) => prev.filter((s) => s.topic !== topic));
+  };
+
+  const handleNormalizeBlueprintTo100 = () => {
+    const totalQ = blueprintSlots.reduce((s, slot) => s + slot.count, 0);
+    if (totalQ === 0) return;
+    const avgPts = Math.max(1, Math.round(100 / totalQ));
+    setBlueprintSlots((prev) =>
+      prev.map((slot) => ({
+        ...slot,
+        useBankWeight: false,
+        pointsPerQuestion: avgPts,
+      }))
+    );
+    toast.success(`Hər sual üçün təxmini ${avgPts} bal təyin edildi (Nəticə addımında dəqiq 100 bala bölə bilərsiniz)`);
+  };
+
+  const handleSwapQuestionFromBank = (idx: number) => {
+    const current = questions[idx];
+    if (!current) return;
+    const usedIds = new Set(
+      questions.map((q) => q.bank_question_id).filter((id): id is string => Boolean(id))
+    );
+    const candidate = findSwapCandidate(bankQuestions, current, usedIds);
+    if (!candidate) {
+      toast.info('Bu mövzu üzrə bankda başqa istifadə edilməmiş sual qalmayıb');
+      return;
+    }
+    const replacement = bankItemToPrintableQuestion(candidate, current.weight ?? null);
+    setQuestions((prev) => prev.map((item, i) => (i === idx ? replacement : item)));
+    toast.success(`Sual ${idx + 1} bazadan başqa sualla əvəz edildi`);
+  };
+
+  const blueprintTotalCount = blueprintSlots.reduce((s, slot) => s + slot.count, 0);
 
   // Multi-subject buckets for Sinaq
   const [sinaqBuckets, setSinaqBuckets] = useState<SubjectTopicBucket[]>([
@@ -476,7 +587,76 @@ export default function CreateAssessmentPage() {
     setSavedQuizId(null);
 
     try {
-      if (assessmentType === 'sinaq') {
+      if (isBankBlueprintMode) {
+        if (blueprintSlots.length === 0) {
+          toast.error('Ən azı 1 mövzu seçin');
+          setIsGenerating(false);
+          return;
+        }
+
+        setGenerationStatus('Sual bankından blueprint əsasında suallar yığılır...');
+        const { questions: assembled, shortfalls } = assembleExamFromBlueprint(
+          bankQuestions,
+          blueprintSlots
+        );
+
+        const finalList: PrintableQuestion[] = [...assembled];
+
+        if (sourceMode === 'hybrid' && shortfalls.length > 0) {
+          for (const sf of shortfalls) {
+            setGenerationStatus(
+              `"${sf.topic}" üzrə çatışmayan ${sf.missingCount} sual AI ilə tamamlanır...`
+            );
+            const { data, error } = await supabase.functions.invoke('generate-quiz', {
+              body: {
+                topic: sf.topic,
+                topics: [sf.topic],
+                subject,
+                grade,
+                assessmentType,
+                difficulty:
+                  sf.difficultyFilter === 'I' || sf.difficultyFilter === 'asan'
+                    ? 'easy'
+                    : sf.difficultyFilter === 'IV' || sf.difficultyFilter === 'çətin'
+                      ? 'hard'
+                      : 'balanced',
+                questionCount: sf.missingCount,
+                questionType:
+                  sf.questionTypeFilter && sf.questionTypeFilter !== 'all'
+                    ? sf.questionTypeFilter
+                    : 'multiple_choice',
+                agentId: 'assessment-expert',
+              },
+            });
+            if (error) throw error;
+            const raw = (data?.questions ?? []) as GeneratedRawQuestion[];
+            const generated = formatGeneratedQuestions(
+              raw,
+              sf.questionTypeFilter && sf.questionTypeFilter !== 'all'
+                ? sf.questionTypeFilter
+                : 'multiple_choice',
+              undefined,
+              sf.pointsPerQuestion
+            ).map((item) => ({ ...item, topic: sf.topic }));
+            finalList.push(...generated);
+          }
+        }
+
+        if (finalList.length === 0) {
+          throw new Error('Seçilmiş mövzu və filtrlərə uyğun sual tapılmadı.');
+        }
+
+        setQuestions(finalList);
+        setStep(4);
+        if (sourceMode === 'bank' && shortfalls.length > 0) {
+          const totalMissing = shortfalls.reduce((s, sf) => s + sf.missingCount, 0);
+          toast.warning(
+            `${finalList.length} sual bankdan yığıldı (${totalMissing} sual çatışmadı — Hibrid rejimdə AI tamamlaya bilər)`
+          );
+        } else {
+          toast.success(`${finalList.length} suallıq ${assessmentType.toUpperCase()} hazırdır!`);
+        }
+      } else if (assessmentType === 'sinaq') {
         const allGenerated: PrintableQuestion[] = [];
         for (let i = 0; i < sinaqBuckets.length; i++) {
           const bucket = sinaqBuckets[i];
@@ -639,6 +819,7 @@ export default function CreateAssessmentPage() {
         }
         return {
           quiz_id: quiz.id,
+          bank_question_id: q.bank_question_id ?? null,
           title: q.subjectLabel ?? null,
           question_text: q.question_text,
           question_type: q.question_type,
@@ -786,7 +967,13 @@ export default function CreateAssessmentPage() {
               </div>
               <div>
                 <Label className="mb-2 block">Sinif seçin *</Label>
-                <Select value={String(grade)} onValueChange={(v) => setGrade(Number(v))}>
+                <Select
+                  value={String(grade)}
+                  onValueChange={(v) => {
+                    setGrade(Number(v));
+                    setBlueprintSlots([]);
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -800,6 +987,56 @@ export default function CreateAssessmentPage() {
                 </Select>
               </div>
             </div>
+
+            {assessmentType !== 'sinaq' && (
+              <div className="space-y-2">
+                <Label className="block">Sual Mənbəyi *</Label>
+                <div className="grid gap-2.5 sm:grid-cols-3">
+                  {(
+                    [
+                      {
+                        id: 'bank',
+                        title: 'Sual Bankından',
+                        desc: 'Öz bazanızdakı suallardan mövzu, standart və bal matrisi ilə yığın',
+                        icon: <Database className="h-4 w-4 text-academic-accent" />,
+                      },
+                      {
+                        id: 'hybrid',
+                        title: 'Hibrid (Baza + AI)',
+                        desc: 'Əvvəl Sual Bankından götürür, çatışmayan sualları AI tamamlayır',
+                        icon: <Layers className="h-4 w-4 text-academic-accent" />,
+                      },
+                      {
+                        id: 'ai',
+                        title: 'Yalnız AI Generasiya',
+                        desc: 'Dərslik və kurikulum mövzularına əsasən AI ilə yeni suallar yarat',
+                        icon: <Sparkles className="h-4 w-4 text-academic-accent" />,
+                      },
+                    ] as const
+                  ).map((opt) => {
+                    const active = sourceMode === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setSourceMode(opt.id)}
+                        className={`rounded-xl border p-3 text-left transition-colors space-y-1 ${
+                          active
+                            ? 'border-academic-accent bg-academic-soft/60 ring-1 ring-academic-accent/30'
+                            : 'border-academic-line bg-card hover:border-academic-accent/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 font-semibold text-sm text-foreground">
+                          {opt.icon}
+                          <span>{opt.title}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-snug">{opt.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {assessmentType === 'sinaq' ? (
               <div className="space-y-3">
@@ -852,6 +1089,7 @@ export default function CreateAssessmentPage() {
                   onValueChange={(v) => {
                     setSubject(v);
                     setSelectedTopicIds([]);
+                    setBlueprintSlots([]);
                   }}
                 >
                   <SelectTrigger>
@@ -920,6 +1158,18 @@ export default function CreateAssessmentPage() {
                   />
                 ))}
               </div>
+            ) : isBankBlueprintMode ? (
+              <BankTopicPicker
+                subject={subject}
+                grade={grade}
+                topicStats={bankTopicStats}
+                isLoading={bankLoading}
+                includeUntagged={includeUntaggedBank}
+                onToggleIncludeUntagged={setIncludeUntaggedBank}
+                selectedSlots={blueprintSlots}
+                onToggleTopic={handleToggleBankTopic}
+                onSelectAllTopics={handleSelectAllBankTopics}
+              />
             ) : (
               <SubjectTopicSelectorPanel
                 grade={grade}
@@ -964,6 +1214,15 @@ export default function CreateAssessmentPage() {
                   ))}
                 </div>
               </div>
+            ) : isBankBlueprintMode ? (
+              <BankBlueprintMatrix
+                sourceMode={sourceMode === 'hybrid' ? 'hybrid' : 'bank'}
+                slots={blueprintSlots}
+                topicStatsMap={bankTopicStatsMap}
+                onUpdateSlot={handleUpdateBlueprintSlot}
+                onRemoveSlot={handleRemoveBlueprintSlot}
+                onNormalizeBlueprintTo100={handleNormalizeBlueprintTo100}
+              />
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/30 p-3">
@@ -1065,7 +1324,7 @@ export default function CreateAssessmentPage() {
             )}
 
             <div className="grid gap-4 sm:grid-cols-3">
-              {(!useMixedTypes || assessmentType === 'sinaq') && (
+              {!isBankBlueprintMode && (!useMixedTypes || assessmentType === 'sinaq') && (
                 <div>
                   <Label className="mb-2 block">Sual tipi</Label>
                   <Select value={questionType} onValueChange={setQuestionType}>
@@ -1083,20 +1342,22 @@ export default function CreateAssessmentPage() {
                 </div>
               )}
 
-              <div>
-                <Label className="mb-2 block">Çətinlik səviyyəsi</Label>
-                <Select value={difficulty} onValueChange={setDifficulty}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="balanced">KSQ/BSQ Standartı (Balanslı)</SelectItem>
-                    <SelectItem value="easy">Asan</SelectItem>
-                    <SelectItem value="medium">Orta</SelectItem>
-                    <SelectItem value="hard">Çətin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {!isBankBlueprintMode && (
+                <div>
+                  <Label className="mb-2 block">Çətinlik səviyyəsi</Label>
+                  <Select value={difficulty} onValueChange={setDifficulty}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="balanced">KSQ/BSQ Standartı (Balanslı)</SelectItem>
+                      <SelectItem value="easy">Asan</SelectItem>
+                      <SelectItem value="medium">Orta</SelectItem>
+                      <SelectItem value="hard">Çətin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div>
                 <Label className="mb-2 block">Müddət (dəqiqə)</Label>
@@ -1117,13 +1378,24 @@ export default function CreateAssessmentPage() {
               <Button
                 variant="game"
                 onClick={handleGenerate}
-                disabled={isGenerating}
+                disabled={isGenerating || (isBankBlueprintMode && blueprintTotalCount === 0)}
                 className="gap-2"
               >
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {generationStatus || 'Suallar hazırlanır...'}
+                  </>
+                ) : isBankBlueprintMode ? (
+                  <>
+                    {sourceMode === 'hybrid' ? (
+                      <Layers className="h-4 w-4" />
+                    ) : (
+                      <Database className="h-4 w-4" />
+                    )}
+                    {sourceMode === 'hybrid'
+                      ? `${blueprintTotalCount} Sual Yığ (Baza + AI)`
+                      : `${blueprintTotalCount} Sualı Bankdan Yığ`}
                   </>
                 ) : (
                   <>
@@ -1296,6 +1568,16 @@ export default function CreateAssessmentPage() {
                         <span className="rounded-full bg-academic-surface px-2.5 py-0.5 text-xs font-medium text-muted-foreground border border-academic-line/70">
                           {getQuestionTypeLabelAz(q.question_type)}
                         </span>
+                        {q.topic && (
+                          <Badge variant="outline" className="text-[11px] border-academic-line max-w-[200px] truncate">
+                            {q.topic}
+                          </Badge>
+                        )}
+                        {q.curriculum_standard && (
+                          <Badge variant="outline" className="text-[10px] font-mono border-academic-line">
+                            Std: {q.curriculum_standard}
+                          </Badge>
+                        )}
                         {q.subjectLabel && (
                           <Badge variant="outline" className="text-[11px] border-academic-line">
                             {q.subjectLabel}
@@ -1320,6 +1602,18 @@ export default function CreateAssessmentPage() {
                           aria-label={`Sual ${idx + 1} balı`}
                         />
                         <span className="text-xs text-muted-foreground">bal</span>
+                        {bankQuestions.length > 0 && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-academic-accent"
+                            onClick={() => handleSwapQuestionFromBank(idx)}
+                            title="Sual Bankından başqa sualla dəyişdir"
+                            aria-label={`Sual ${idx + 1}-i bazadan dəyişdir`}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         <Button
                           size="icon"
                           variant="ghost"

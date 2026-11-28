@@ -44,6 +44,15 @@ export interface QuestionBankItem {
   feedback_enabled: boolean | null;
   quality_score: number | null;
   usage_count: number | null;
+  // Curriculum & assessment metadata
+  subject?: string | null;
+  grade?: string | null;
+  topic?: string | null;
+  curriculum_standard?: string | null;
+  difficulty_level?: string | null;
+  essay_rubric?: string[] | Record<string, unknown>[] | null;
+  sample_answer?: string | null;
+  answer_lines?: number | null;
   // Sharing metadata (only populated in 'shared-with-me' mode)
   shared_by_name?: string | null;
   shared_by_avatar?: string | null;
@@ -80,6 +89,11 @@ export type QuestionBankMode = 'my-questions' | 'shared-with-me' | 'analytics';
 
 export interface QuestionFilters {
   search?: string;
+  subject?: string;
+  grade?: string;
+  topic?: string;
+  curriculum_standard?: string;
+  difficulty_level?: string;
   category?: string;
   difficulty?: string;
   question_type?: string;
@@ -229,6 +243,8 @@ export function useQuestionBankList(
           hotspot_data, matching_pairs, sequence_items, fill_blank_template,
           numerical_answer, numerical_tolerance, correct_option_indices,
           feedback_enabled, quality_score, usage_count,
+          subject, grade, topic, curriculum_standard, difficulty_level,
+          essay_rubric, sample_answer, answer_lines,
           ${quizJoin},
           ${ratingsJoin}
         `, { count: 'exact' });
@@ -249,6 +265,21 @@ export function useQuestionBankList(
       if (filters.feedback_status === 'has_issues') {
         query = query.in('question_ratings.issue_type', ['error', 'confusing']);
       }
+      if (filters.subject && filters.subject !== 'all') {
+        query = query.eq('subject', filters.subject);
+      }
+      if (filters.grade && filters.grade !== 'all') {
+        query = query.eq('grade', filters.grade);
+      }
+      if (filters.topic && filters.topic !== 'all') {
+        query = query.eq('topic', filters.topic);
+      }
+      if (filters.curriculum_standard?.trim()) {
+        query = query.ilike('curriculum_standard', `%${filters.curriculum_standard.trim()}%`);
+      }
+      if (filters.difficulty_level && filters.difficulty_level !== 'all') {
+        query = query.eq('difficulty_level', filters.difficulty_level);
+      }
       if (filters.category && filters.category !== 'all') {
         query = query.eq('category', filters.category);
       }
@@ -259,7 +290,10 @@ export function useQuestionBankList(
         query = query.eq('question_type', filters.question_type);
       }
       if (filters.search) {
-        query = query.ilike('question_text', `%${filters.search}%`);
+        const s = filters.search.trim();
+        query = query.or(
+          `question_text.ilike.%${s}%,title.ilike.%${s}%,topic.ilike.%${s}%,curriculum_standard.ilike.%${s}%`
+        );
       }
       if (filters.quality_score_min) {
         query = query.gte('quality_score', filters.quality_score_min);
@@ -404,7 +438,7 @@ export function sanitizeQuestionBankPayload<T extends object>(item: T): T {
     'essay_min_words', 'essay_max_words', 'usage_count',
     'max_attempts', 'show_hint_after_attempts', 'likert_scale',
     'code_time_limit_ms', 'code_memory_limit_mb', 'hotspot_tolerance_px',
-    'audio_playback_limit'
+    'audio_playback_limit', 'answer_lines'
   ];
   for (const field of intFields) {
     if (field in sanitized) {
@@ -422,7 +456,8 @@ export function sanitizeQuestionBankPayload<T extends object>(item: T): T {
   const nullableStringFields = [
     'title', 'hint', 'explanation', 'category', 'difficulty', 'bloom_level',
     'question_image_url', 'media_url', 'video_url', 'model_3d_url', 'fill_blank_template',
-    'learning_objective', 'topic', 'code_language', 'code_starter_template',
+    'learning_objective', 'topic', 'subject', 'grade', 'curriculum_standard',
+    'difficulty_level', 'sample_answer', 'code_language', 'code_starter_template',
     'feedback_correct', 'feedback_incorrect', 'likert_min_label', 'likert_max_label'
   ];
   for (const field of nullableStringFields) {
@@ -903,5 +938,107 @@ export function useQuestionBankSearch(searchQuery: string, enabled: boolean = fa
       return (data.results || []) as QuestionBankItem[];
     },
     enabled: enabled && searchQuery.length > 2,
+  });
+}
+
+// ─── Curriculum Metadata & Blueprint Builder Hooks ────────────────────────────
+
+export interface BankTopicSummary {
+  topic: string;
+  count: number;
+  standards: string[];
+  levelCounts: Record<'I' | 'II' | 'III' | 'IV', number>;
+}
+
+/**
+ * Sual Bankında mövcud olan unikal fənləri, sinifləri və mövzuları qaytarır (filtrlər üçün).
+ */
+export function useBankCurriculumMeta(subject?: string, grade?: string) {
+  return useQuery({
+    queryKey: ['question-bank-curriculum-meta', subject || 'all', grade || 'all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('question_bank')
+        .select('subject, grade, topic, category, curriculum_standard')
+        .range(0, 4999);
+
+      if (error) throw error;
+      const rows = data || [];
+
+      const subjects = new Set<string>();
+      const grades = new Set<string>();
+      const topics = new Set<string>();
+      const standards = new Set<string>();
+
+      for (const row of rows) {
+        if (row.subject) subjects.add(row.subject);
+        if (row.grade) grades.add(row.grade);
+
+        const matchSub = !subject || subject === 'all' || row.subject === subject;
+        const matchGrade = !grade || grade === 'all' || row.grade === grade;
+        if (matchSub && matchGrade) {
+          const t = row.topic || row.category;
+          if (t) topics.add(t);
+          if (row.curriculum_standard) standards.add(row.curriculum_standard);
+        }
+      }
+
+      return {
+        subjects: Array.from(subjects).sort((a, b) => a.localeCompare(b, 'az')),
+        grades: Array.from(grades).sort((a, b) => {
+          const na = parseInt(a, 10);
+          const nb = parseInt(b, 10);
+          if (!isNaN(na) && !isNaN(nb)) return na - nb;
+          return a.localeCompare(b, 'az');
+        }),
+        topics: Array.from(topics).sort((a, b) => a.localeCompare(b, 'az')),
+        standards: Array.from(standards).sort((a, b) => a.localeCompare(b, 'az')),
+      };
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+/**
+ * İmtahan Konstruktoru üçün seçilmiş Fənn + Sinif üzrə Sual Bankı suallarını
+ * və mövzu üzrə canlı statistikanı qaytarır.
+ */
+export function useBankQuestionsForBuilder(
+  subject?: string,
+  grade?: string,
+  enabled: boolean = true
+) {
+  return useQuery({
+    queryKey: ['question-bank-builder', subject || 'all', grade || 'all'],
+    enabled,
+    queryFn: async () => {
+      let query = supabase
+        .from('question_bank')
+        .select(
+          `id, question_text, question_type, options, correct_answer, explanation,
+           category, difficulty, difficulty_level, bloom_level, tags, title, weight,
+           matching_pairs, sequence_items, fill_blank_template, numerical_answer,
+           numerical_tolerance, question_image_url, subject, grade, topic,
+           curriculum_standard, essay_rubric, sample_answer, answer_lines`
+        )
+        .range(0, 1999);
+
+      if (subject && subject !== 'all') {
+        query = query.eq('subject', subject);
+      }
+      if (grade && grade !== 'all') {
+        const gradeNum = parseInt(grade, 10);
+        if (!isNaN(gradeNum)) {
+          query = query.or(`grade.eq.${grade},grade.eq.${gradeNum}-ci sinif,grade.eq.${gradeNum}`);
+        } else {
+          query = query.eq('grade', grade);
+        }
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as unknown as QuestionBankItem[];
+    },
+    staleTime: 60 * 1000,
   });
 }

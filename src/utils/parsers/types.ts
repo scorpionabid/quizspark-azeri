@@ -24,6 +24,14 @@ export interface PreviewQuestion {
   question_image_url?: string | null;
   option_images?: Record<number, string> | null;
   weight?: number | null;
+  subject?: string | null;
+  grade?: string | null;
+  topic?: string | null;
+  curriculum_standard?: string | null;
+  difficulty_level?: string | null;
+  essay_rubric?: string[] | Record<string, unknown>[] | null;
+  sample_answer?: string | null;
+  answer_lines?: number | null;
 }
 
 export interface ParseWarning {

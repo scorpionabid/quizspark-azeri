@@ -122,6 +122,59 @@ export function QuestionTableRow({
                   className="h-8 text-sm"
                 />
               </div>
+              <div>
+                <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Fənn</Label>
+                <Input
+                  value={localDraft?.subject ?? ''}
+                  onChange={e => setLocalDraft(d => d ? { ...d, subject: e.target.value } : d)}
+                  placeholder="Məs: Təbiət, Riyaziyyat"
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Sinif</Label>
+                <Input
+                  value={localDraft?.grade ?? ''}
+                  onChange={e => setLocalDraft(d => d ? { ...d, grade: e.target.value } : d)}
+                  placeholder="Məs: 6-cı sinif"
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Mövzu</Label>
+                <Input
+                  value={localDraft?.topic ?? ''}
+                  onChange={e => setLocalDraft(d => d ? { ...d, topic: e.target.value } : d)}
+                  placeholder="Mövzu adı"
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Standart</Label>
+                  <Input
+                    value={localDraft?.curriculum_standard ?? ''}
+                    onChange={e => setLocalDraft(d => d ? { ...d, curriculum_standard: e.target.value } : d)}
+                    placeholder="6-4.2.1"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase text-muted-foreground mb-1 block">Çəki (Bal)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={localDraft?.weight ?? ''}
+                    onChange={e => {
+                      const val = parseFloat(e.target.value);
+                      setLocalDraft(d => d ? { ...d, weight: isNaN(val) ? null : val } : d);
+                    }}
+                    placeholder="5"
+                    className="h-8 text-xs tabular-nums"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Options Editing (MCQ / Multi-select) */}
@@ -305,7 +358,37 @@ export function QuestionTableRow({
                   />
                 </Badge>
               )}
-              {q.category && (
+              {q.subject && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-academic-soft text-academic-accent border-academic-line">
+                  {q.subject}
+                </Badge>
+              )}
+              {q.grade && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-academic-soft text-academic-accent border-academic-line">
+                  {q.grade}
+                </Badge>
+              )}
+              {q.topic && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 max-w-[180px] truncate">
+                  {q.topic}
+                </Badge>
+              )}
+              {q.curriculum_standard && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-mono">
+                  Std: {q.curriculum_standard}
+                </Badge>
+              )}
+              {q.difficulty_level && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-semibold">
+                  {q.difficulty_level} səv.
+                </Badge>
+              )}
+              {q.weight != null && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 tabular-nums">
+                  {q.weight} bal
+                </Badge>
+              )}
+              {q.category && q.category !== q.topic && (
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                   {q.category}
                 </Badge>

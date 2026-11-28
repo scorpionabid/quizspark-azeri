@@ -1,29 +1,39 @@
 export const TEMPLATES: Record<string, string> = {
   aiken: `Sual mətni bura yazılır\nA) Birinci variant\nB) İkinci variant\nC) Üçüncü variant\nANSWER: A\nCATEGORY: Riyaziyyat\nDIFFICULTY: orta\nEXPLANATION: Sualın izahı bura yazılır\nTAGS: cəbr, tənliklər\nBLOOM: anlama`,
   gift: `// Sualın adı vacib deyil\n::Sualın Adı:: Sual mətni bura yazılır {\n  =Düzgün variant #İzah bura yazılır\n  ~Səhv variant 1\n  ~Səhv variant 2\n}`,
-  markdown: `## ═══════════════════════════════════════════════════
-## MARKDOWN SUAL ŞABLONU — tam bələdçi
+  markdown: `---
+Fənn: Təbiət
+Sinif: 6-cı sinif
+Mövzu: 4.2 Yoluxucu xəstəliklərin qarşısının alınması
+Standart: 6-4.2.1
+---
+
 ## ═══════════════════════════════════════════════════
-## QAYDA: Hər sual "---" ilə ayrılmalıdır.
-## Metadata sətirləri (Cavab, Kateqoriya, İpucu, İzahat…) hər sualın
-## altında yazılır. Tiplər üçün "Tip:" açar sözü lazımdır.
+## MARKDOWN SUAL ŞABLONU — Kurikulum Metadatası ilə
+## ═══════════════════════════════════════════════════
+## QAYDA: Yuxarıdakı "--- ... ---" başlığındakı Fənn, Sinif, Mövzu, Standart
+## bütün suallara avtomatik tətbiq olunur (hər sual daxilində fərqli yazmaq olar).
+## Hər sual "---" ilə ayrılır.
 ## ═══════════════════════════════════════════════════
 
 ## ── FORMAT 1: Çoxseçimli — tək düzgün cavab ─────────
 
-# Azərbaycanın paytaxtı hansı şəhərdir?
-A) Gəncə
-B) Bakı
-C) Sumqayıt
-D) Lənkəran
+# İmmunitetin əsas funksiyası nədir?
+A) Qida maddələrini həzm etmək
+B) Orqanizmi patogenlərdən qorumaq
+C) Sümükləri möhkəmləndirmək
+D) Qanı oksigenlə zənginləşdirmək
 
 Cavab: B
-Kateqoriya: Coğrafiya
+Mövzu: 4.2 Yoluxucu xəstəliklərin qarşısının alınması
+Standart: 6-4.2.1
+Səviyyə: I
 Çətinlik: asan
-İpucu: Xəzər dənizinin sahilində yerləşən ən böyük liman şəhəridir.
-İzahat: Bakı 1918-ci ildən Azərbaycanın paytaxtıdır.
+Çəki: 5
+İpucu: Müdafiə sistemini düşünün.
+İzahat: İmmun sistemi bakteriya və viruslara qarşı qoruyucu mexanizmdir.
 Bloom: bilmə
-Taqlar: paytaxt, coğrafiya
+Taqlar: immunitet, biologiya
 
 ---
 
@@ -37,9 +47,13 @@ C) Dövlət gerbi
 D) Dövlət himni
 
 Cavab: A, C, D
-## Alternativ: Cavab: 1, 3, 4 — eyni nəticəni verir
-Kateqoriya: Ümumi Bilik
+Fənn: Həyat bilgisi
+Sinif: 5-ci sinif
+Mövzu: Dövlət rəmzlərimiz
+Standart: 5-2.1.1
+Səviyyə: II
 Çətinlik: orta
+Çəki: 10
 
 ---
 
@@ -155,11 +169,20 @@ Kateqoriya: Proqramlaşdırma
 ## ══════════════════════════════════════════════════
 ## METADATA AÇAR SÖZLƏRİ (hamısı ixtiyaridir)
 ## ══════════════════════════════════════════════════
+## Fənn:         Fənn adı (məs: Riyaziyyat, Təbiət)
+## Sinif:        Sinif (məs: 6-cı sinif və ya 6)
+## Mövzu:        Dərs / bölmə mövzusu
+## Standart:     Kurikulum alt-standartı (məs: 6-4.2.1)
+## Səviyyə:      KSQ/BSQ çətinlik səviyyəsi (I / II / III / IV)
+## Çətinlik:     asan / orta / çətin
+## Çəki (Bal):   Sualın balı / çəkisi (məs: 5, 10, 20)
 ## Cavab:        Düzgün cavab (hərf: A, B, C / rəqəm: 1, 2, 3 / mətn)
 ##               Çoxlu cavab: "A, C, D" və ya "1, 3, 4" (vergüllə)
 ##               Matching: "1-a; 2-b; 3-c" (nöqtəli vergüllə)
+## Meyarlar:     Açıq sual rubrikası (";"-lə ayırın)
+## Nümunə cavab: Açıq sual üçün tam nümunə cavab (LaTeX $...$ dəstəklənir)
+## Sətir:        Çap üçün yazı sətir sayı (1-12)
 ## Kateqoriya:   Sualın kateqoriyası
-## Çətinlik:     asan / orta / çətin
 ## İzahat:       Sualın izahı
 ## Bloom:        bilmə / anlama / tətbiq / analiz / sintez / qiymətləndirmə
 ## Taqlar:       tag1, tag2, tag3

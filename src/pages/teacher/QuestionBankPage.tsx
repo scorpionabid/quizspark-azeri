@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +9,7 @@ import {
   Upload,
   BarChart3,
   FolderOpen,
+  FileCheck2,
 } from 'lucide-react';
 import {
   Pagination,
@@ -52,6 +53,7 @@ import { QuestionBankStatsTab } from '@/components/question-bank/QuestionBankSta
 const PAGE_SIZE = 50;
 
 export default function QuestionBankPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Active tab — synced with URL ?tab=...
@@ -299,6 +301,13 @@ export default function QuestionBankPage() {
     );
   };
 
+  const handleBulkUpdateMetadata = (updates: Partial<QuestionBankItem>) => {
+    bulkUpdate.mutate(
+      { ids: Array.from(selectedIds), updates },
+      { onSuccess: () => setSelectedIds(new Set()) }
+    );
+  };
+
   const handleImport = (questions: Parameters<typeof bulkCreate.mutate>[0]) => {
     bulkCreate.mutate(questions, {
       onSuccess: () => setImportExportOpen(false),
@@ -361,9 +370,17 @@ export default function QuestionBankPage() {
     <div className="space-y-6">
       <PageHeader
         title="Sual Bankı"
-        description="Bütün suallarınızı bir yerdə idarə edin"
+        description="Bütün suallarınızı fənn, sinif, mövzu və standart üzrə idarə edin"
       >
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/teacher/create-assessment?source=bank')}
+            className="border-academic-accent/40 text-academic-accent hover:bg-academic-soft"
+          >
+            <FileCheck2 className="h-4 w-4 mr-2" />
+            Bankdan İmtahan Hazırla
+          </Button>
           <SubscriptionGate variant="inline" feature="question_bank_write">
             <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
               <FolderOpen className="h-4 w-4 mr-2" />
@@ -418,6 +435,7 @@ export default function QuestionBankPage() {
             onBulkDelete={handleBulkDelete}
             onBulkUpdateCategory={handleBulkUpdateCategory}
             onBulkUpdateDifficulty={handleBulkUpdateDifficulty}
+            onBulkUpdateMetadata={handleBulkUpdateMetadata}
             onClearSelection={() => setSelectedIds(new Set())}
             onBulkShare={selectedIds.size > 0 ? handleBulkShare : undefined}
             isDeleting={bulkDelete.isPending}

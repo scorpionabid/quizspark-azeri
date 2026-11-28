@@ -6,7 +6,7 @@ import { ParseWarning } from './types';
  * Bütün blok parser-lərin paylaşdığı baza keyword dəsti.
  */
 const BASE_META =
-  'İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|Tip|Type|Şəkil|Sekil|Image|Photo|Media|Video|Model|3D|3d_model|Audio';
+  'İzah|Izah|İzahat|Izahat|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Fənn|Fenn|Subject|Sinif|Grade|Mövzu|Movzu|Topic|Alt-standart|Alt standart|Standart|Standard|Səviyyə|Seviyye|Level|Çətinlik|Cetinlik|Difficulty|Çəki|Ceki|Bal|Xal|Weight|Points|Bloom|Taqlar|Tags|Meyarlar|Qiymətləndirmə meyarları|Rubrika|Rubric|Nümunə cavab|Numune cavab|Sample answer|Sətir|Setir|Answer lines|Tip|Type|Şəkil|Sekil|Image|Photo|Media|Video|Model|3D|3d_model|Audio';
 
 /**
  * Cavab keyword-ləri — fill_blank, numerical, code, generic bloklar üçün.
@@ -18,7 +18,7 @@ export const ANSWER_META = 'Cavab|Düzgün cavab|Doğru cavab|Answer|ANSWER|Düz
  */
 export function buildMetaRE(extra?: string): RegExp {
   const pattern = extra ? `${BASE_META}|${extra}` : BASE_META;
-  return new RegExp(`^(${pattern})\\s*[-:]`, 'iu');
+  return new RegExp(`^(?:\\*\\*)?(${pattern})(?:\\*\\*)?\\s*[-:]`, 'iu');
 }
 
 // ─── Paylaşılan sabitlər ──────────────────────────────────────────────────────

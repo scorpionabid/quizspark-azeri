@@ -1,5 +1,6 @@
 import { ParsedQuestion } from './types';
 import { MATCHING_ANSWER_RE } from './markdown-utils';
+import { normalizeDifficultyLevel } from '@/utils/assessmentSpec';
 
 /**
  * Faylı oxuyarkən BOM marker-ə görə encoding aşkar edir.
@@ -89,9 +90,13 @@ export function extractMedia(target: Partial<ParsedQuestion>) {
  */
 export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>) {
   for (const line of lines) {
-    const clean = line.trim();
+    // Support optional bold markdown syntax like "**Sinif:** 6-cı sinif" or "**Sinif**: 6-cı sinif"
+    const clean = line
+      .trim()
+      .replace(/^\*\*([^*]+?)\*\*\s*([-:])/, '$1$2')
+      .replace(/^\*\*([^*]+?)\s*([-:])\*\*/, '$1$2');
     const metaMatch = clean.match(
-      /^(İzahat(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Izahat(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|İzah(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Izah(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Explanation(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Açıqlama(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|İzahat|Izahat|İzah|Izah|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Çətinlik|Difficulty|Bloom|Taqlar|Tags|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language|Şəkil|Sekil|Image|Photo|Video|Model|3D|3d_model|Audio|Media)\s*[-:]?\s*(.+)$/i,
+      /^(İzahat(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Izahat(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|İzah(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Izah(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Explanation(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Açıqlama(?:\s+\(?[A-Za-z\d]\)?|\([A-Za-z\d]\))|Qiymətləndirmə meyarları|Nümunə cavab|Numune cavab|Sample answer|Alt-standart|Alt standart|Answer lines|İzahat|Izahat|İzah|Izah|Explanation|Açıqlama|İpucu|Ipucu|Hint|Kateqoriya|Category|Fənn|Fenn|Subject|Sinif|Grade|Mövzu|Movzu|Topic|Standart|Standard|Səviyyə|Seviyye|Level|Çətinlik|Cetinlik|Difficulty|Çəki|Ceki|Bal|Xal|Weight|Points|Bloom|Taqlar|Tags|Meyarlar|Rubrika|Rubric|Sətir|Setir|ANSWER|Düzgün cavab|Doğru cavab|Düzgün|Cavab|Doğru|Tolerans|Tolerance|Dil|Language|Şəkil|Sekil|Image|Photo|Video|Model|3D|3d_model|Audio|Media)\s*[-:]?\s*(.+)$/i,
     );
     if (!metaMatch) continue;
     const keyRaw = metaMatch[1];
@@ -122,8 +127,57 @@ export function extractMetadata(lines: string[], target: Partial<ParsedQuestion>
       target.hint = value;
     } else if (['kateqoriya', 'category'].includes(key)) {
       target.category = value;
-    } else if (['çətinlik', 'difficulty'].includes(key)) {
-      target.difficulty = value.toLowerCase();
+    } else if (['fənn', 'fenn', 'subject'].includes(key)) {
+      target.subject = value;
+    } else if (['sinif', 'grade'].includes(key)) {
+      target.grade = /^\d+$/.test(value) ? `${value}-ci sinif` : value;
+    } else if (['mövzu', 'movzu', 'topic'].includes(key)) {
+      target.topic = value;
+      if (!target.category) target.category = value;
+    } else if (['standart', 'alt-standart', 'alt standart', 'standard'].includes(key)) {
+      target.curriculum_standard = value;
+    } else if (['səviyyə', 'seviyye', 'level'].includes(key)) {
+      const lvl = normalizeDifficultyLevel(value);
+      target.difficulty_level = lvl ?? value;
+      if (!target.difficulty && lvl) {
+        target.difficulty = lvl === 'I' ? 'asan' : lvl === 'IV' ? 'çətin' : 'orta';
+      }
+    } else if (['çətinlik', 'cetinlik', 'difficulty'].includes(key)) {
+      const lower = value.toLowerCase();
+      const lvl = normalizeDifficultyLevel(value);
+      if (['i', 'ii', 'iii', 'iv', '1', '2', '3', '4', 'i səviyyə', 'ii səviyyə', 'iii səviyyə', 'iv səviyyə'].includes(lower) && lvl) {
+        target.difficulty_level = lvl;
+        target.difficulty = lvl === 'I' ? 'asan' : lvl === 'IV' ? 'çətin' : 'orta';
+      } else {
+        target.difficulty = lower;
+        if (!target.difficulty_level && lvl) {
+          target.difficulty_level = lvl;
+        }
+      }
+    } else if (['çəki', 'ceki', 'bal', 'xal', 'weight', 'points'].includes(key)) {
+      const numMatch = value.match(/[\d]+(?:[.,]\d+)?/);
+      if (numMatch) {
+        const parsedWeight = parseFloat(numMatch[0].replace(',', '.'));
+        if (!isNaN(parsedWeight) && parsedWeight > 0) {
+          target.weight = parsedWeight;
+        }
+      }
+    } else if (['meyarlar', 'qiymətləndirmə meyarları', 'rubrika', 'rubric'].includes(key)) {
+      const items = value
+        .split(/[;|]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (items.length > 0) {
+        const existing = Array.isArray(target.essay_rubric) ? (target.essay_rubric as string[]) : [];
+        target.essay_rubric = [...existing, ...items];
+      }
+    } else if (['nümunə cavab', 'numune cavab', 'sample answer'].includes(key)) {
+      target.sample_answer = value;
+    } else if (['sətir', 'setir', 'answer lines'].includes(key)) {
+      const num = parseInt(value, 10);
+      if (!isNaN(num) && num > 0) {
+        target.answer_lines = Math.min(12, num);
+      }
     } else if (key === 'bloom') {
       target.bloom_level = value.toLowerCase();
     } else if (['taqlar', 'tags'].includes(key)) {

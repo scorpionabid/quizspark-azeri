@@ -32,6 +32,9 @@ export interface PrintableQuestion {
   fill_blank_template?: string | null;
   matching_pairs?: Array<{ left: string; right: string }> | Record<string, string> | null;
   subjectLabel?: string;
+  topic?: string | null;
+  curriculum_standard?: string | null;
+  bank_question_id?: string | null;
   weight?: number | null;
   difficulty?: string | null;
   level?: string | null;

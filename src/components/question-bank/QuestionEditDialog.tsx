@@ -39,6 +39,15 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ALL_SCHOOL_SUBJECTS, SCHOOL_GRADES } from '@/lib/constants/subjects';
+import { isOpenEndedQuestionType } from '@/utils/assessmentSpec';
 import { toast } from 'sonner';
 import { MathRenderer } from '@/components/question-bank/MathRenderer';
 
@@ -284,6 +293,136 @@ export function QuestionEditDialog({
                 }}
                 isCreatingCategory={createCategory.isPending}
               />
+
+              {/* Kurikulum və Qiymətləndirmə Metadatası */}
+              <div className="rounded-xl border border-academic-line bg-academic-surface/50 p-3.5 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-academic-accent">
+                  Kurikulum və Qiymətləndirmə Metadatası
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fənn</Label>
+                    <Select
+                      value={formData.subject || 'none'}
+                      onValueChange={(v) => setFormData({ ...formData, subject: v === 'none' ? '' : v })}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-card">
+                        <SelectValue placeholder="Fənn seçin" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="none" className="text-xs">Seçilməyib</SelectItem>
+                        {ALL_SCHOOL_SUBJECTS.map((s) => (
+                          <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Sinif</Label>
+                    <Select
+                      value={formData.grade || 'none'}
+                      onValueChange={(v) => setFormData({ ...formData, grade: v === 'none' ? '' : v })}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-card">
+                        <SelectValue placeholder="Sinif seçin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none" className="text-xs">Seçilməyib</SelectItem>
+                        {SCHOOL_GRADES.map((g) => (
+                          <SelectItem key={g} value={`${g}-ci sinif`} className="text-xs">
+                            {g}-ci sinif
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Səviyyə (I–IV)</Label>
+                    <Select
+                      value={formData.difficulty_level || 'none'}
+                      onValueChange={(v) => {
+                        const lvl = v === 'none' ? '' : v;
+                        const mappedDiff =
+                          lvl === 'I' ? 'asan' : lvl === 'IV' ? 'çətin' : lvl ? 'orta' : formData.difficulty;
+                        setFormData({ ...formData, difficulty_level: lvl, difficulty: mappedDiff });
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-card">
+                        <SelectValue placeholder="I–IV səviyyə" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none" className="text-xs">Seçilməyib</SelectItem>
+                        <SelectItem value="I" className="text-xs">I səviyyə (Asan)</SelectItem>
+                        <SelectItem value="II" className="text-xs">II səviyyə (Orta)</SelectItem>
+                        <SelectItem value="III" className="text-xs">III səviyyə (Yüksək)</SelectItem>
+                        <SelectItem value="IV" className="text-xs">IV səviyyə (Çətin)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-xs">Mövzu</Label>
+                    <Input
+                      value={formData.topic}
+                      onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                      placeholder="Məs: 4.2 Yoluxucu xəstəliklərin qarşısının alınması"
+                      className="h-8 text-xs bg-card"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Standart</Label>
+                      <Input
+                        value={formData.curriculum_standard}
+                        onChange={(e) => setFormData({ ...formData, curriculum_standard: e.target.value })}
+                        placeholder="6-4.2.1"
+                        className="h-8 text-xs bg-card font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bal (Çəki)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={formData.weight}
+                        onChange={(e) => setFormData({ ...formData, weight: Math.max(1, Number(e.target.value) || 1) })}
+                        className="h-8 text-xs bg-card tabular-nums"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {isOpenEndedQuestionType(formData.question_type) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-academic-line/70">
+                    <div className="sm:col-span-3 space-y-1">
+                      <Label className="text-xs">Nümunə cavab (LaTeX $...$ dəstəklənir)</Label>
+                      <Textarea
+                        value={formData.sample_answer}
+                        onChange={(e) => setFormData({ ...formData, sample_answer: e.target.value })}
+                        placeholder="Məs: a) $600 - 500 = 100$ manat; $\frac{100}{500}\cdot 100\% = 20\%$..."
+                        rows={2}
+                        className="text-xs bg-card"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Çap sətir sayı</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={formData.answer_lines}
+                        onChange={(e) => setFormData({ ...formData, answer_lines: e.target.value })}
+                        placeholder="3–6"
+                        className="h-8 text-xs bg-card tabular-nums"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-4">
                 <div className="space-y-2 relative">

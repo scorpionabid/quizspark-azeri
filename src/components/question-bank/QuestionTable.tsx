@@ -256,12 +256,32 @@ export function QuestionTable({
 
               {/* Card Meta Badges */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+                {question.subject && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-academic-soft text-academic-accent border-academic-line font-semibold">
+                    {question.subject}
+                  </Badge>
+                )}
+                {question.grade && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-academic-soft text-academic-accent border-academic-line">
+                    {question.grade}
+                  </Badge>
+                )}
+                {question.curriculum_standard && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 font-mono">
+                    Std: {question.curriculum_standard}
+                  </Badge>
+                )}
+                {question.difficulty_level && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 font-semibold text-academic-accent border-academic-accent/40">
+                    {question.difficulty_level} səv.
+                  </Badge>
+                )}
                 <Badge className={cn('text-[11px] px-2 py-0.5', getDifficultyColor(question.difficulty))}>
                   {question.difficulty || 'N/A'}
                 </Badge>
 
-                <Badge variant="secondary" className="text-[11px] px-2 py-0.5 font-normal">
-                  {question.category || 'Kateqoriyasız'}
+                <Badge variant="secondary" className="text-[11px] px-2 py-0.5 font-normal max-w-[200px] truncate">
+                  {question.topic || question.category || 'Mövzusuz'}
                 </Badge>
 
                 <span className="text-muted-foreground text-[11px]">
@@ -283,8 +303,8 @@ export function QuestionTable({
                   </Badge>
                 ) : null}
 
-                <span className="text-muted-foreground text-[11px] font-mono ml-auto">
-                  ×{question.weight ?? 1.0} xal
+                <span className="text-muted-foreground text-[11px] font-mono tabular-nums ml-auto">
+                  {question.weight ?? 1} bal
                 </span>
 
                 {question.quality_score && (
@@ -310,16 +330,16 @@ export function QuestionTable({
                   onCheckedChange={(checked) => onSelectAll(!!checked)}
                 />
               </TableHead>
-              <TableHead className="min-w-[300px]">Başlıq & Sual</TableHead>
-              <TableHead className="w-20 text-center">Xal/Çəki</TableHead>
+              <TableHead className="min-w-[280px]">Başlıq & Sual</TableHead>
+              <TableHead className="w-20 text-center">Bal</TableHead>
               <TableHead className="w-24 text-center">
                 <SortButton column="quality_score" label="Keyfiyyət" />
               </TableHead>
-              <TableHead className="w-32">
-                <SortButton column="category" label="Kateqoriya" />
+              <TableHead className="w-44">
+                <SortButton column="topic" label="Mövzu / Standart" />
               </TableHead>
-              <TableHead className="w-24">
-                <SortButton column="difficulty" label="Çətinlik" />
+              <TableHead className="w-28">
+                <SortButton column="difficulty" label="Səviyyə" />
               </TableHead>
               <TableHead className="w-32">
                 <SortButton column="question_type" label="Tip" />
@@ -381,6 +401,16 @@ export function QuestionTable({
                     )}
 
                     <div className="flex gap-1 flex-wrap mt-1">
+                      {question.subject && (
+                        <Badge variant="outline" className="text-[11px] px-1.5 py-0 bg-academic-soft text-academic-accent border-academic-line font-semibold">
+                          {question.subject}
+                        </Badge>
+                      )}
+                      {question.grade && (
+                        <Badge variant="outline" className="text-[11px] px-1.5 py-0 bg-academic-soft text-academic-accent border-academic-line">
+                          {question.grade}
+                        </Badge>
+                      )}
                       {question.media_type && (
                         <Badge variant="outline" className="text-xs gap-1">
                           <Image className="h-3 w-3" />
@@ -394,12 +424,12 @@ export function QuestionTable({
                         <Badge variant="outline" className="text-xs gap-1 border-blue-200 text-blue-700 bg-blue-50">3D Model</Badge>
                       )}
                       {question.tags && question.tags.length > 0 && question.tags.slice(0, 3).map((tag, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
+                        <Badge key={i} variant="outline" className="text-[11px] px-1.5 py-0">
                           {tag}
                         </Badge>
                       ))}
                       {question.tags && question.tags.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-[11px] px-1.5 py-0">
                           +{question.tags.length - 3}
                         </Badge>
                       )}
@@ -407,8 +437,8 @@ export function QuestionTable({
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Badge variant="outline" className="font-mono">
-                    ×{question.weight ?? 1.0}
+                  <Badge variant="outline" className="font-mono tabular-nums">
+                    {question.weight ?? 1} bal
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center whitespace-nowrap">
@@ -438,14 +468,31 @@ export function QuestionTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary" className="font-normal">
-                    {question.category || 'Kateqoriyasız'}
-                  </Badge>
+                  <div className="space-y-1 max-w-[190px]">
+                    <span
+                      className="block text-xs font-medium text-foreground line-clamp-2 leading-snug"
+                      title={question.topic || question.category || 'Mövzusuz'}
+                    >
+                      {question.topic || question.category || 'Mövzusuz'}
+                    </span>
+                    {question.curriculum_standard && (
+                      <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+                        Std: {question.curriculum_standard}
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <Badge className={getDifficultyColor(question.difficulty)}>
-                    {question.difficulty || 'N/A'}
-                  </Badge>
+                  <div className="flex flex-col items-start gap-1">
+                    {question.difficulty_level && (
+                      <span className="rounded-full bg-academic-soft px-2 py-0.5 text-[11px] font-semibold text-academic-accent whitespace-nowrap">
+                        {question.difficulty_level} səviyyə
+                      </span>
+                    )}
+                    <Badge className={getDifficultyColor(question.difficulty)}>
+                      {question.difficulty || 'N/A'}
+                    </Badge>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <span className="text-sm text-muted-foreground flex items-center gap-1">
