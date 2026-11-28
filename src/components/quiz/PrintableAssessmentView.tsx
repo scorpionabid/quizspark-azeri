@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Printer, X, Shuffle, KeyRound, QrCode } from 'lucide-react';
+import { Printer, X, Shuffle, KeyRound, QrCode, BarChart3 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { MathRenderer } from '@/components/question-bank/MathRenderer';
+import { AssessmentSpecificationCard } from '@/components/quiz/AssessmentSpecificationCard';
+import {
+  normalizeDifficultyLevel,
+  normalizeMatchingPairs,
+  isOpenEndedQuestionType,
+  getDefaultAnswerLines,
+} from '@/utils/assessmentSpec';
 import { useTeacherClasses, useClassStudents } from '@/hooks/useClassRoster';
 
 export interface PrintableQuestion {
@@ -26,6 +33,12 @@ export interface PrintableQuestion {
   matching_pairs?: Array<{ left: string; right: string }> | Record<string, string> | null;
   subjectLabel?: string;
   weight?: number | null;
+  difficulty?: string | null;
+  level?: string | null;
+  bloomLevel?: string | null;
+  rubric?: string[] | null;
+  sample_answer?: string | null;
+  answer_lines?: number | null;
   question_image_url?: string | null;
 }
 
@@ -64,6 +77,7 @@ export function PrintableAssessmentView({
   const [schoolName, setSchoolName] = useState('Tam Orta Məktəb');
   const [variant, setVariant] = useState<'A' | 'B'>('A');
   const [includeAnswerKey, setIncludeAnswerKey] = useState(true);
+  const [includeSpecification, setIncludeSpecification] = useState(true);
   const [includeBubbleSheet, setIncludeBubbleSheet] = useState(true);
   const [selectedClassId, setSelectedClassId] = useState<string>('none');
   const [twoColumns, setTwoColumns] = useState(false);
@@ -153,6 +167,17 @@ export function PrintableAssessmentView({
 
             <div className="flex items-center gap-2 pt-4">
               <Switch
+                id="spec-table"
+                checked={includeSpecification}
+                onCheckedChange={setIncludeSpecification}
+              />
+              <Label htmlFor="spec-table" className="text-xs flex items-center gap-1 cursor-pointer">
+                <BarChart3 className="h-3.5 w-3.5" /> Spesifikasiya
+              </Label>
+            </div>
+
+            <div className="flex items-center gap-2 pt-4">
+              <Switch
                 id="bubble-sheet"
                 checked={includeBubbleSheet}
                 onCheckedChange={setIncludeBubbleSheet}
@@ -207,15 +232,22 @@ export function PrintableAssessmentView({
 
       {/* Printable A4 Sheet */}
       <div className="mx-auto my-6 max-w-[210mm] bg-white text-black p-8 sm:p-10 shadow-lg print:my-0 print:p-0 print:shadow-none">
-        {/* Header Block */}
-        <div className="border-b-2 border-black pb-4 mb-6">
-          <div className="text-center mb-3">
-            <p className="text-sm font-semibold uppercase tracking-wide">{schoolName}</p>
-            <h1 className="text-xl font-bold mt-1">{typeLabel}</h1>
-            <p className="text-base font-medium mt-0.5">{title}</p>
+        {/* Header Block (Academic Paper Style) */}
+        <div className="border-b-[3px] border-double border-black pb-4 mb-6">
+          <div className="relative mb-3">
+            <div className="text-center px-20">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-700">
+                {schoolName}
+              </p>
+              <h1 className="text-xl font-bold mt-1 tracking-tight">{typeLabel}</h1>
+              <p className="text-base font-medium mt-0.5 text-gray-900">{title}</p>
+            </div>
+            <div className="absolute right-0 top-0 border border-black/80 px-2.5 py-1 font-display text-[11px] font-bold uppercase tracking-[0.06em]">
+              Variant {variant}
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mt-4 pt-3 border-t border-gray-300">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mt-4 pt-3 border-t border-gray-300 tabular-nums">
             <div>
               <span className="font-semibold">Sinif:</span> {grade}-ci sinif
             </div>
@@ -223,10 +255,11 @@ export function PrintableAssessmentView({
               <span className="font-semibold">Fənn:</span> {subject}
             </div>
             <div>
-              <span className="font-semibold">Variant:</span> {variant}
+              <span className="font-semibold">Sual sayı:</span> {displayedQuestions.length}
             </div>
             <div>
-              <span className="font-semibold">Sual sayı:</span> {displayedQuestions.length}
+              <span className="font-semibold">Cəmi bal:</span>{' '}
+              {displayedQuestions.reduce((s, q) => s + (q.weight ?? 10), 0)}
             </div>
           </div>
 
@@ -245,6 +278,10 @@ export function PrintableAssessmentView({
           {displayedQuestions.map((q, index) => {
             const prevSubject = index > 0 ? displayedQuestions[index - 1].subjectLabel : undefined;
             const showSubjectHeader = q.subjectLabel && q.subjectLabel !== prevSubject;
+            const diffLevel = normalizeDifficultyLevel(q.level ?? q.difficulty ?? q.bloomLevel);
+            const matchingList = normalizeMatchingPairs(q.matching_pairs);
+            const isOpenEnded = isOpenEndedQuestionType(q.question_type);
+            const writingLineCount = q.answer_lines ?? getDefaultAnswerLines(q.question_type);
             return (
             <div key={index} className="break-inside-avoid text-sm leading-relaxed">
               {showSubjectHeader && (
@@ -253,10 +290,10 @@ export function PrintableAssessmentView({
                 </div>
               )}
               <div className="font-semibold mb-1.5 flex gap-1.5">
-                <span>{index + 1}.</span>
-                {q.weight ? (
-                  <span className="text-xs font-normal text-gray-600 shrink-0 mt-0.5">
-                    ({q.weight} bal)
+                <span className="tabular-nums shrink-0">{index + 1}.</span>
+                {(diffLevel || q.weight) ? (
+                  <span className="text-xs font-normal text-gray-600 shrink-0 mt-0.5 tabular-nums">
+                    ({diffLevel ? `${diffLevel} səv. · ` : ''}{q.weight ? `${q.weight} bal` : ''})
                   </span>
                 ) : null}
                 <div className="flex-1">
@@ -271,6 +308,27 @@ export function PrintableAssessmentView({
                     alt={`Sual ${index + 1} şəkli`}
                     className="max-h-40 rounded border border-gray-300 object-contain"
                   />
+                </div>
+              )}
+
+              {matchingList.length > 0 && (
+                <div className="pl-5 my-2 grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+                  <div className="space-y-1">
+                    {matchingList.map((pair, pIdx) => (
+                      <div key={`l-${pIdx}`} className="flex gap-1.5 tabular-nums">
+                        <span className="font-semibold">{pIdx + 1}.</span>
+                        <MathRenderer text={pair.left} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-1">
+                    {matchingList.map((pair, pIdx) => (
+                      <div key={`r-${pIdx}`} className="flex gap-1.5">
+                        <span className="font-semibold">{String.fromCharCode(97 + pIdx)})</span>
+                        <MathRenderer text={pair.right} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -292,13 +350,18 @@ export function PrintableAssessmentView({
                 </div>
               )}
 
-              {(q.question_type === 'short_answer' ||
-                q.question_type === 'fill_blank' ||
-                q.question_type === 'numerical') && (
+              {isOpenEnded && (
                 <div className="pl-5 mt-2 space-y-3">
-                  <div className="border-b border-dashed border-gray-400 h-5 w-11/12" />
-                  <div className="border-b border-dashed border-gray-400 h-5 w-11/12" />
-                  <div className="border-b border-dashed border-gray-400 h-5 w-3/4" />
+                  {Array.from({ length: writingLineCount }).map((_, lineIdx) => (
+                    <div
+                      key={lineIdx}
+                      className={`border-b border-dashed border-gray-400 h-5 ${
+                        lineIdx === writingLineCount - 1 && writingLineCount > 1
+                          ? 'w-3/4'
+                          : 'w-11/12'
+                      }`}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -380,28 +443,97 @@ export function PrintableAssessmentView({
             </div>
           ))}
 
-        {/* Answer Key on Separate Page */}
-        {includeAnswerKey && (
-          <div className="print-page-break mt-10 pt-6 border-t-2 border-black">
-            <h2 className="text-lg font-bold text-center mb-4">
-              Müəllim üçün Cavab Açarı — {title} ({variant} Variantı)
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-              {displayedQuestions.map((q, index) => {
-                let answerDisplay = q.correct_answer;
-                if (q.question_type === 'multiple_choice' && Array.isArray(q.options)) {
-                  const idx = q.options.indexOf(q.correct_answer);
-                  if (idx !== -1) {
-                    answerDisplay = `${LETTERS[idx]}) ${q.correct_answer}`;
-                  }
-                }
-                return (
-                  <div key={index} className="border border-gray-300 rounded px-2.5 py-1.5">
-                    <span className="font-bold">{index + 1}.</span> {answerDisplay}
+        {/* Answer Key & Specification on Separate Page */}
+        {(includeAnswerKey || includeSpecification) && (
+          <div className="print-page-break mt-10 pt-6 border-t-[3px] border-double border-black space-y-6">
+            {includeAnswerKey && (
+              <div>
+                <h2 className="text-lg font-bold text-center mb-4">
+                  Müəllim üçün Cavab Açarı — {title} (Variant {variant})
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm tabular-nums">
+                  {displayedQuestions.map((q, index) => {
+                    const isRubricOpen =
+                      q.question_type === 'essay' || (q.rubric && q.rubric.length > 0);
+                    let answerDisplay = q.correct_answer || '—';
+                    if (q.question_type === 'multiple_choice' && Array.isArray(q.options)) {
+                      const idx = q.options.indexOf(q.correct_answer);
+                      if (idx !== -1) {
+                        answerDisplay = `${LETTERS[idx]}) ${q.correct_answer}`;
+                      }
+                    } else if (isRubricOpen && answerDisplay.length > 18) {
+                      answerDisplay = '— (Meyar üzrə)';
+                    }
+                    return (
+                      <div key={index} className="border border-gray-300 rounded-md px-2.5 py-1.5">
+                        <span className="font-bold">{index + 1}.</span> {answerDisplay}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Open-Ended Grading Rubrics & Sample Answers for Teachers */}
+                {displayedQuestions.some(
+                  (q) =>
+                    isOpenEndedQuestionType(q.question_type) &&
+                    ((q.rubric && q.rubric.length > 0) || q.sample_answer)
+                ) && (
+                  <div className="mt-6 space-y-3">
+                    <h3 className="text-sm font-bold uppercase tracking-wide border-b border-gray-400 pb-1">
+                      Açıq sualların qiymətləndirmə meyarları və nümunə cavabları
+                    </h3>
+                    {displayedQuestions.map((q, idx) => {
+                      if (
+                        !isOpenEndedQuestionType(q.question_type) ||
+                        ((!q.rubric || q.rubric.length === 0) && !q.sample_answer)
+                      ) {
+                        return null;
+                      }
+                      return (
+                        <div
+                          key={idx}
+                          className="break-inside-avoid rounded-lg border border-gray-300 p-3 space-y-2 text-xs"
+                        >
+                          <div className="flex items-baseline justify-between gap-2 font-bold tabular-nums">
+                            <span>Sual {idx + 1}</span>
+                            {q.weight ? <span className="text-gray-600">{q.weight} bal</span> : null}
+                          </div>
+
+                          {q.rubric && q.rubric.length > 0 && (
+                            <div className="rounded bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 text-emerald-950">
+                              <p className="font-semibold mb-1">Qiymətləndirmə meyarları:</p>
+                              <ul className="list-disc pl-4 space-y-0.5">
+                                {q.rubric.map((crit, cIdx) => (
+                                  <li key={cIdx}>
+                                    <MathRenderer text={crit} />
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {q.sample_answer && (
+                            <div className="whitespace-pre-line rounded bg-gray-50 border border-gray-200 px-2.5 py-1.5 text-gray-800 leading-relaxed">
+                              <span className="font-semibold text-black">Nümunə cavab: </span>
+                              <MathRenderer text={q.sample_answer} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                )}
+              </div>
+            )}
+
+            {includeSpecification && (
+              <AssessmentSpecificationCard
+                questions={displayedQuestions}
+                title="Spesifikasiya və Bal Cədvəli"
+                subtitle={`${typeLabel} · Variant ${variant}`}
+                variant="print"
+              />
+            )}
           </div>
         )}
       </div>

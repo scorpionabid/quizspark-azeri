@@ -36,7 +36,8 @@ function getToolSchemaForType(questionType: string) {
     };
   }
 
-  if (questionType === 'short_answer') {
+  if (questionType === 'short_answer' || questionType === 'essay') {
+    const isEssay = questionType === 'essay';
     return {
       type: 'object',
       properties: {
@@ -46,16 +47,31 @@ function getToolSchemaForType(questionType: string) {
             type: 'object',
             properties: {
               question: { type: 'string', description: 'The question text in Azerbaijani' },
-              options: { type: 'array', items: { type: 'string' }, description: 'Array with single element: the correct answer text' },
+              options: { type: 'array', items: { type: 'string' }, description: 'Array with single element: the concise correct answer text' },
               correctAnswer: { type: 'number', description: 'Always 0' },
               explanation: { type: 'string', description: 'Explanation in Azerbaijani' },
+              rubric: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Step-by-step partial-credit grading criteria in Azerbaijani, e.g. ["a) Düzgün düstur yazılır: 3 bal", "b) Yekun cavab tapılır: 2 bal"]',
+              },
+              sample_answer: {
+                type: 'string',
+                description: 'Complete model answer in Azerbaijani (use inline $...$ LaTeX for math expressions)',
+              },
+              answer_lines: {
+                type: 'number',
+                description: isEssay
+                  ? 'Recommended blank writing lines for print (5 to 8)'
+                  : 'Recommended blank writing lines for print (2 to 4)',
+              },
               bloomLevel: {
                 type: 'string',
                 enum: ['remembering', 'understanding', 'applying', 'analyzing', 'evaluating', 'creating'],
               },
-              questionType: { type: 'string', enum: ['short_answer'] },
+              questionType: { type: 'string', enum: [questionType] },
             },
-            required: ['question', 'options', 'correctAnswer', 'explanation', 'bloomLevel', 'questionType'],
+            required: ['question', 'options', 'correctAnswer', 'explanation', 'rubric', 'sample_answer', 'answer_lines', 'bloomLevel', 'questionType'],
             additionalProperties: false,
           },
         },
@@ -206,9 +222,24 @@ Sual tipi: DOĞRU/YANLIŞ
     return `
 Sual tipi: QISA CAVAB (açıq sual)
 - Hər sual qısa cavab tələb edən açıq sual olmalıdır
-- options massivində yalnız bir element olmalıdır: düzgün cavab mətni
+- options massivində yalnız bir element olmalıdır: qısa düzgün cavab mətni
 - correctAnswer həmişə 0 olmalıdır
+- rubric: 2-3 maddəlik qiymətləndirmə meyarları siyahısı (məs: ["Düstur və ya yanaşma düzgün göstərilir: 2 bal", "Yekun cavab düzgün tapılır: 3 bal"])
+- sample_answer: tam nümunə cavab (riyazi ifadələri $...$ LaTeX formatında yaz)
+- answer_lines: çap vərəqində ayrılacaq yazı sətirlərinin sayı (2-4 arası)
 - questionType: "short_answer" olmalıdır`;
+  }
+
+  if (questionType === 'essay') {
+    return `
+Sual tipi: ƏTRAFLI AÇIQ MƏSƏLƏ / ESSE
+- Sual bir neçə alt-bənddən (a, b, c) və ya əsaslandırma tələb edən dərin tapşırıqdan ibarət olmalıdır
+- options massivində yalnız bir element olmalıdır: yekun qısa nəticə
+- correctAnswer həmişə 0 olmalıdır
+- rubric: hər alt-bənd və ya addım üçün ayrıca bal göstərilən qiymətləndirmə meyarları siyahısı (məs: ["a) İlkin fərq tapılır: 4 bal", "b) Yekun nəticə hesablanır: 4 bal", "c) Fikir əsaslandırılır: 2 bal"])
+- sample_answer: bəndlər üzrə ətraflı nümunə cavab (riyazi hesablamaları $...$ LaTeX formatında yaz, məs: $\\frac{600 \\cdot 20}{100} = 120$)
+- answer_lines: çap vərəqində ayrılacaq yazı sətirlərinin sayı (5-7 arası)
+- questionType: "essay" olmalıdır`;
   }
 
   if (questionType === 'fill_blank') {

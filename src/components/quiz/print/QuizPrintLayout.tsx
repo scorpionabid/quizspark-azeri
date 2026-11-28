@@ -86,7 +86,7 @@ export const QuizPrintLayout: React.FC<QuizPrintLayoutProps> = ({
         <>
           {/* Official Header */}
           {config.includeHeader && (
-            <header className="border-b-2 border-black pb-3 mb-4 break-inside-avoid">
+            <header className="border-b-[3px] border-double border-black pb-3 mb-4 break-inside-avoid">
               <div className="text-center mb-2">
                 <p className="text-[11px] font-bold tracking-wider uppercase text-gray-700">
                   {config.organizationName || 'AZƏRBAYCAN RESPUBLİKASI ELM VƏ TƏHSİL NAZİRLİYİ'}
@@ -94,7 +94,7 @@ export const QuizPrintLayout: React.FC<QuizPrintLayoutProps> = ({
                 <h1 className="text-lg sm:text-xl font-black uppercase tracking-tight mt-0.5">
                   {quiz.title}
                 </h1>
-                <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1 text-xs text-gray-800 font-semibold mt-1">
+                <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1 text-xs text-gray-800 font-semibold mt-1 tabular-nums">
                   {quiz.subject && <span>Fənn: <strong>{quiz.subject}</strong></span>}
                   {quiz.grade && <span>Sinif: <strong>{quiz.grade}</strong></span>}
                   <span>Sual sayı: <strong>{questions.length}</strong></span>
@@ -165,7 +165,7 @@ export const QuizPrintLayout: React.FC<QuizPrintLayoutProps> = ({
                 >
                   {/* Question Number & Text */}
                   <div className="flex items-start gap-2 mb-2">
-                    <span className="inline-flex items-center justify-center font-black bg-black text-white text-xs px-2 py-0.5 rounded shrink-0">
+                    <span className="inline-flex items-center justify-center font-black bg-black text-white text-xs px-2 py-0.5 rounded shrink-0 tabular-nums">
                       № {index + 1}
                     </span>
                     <div className="flex-1 font-semibold text-gray-950 question-text break-words">
@@ -322,7 +322,7 @@ const AnswerKeySection: React.FC<{
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 tabular-nums">
         {columns.map((col, colIdx) => (
           <table
             key={colIdx}
@@ -417,7 +417,7 @@ const BubbleSheetSection: React.FC<{
       </div>
 
       {/* Bubbles Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-4 tabular-nums">
         {questionCols.map((colQuestions, cIdx) => (
           <div
             key={cIdx}

@@ -72,6 +72,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        academic: {
+          accent: "hsl(var(--academic-accent))",
+          "accent-deep": "hsl(var(--academic-accent-deep))",
+          soft: "hsl(var(--academic-soft))",
+          surface: "hsl(var(--academic-surface))",
+          paper: "hsl(var(--academic-paper))",
+          ink: "hsl(var(--academic-ink))",
+          line: "hsl(var(--academic-line))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

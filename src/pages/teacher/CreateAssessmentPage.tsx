@@ -15,6 +15,11 @@ import {
   ArrowLeft,
   ArrowRight,
   Image as ImageIcon,
+  Eye,
+  EyeOff,
+  Check,
+  ChevronDown,
+  KeyRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -49,8 +54,18 @@ import {
   PrintableAssessmentView,
   PrintableQuestion,
 } from '@/components/quiz/PrintableAssessmentView';
+import { AssessmentSpecificationCard } from '@/components/quiz/AssessmentSpecificationCard';
+import {
+  getQuestionTypeLabelAz,
+  normalizeDifficultyLevel,
+  normalizeMatchingPairs,
+  isOpenEndedQuestionType,
+  getDefaultAnswerLines,
+} from '@/utils/assessmentSpec';
 import { MathRenderer } from '@/components/question-bank/MathRenderer';
 import { Switch } from '@/components/ui/switch';
+
+const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 type AssessmentType = 'ksq' | 'bsq' | 'sinaq';
 
@@ -61,6 +76,12 @@ interface GeneratedRawQuestion {
   correct_answer?: string;
   explanation?: string;
   questionType?: string;
+  difficulty?: string;
+  level?: string;
+  bloomLevel?: string;
+  rubric?: string[];
+  sample_answer?: string;
+  answer_lines?: number;
   fill_blank_template?: string;
   matching_pairs?: Array<{ left: string; right: string }>;
   numerical_answer?: number;
@@ -83,6 +104,7 @@ interface TypeAllocation {
 const DEFAULT_MIXED_ALLOCATIONS: TypeAllocation[] = [
   { type: 'multiple_choice', label: 'Çoxseçimli (Qapalı)', count: 5, pointsPerQuestion: 10 },
   { type: 'short_answer', label: 'Qısa Cavab (Açıq)', count: 3, pointsPerQuestion: 10 },
+  { type: 'essay', label: 'Ətraflı Açıq / Esse', count: 0, pointsPerQuestion: 20 },
   { type: 'true_false', label: 'Doğru / Yanlış', count: 2, pointsPerQuestion: 10 },
   { type: 'fill_blank', label: 'Boşluq Doldur', count: 0, pointsPerQuestion: 10 },
   { type: 'numerical', label: 'Rəqəmsal Cavab', count: 0, pointsPerQuestion: 10 },
@@ -104,16 +126,29 @@ function formatGeneratedQuestions(
     if (!correctAnswer && q.numerical_answer !== undefined) {
       correctAnswer = String(q.numerical_answer);
     }
+    const resolvedType = q.questionType || fallbackType;
+    const isOpen = isOpenEndedQuestionType(resolvedType);
     return {
       question_text: q.question,
-      question_type: q.questionType || fallbackType,
-      options: q.options ?? null,
+      question_type: resolvedType,
+      options: isOpen ? null : (q.options ?? null),
       correct_answer: correctAnswer,
       explanation: q.explanation ?? null,
       fill_blank_template: q.fill_blank_template ?? null,
       matching_pairs: q.matching_pairs ?? null,
       subjectLabel,
       weight: weightPerQuestion,
+      difficulty: q.difficulty ?? null,
+      level: q.level ?? q.bloomLevel ?? null,
+      bloomLevel: q.bloomLevel ?? null,
+      rubric: Array.isArray(q.rubric) && q.rubric.length > 0 ? q.rubric : null,
+      sample_answer: q.sample_answer ?? (isOpen ? correctAnswer || null : null),
+      answer_lines:
+        typeof q.answer_lines === 'number' && q.answer_lines > 0
+          ? Math.max(1, Math.min(12, Math.round(q.answer_lines)))
+          : isOpen
+            ? getDefaultAnswerLines(resolvedType)
+            : null,
     };
   });
 }
@@ -371,6 +406,8 @@ export default function CreateAssessmentPage() {
   const [generatingImgIdx, setGeneratingImgIdx] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(true);
+  const [rubricDrafts, setRubricDrafts] = useState<Record<number, string>>({});
   const [savedQuizId, setSavedQuizId] = useState<string | null>(null);
 
   const mixedTotalCount = mixedAllocations.reduce((s, a) => s + a.count, 0);
@@ -589,19 +626,31 @@ export default function CreateAssessmentPage() {
 
       if (quizErr) throw quizErr;
 
-      const questionRows = questions.map((q, idx) => ({
-        quiz_id: quiz.id,
-        title: q.subjectLabel ?? null,
-        question_text: q.question_text,
-        question_type: q.question_type,
-        options: q.options,
-        correct_answer: q.correct_answer,
-        explanation: q.explanation,
-        fill_blank_template: q.fill_blank_template,
-        weight: q.weight ?? 10,
-        question_image_url: q.question_image_url ?? null,
-        order_index: idx,
-      }));
+      const questionRows = questions.map((q, idx) => {
+        const explanationParts: string[] = [];
+        if (q.rubric && q.rubric.length > 0) {
+          explanationParts.push(`Qiymətləndirmə meyarları:\n- ${q.rubric.join('\n- ')}`);
+        }
+        if (q.sample_answer && q.sample_answer !== q.correct_answer) {
+          explanationParts.push(`Nümunə cavab: ${q.sample_answer}`);
+        }
+        if (q.explanation) {
+          explanationParts.push(q.explanation);
+        }
+        return {
+          quiz_id: quiz.id,
+          title: q.subjectLabel ?? null,
+          question_text: q.question_text,
+          question_type: q.question_type,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          explanation: explanationParts.length > 0 ? explanationParts.join('\n\n') : null,
+          fill_blank_template: q.fill_blank_template,
+          weight: q.weight ?? 10,
+          question_image_url: q.question_image_url ?? null,
+          order_index: idx,
+        };
+      });
 
       const { error: qErr } = await supabase.from('questions').insert(questionRows);
       if (qErr) throw qErr;
@@ -1091,147 +1140,461 @@ export default function CreateAssessmentPage() {
 
         {/* Step 4: Preview, Online Save & Print */}
         {step === 4 && (
-          <div className="space-y-6">
-            <div className="rounded-2xl bg-gradient-card border border-border/50 p-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="font-display text-lg font-bold">{effectiveTitle}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {grade}-ci sinif • {effectiveSubjectLabel} • {questions.length} sual •{' '}
-                  <span className="font-semibold text-primary">Cəmi: {totalStep4Points} bal</span>
-                </p>
-              </div>
+          <div className="mx-auto max-w-[960px] space-y-6">
+            {/* Academic Exam Header & Actions */}
+            <div className="academic-card p-5 sm:p-6 space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-2.5">
+                  <ul className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    <li className="rounded-lg bg-academic-accent px-2.5 py-1 text-white uppercase tracking-wide">
+                      {assessmentType.toUpperCase()}
+                    </li>
+                    <li className="rounded-lg bg-academic-soft px-2.5 py-1 text-academic-accent">
+                      {grade}-ci sinif
+                    </li>
+                    <li className="rounded-lg bg-academic-soft px-2.5 py-1 text-academic-accent">
+                      {effectiveSubjectLabel}
+                    </li>
+                    <li className="rounded-lg bg-academic-soft px-2.5 py-1 text-academic-accent tabular-nums">
+                      {questions.length} sual
+                    </li>
+                    <li className="rounded-lg bg-academic-soft px-2.5 py-1 text-academic-accent tabular-nums">
+                      Cəmi: {totalStep4Points} bal
+                    </li>
+                  </ul>
+                  <h2 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-academic-ink">
+                    {effectiveTitle}
+                  </h2>
+                </div>
 
-              <div className="flex flex-wrap gap-2">
-                {totalStep4Points !== 100 && (
-                  <Button variant="outline" size="sm" onClick={handleNormalizeTo100}>
-                    100 bala böl
-                  </Button>
-                )}
-                <Button variant="outline" onClick={() => setShowPrint(true)} className="gap-2">
-                  <Printer className="h-4 w-4" />
-                  Çap Et / PDF
-                </Button>
-
-                {savedQuizId ? (
-                  <Button variant="game" onClick={() => navigate(`/quiz/${savedQuizId}`)} className="gap-2">
-                    <Globe className="h-4 w-4" />
-                    Onlayn Aç
-                  </Button>
-                ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {totalStep4Points !== 100 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNormalizeTo100}
+                      className="rounded-xl border-academic-line"
+                    >
+                      100 bala böl
+                    </Button>
+                  )}
                   <Button
-                    variant="game"
-                    onClick={handleSaveOnline}
-                    disabled={isSaving || questions.length === 0}
-                    className="gap-2"
+                    variant="outline"
+                    onClick={() => setShowPrint(true)}
+                    className="gap-2 rounded-xl border-academic-line"
                   >
-                    {isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Globe className="h-4 w-4" />
-                    )}
-                    Yadda Saxla (Onlayn İstifadə)
+                    <Printer className="h-4 w-4" />
+                    Çap Et / PDF
                   </Button>
-                )}
+
+                  {savedQuizId ? (
+                    <Button
+                      onClick={() => navigate(`/quiz/${savedQuizId}`)}
+                      className="gap-2 rounded-xl bg-academic-accent text-white hover:bg-academic-accent-deep"
+                    >
+                      <Globe className="h-4 w-4" />
+                      Onlayn Aç
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleSaveOnline}
+                      disabled={isSaving || questions.length === 0}
+                      className="gap-2 rounded-xl bg-academic-accent text-white hover:bg-academic-accent-deep"
+                    >
+                      {isSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Globe className="h-4 w-4" />
+                      )}
+                      Yadda Saxla (Onlayn)
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              {questions.map((q, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-xl bg-gradient-card border border-border/50 p-4 space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
+            {/* Specification Bar & Breakdown Table */}
+            <AssessmentSpecificationCard
+              questions={questions}
+              title="İmtahan spesifikasiyası"
+              subtitle="Sual sayı və bal bölgüsü redaktələrə uyğun canlı yenilənir"
+            />
+
+            {/* Questions Section Header + Teacher Mode Toggle */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <h3 className="font-display text-lg font-bold text-academic-ink tabular-nums">
+                Suallar ({questions.length})
+              </h3>
+              <Button
+                type="button"
+                variant="outline"
+                aria-pressed={showAnswers}
+                onClick={() => setShowAnswers((prev) => !prev)}
+                className="h-10 gap-2 rounded-xl border-academic-line bg-card px-4 text-sm font-semibold text-academic-ink hover:border-academic-accent"
+              >
+                {showAnswers ? (
+                  <>
+                    <EyeOff className="h-4 w-4 text-academic-accent" />
+                    Cavabları gizlət
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4 text-academic-accent" />
+                    Cavabları göstər
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Academic Question Cards */}
+            <div className="space-y-4">
+              {questions.map((q, idx) => {
+                const diffLevel = normalizeDifficultyLevel(q.level ?? q.difficulty ?? q.bloomLevel);
+                const matchingList = normalizeMatchingPairs(q.matching_pairs);
+                const isOpenEnded = isOpenEndedQuestionType(q.question_type);
+                const answerLines = q.answer_lines ?? getDefaultAnswerLines(q.question_type);
+                const rubricItems = q.rubric ?? [];
+                const sampleAnswerText = q.sample_answer || q.correct_answer || '';
+
+                const handleAddRubricItem = () => {
+                  const text = (rubricDrafts[idx] || '').trim();
+                  if (!text) return;
+                  setQuestions((prev) =>
+                    prev.map((item, i) =>
+                      i === idx ? { ...item, rubric: [...(item.rubric ?? []), text] } : item
+                    )
+                  );
+                  setRubricDrafts((prev) => ({ ...prev, [idx]: '' }));
+                };
+
+                const handleRemoveRubricItem = (rIdx: number) => {
+                  setQuestions((prev) =>
+                    prev.map((item, i) =>
+                      i === idx
+                        ? { ...item, rubric: (item.rubric ?? []).filter((_, ri) => ri !== rIdx) }
+                        : item
+                    )
+                  );
+                };
+
+                return (
+                  <article
+                    key={idx}
+                    className="academic-card p-4 sm:p-5 space-y-3"
+                  >
+                    {/* 3-Part Card Header: Index + Pills + Editable Weight/Actions */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-academic-line/60">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-display text-base font-extrabold text-academic-ink tabular-nums">
+                          {idx + 1}.
+                        </span>
+                        {diffLevel && (
+                          <span className="rounded-full bg-academic-soft px-2.5 py-0.5 text-xs font-semibold text-academic-accent">
+                            {diffLevel} səviyyə
+                          </span>
+                        )}
+                        <span className="rounded-full bg-academic-surface px-2.5 py-0.5 text-xs font-medium text-muted-foreground border border-academic-line/70">
+                          {getQuestionTypeLabelAz(q.question_type)}
+                        </span>
                         {q.subjectLabel && (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge variant="outline" className="text-[11px] border-academic-line">
                             {q.subjectLabel}
                           </Badge>
                         )}
-                        <Badge variant="secondary" className="text-[10px]">
-                          {q.question_type}
-                        </Badge>
                       </div>
-                      <div className="font-medium text-sm flex gap-1.5">
-                        <span className="text-primary font-bold">{idx + 1}.</span>
-                        <MathRenderer text={q.fill_blank_template || q.question_text} />
-                      </div>
-                      {q.question_image_url && (
-                        <img
-                          src={q.question_image_url}
-                          alt={`Sual ${idx + 1}`}
-                          className="mt-2 max-h-40 rounded-lg border border-border/50 object-contain"
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={q.weight ?? 10}
+                          onChange={(e) => {
+                            const val = Math.max(1, Math.min(100, Number(e.target.value) || 1));
+                            setQuestions((prev) =>
+                              prev.map((item, i) => (i === idx ? { ...item, weight: val } : item))
+                            );
+                          }}
+                          className="h-7 w-14 text-xs text-center tabular-nums border-academic-line"
+                          title="Sualın balı"
+                          aria-label={`Sual ${idx + 1} balı`}
                         />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={q.weight ?? 10}
-                        onChange={(e) => {
-                          const val = Math.max(1, Math.min(100, Number(e.target.value) || 1));
-                          setQuestions((prev) =>
-                            prev.map((item, i) => (i === idx ? { ...item, weight: val } : item))
-                          );
-                        }}
-                        className="h-7 w-14 text-xs text-center"
-                        title="Sualın balı"
-                      />
-                      <span className="text-[11px] text-muted-foreground">bal</span>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-primary"
-                        onClick={() => handleGenerateImageForQuestion(idx)}
-                        disabled={generatingImgIdx === idx}
-                        title="AI ilə sxem/şəkil yarat"
-                      >
-                        {generatingImgIdx === idx ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <ImageIcon className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
-                        onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== idx))}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {Array.isArray(q.options) && (
-                    <div className="grid gap-1.5 sm:grid-cols-2 pl-4">
-                      {q.options.map((opt, oIdx) => (
-                        <div
-                          key={oIdx}
-                          className={`text-xs rounded-md px-2.5 py-1.5 border ${
-                            opt === q.correct_answer
-                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
-                              : 'border-border/40 text-muted-foreground'
-                          }`}
+                        <span className="text-xs text-muted-foreground">bal</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-academic-accent"
+                          onClick={() => handleGenerateImageForQuestion(idx)}
+                          disabled={generatingImgIdx === idx}
+                          title="AI ilə sxem/şəkil yarat"
+                          aria-label={`Sual ${idx + 1} üçün şəkil yarat`}
                         >
-                          <MathRenderer text={opt} />
-                        </div>
-                      ))}
+                          {generatingImgIdx === idx ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ImageIcon className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                          onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== idx))}
+                          title="Sualı sil"
+                          aria-label={`Sual ${idx + 1}-i sil`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  )}
 
-                  {!Array.isArray(q.options) && (
-                    <div className="text-xs text-emerald-400 pl-4 flex items-center gap-1">
-                      <span>Düzgün cavab:</span>
-                      <MathRenderer text={q.correct_answer} />
+                    {/* Question Stem */}
+                    <div className="text-[15px] leading-relaxed font-semibold text-foreground whitespace-pre-line [overflow-wrap:anywhere]">
+                      <MathRenderer text={q.fill_blank_template || q.question_text} />
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {q.question_image_url && (
+                      <img
+                        src={q.question_image_url}
+                        alt={`Sual ${idx + 1}`}
+                        className="mt-2 max-h-48 rounded-xl border border-academic-line object-contain"
+                      />
+                    )}
+
+                    {/* Matching 2-column sub-grid */}
+                    {matchingList.length > 0 && (
+                      <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 rounded-xl border border-academic-line bg-academic-surface/60 p-3 text-sm">
+                        <div className="space-y-1">
+                          {matchingList.map((pair, pIdx) => (
+                            <div key={`left-${pIdx}`} className="flex gap-2 tabular-nums">
+                              <span className="font-semibold text-academic-ink">{pIdx + 1}.</span>
+                              <MathRenderer text={pair.left} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-1">
+                          {matchingList.map((pair, pIdx) => (
+                            <div key={`right-${pIdx}`} className="flex gap-2">
+                              <span className="font-semibold text-muted-foreground">
+                                {String.fromCharCode(97 + pIdx)})
+                              </span>
+                              <MathRenderer text={pair.right} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Multiple Choice / True-False Options */}
+                    {!isOpenEnded && Array.isArray(q.options) && q.options.length > 0 && (
+                      <div className="grid gap-1.5">
+                        {q.options.map((opt, oIdx) => {
+                          const isCorrect = showAnswers && opt === q.correct_answer;
+                          const letter = OPTION_LETTERS[oIdx] ?? String(oIdx + 1);
+                          return (
+                            <div
+                              key={oIdx}
+                              className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                                isCorrect
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 ring-1 ring-emerald-200 dark:ring-emerald-800 text-emerald-900 dark:text-emerald-200 font-medium'
+                                  : 'text-foreground/90 hover:bg-academic-surface/60'
+                              }`}
+                            >
+                              <div className="flex items-start gap-2.5 min-w-0">
+                                <span
+                                  className={`font-semibold shrink-0 tabular-nums ${
+                                    isCorrect
+                                      ? 'text-emerald-700 dark:text-emerald-400'
+                                      : 'text-muted-foreground'
+                                  }`}
+                                >
+                                  {letter})
+                                </span>
+                                <div className="min-w-0">
+                                  <MathRenderer text={opt} />
+                                </div>
+                              </div>
+                              {isCorrect && (
+                                <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Open-Ended Rubric ("Qiymətləndirmə meyarları"), Writing Lines & Sample Answer ("Nümunə cavab") */}
+                    {(isOpenEnded || !Array.isArray(q.options) || q.options.length === 0) && (
+                      <div className="space-y-2.5 text-sm">
+                        {showAnswers && (
+                          <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 ring-1 ring-emerald-200 dark:ring-emerald-800 px-3 py-2.5 text-emerald-900 dark:text-emerald-200 space-y-2">
+                            <p className="font-semibold text-xs uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+                              Qiymətləndirmə meyarları
+                            </p>
+                            {rubricItems.length > 0 ? (
+                              <ul className="list-disc space-y-1 pl-5 text-sm">
+                                {rubricItems.map((criterion, rIdx) => (
+                                  <li key={rIdx} className="group/item pr-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <span className="leading-snug">
+                                        <MathRenderer text={criterion} />
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveRubricItem(rIdx)}
+                                        className="text-emerald-700/60 hover:text-destructive text-xs px-1 shrink-0"
+                                        title="Meyarı sil"
+                                        aria-label="Meyarı sil"
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-emerald-800/75 dark:text-emerald-300/75">
+                                Hələ meyar əlavə edilməyib. Aşağıdan bal bölgüsü meyarı əlavə edə bilərsiniz.
+                              </p>
+                            )}
+                            <div className="flex items-center gap-1.5 pt-1">
+                              <Input
+                                value={rubricDrafts[idx] ?? ''}
+                                onChange={(e) =>
+                                  setRubricDrafts((prev) => ({ ...prev, [idx]: e.target.value }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddRubricItem();
+                                  }
+                                }}
+                                placeholder="Meyar əlavə et (məs: Düstur düzgün yazılır: 4 bal)"
+                                className="h-7 text-xs bg-white/80 dark:bg-background/60 border-emerald-200 dark:border-emerald-800"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={handleAddRubricItem}
+                                className="h-7 px-2 text-xs border-emerald-300 dark:border-emerald-800 shrink-0"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span>Cavab üçün {answerLines} sətir</span>
+                          <label className="inline-flex items-center gap-1.5">
+                            <span>Çap sətir sayı:</span>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={12}
+                              value={answerLines}
+                              onChange={(e) => {
+                                const val = Math.max(1, Math.min(12, Number(e.target.value) || 1));
+                                setQuestions((prev) =>
+                                  prev.map((item, i) =>
+                                    i === idx ? { ...item, answer_lines: val } : item
+                                  )
+                                );
+                              }}
+                              className="h-6 w-12 px-1 text-center text-xs tabular-nums border-academic-line"
+                              aria-label={`Sual ${idx + 1} cavab sətir sayı`}
+                            />
+                          </label>
+                        </div>
+
+                        {showAnswers && sampleAnswerText && (
+                          <div className="whitespace-pre-line rounded-lg border border-academic-line/70 bg-academic-surface px-3 py-2 text-sm text-foreground/85 leading-relaxed">
+                            <span className="font-semibold text-academic-ink">Nümunə cavab: </span>
+                            <MathRenderer text={sampleAnswerText} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Collapsible Step-by-Step Solution / Explanation */}
+                    {showAnswers && q.explanation && (
+                      <details className="group rounded-lg border border-academic-line bg-academic-surface/60 px-3 py-2 text-sm">
+                        <summary className="flex cursor-pointer list-none items-center justify-between font-semibold text-academic-ink select-none">
+                          <span>Həll / İzah</span>
+                          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-2 pt-2 border-t border-academic-line/70 text-muted-foreground leading-relaxed">
+                          <MathRenderer text={q.explanation} />
+                        </div>
+                      </details>
+                    )}
+                  </article>
+                );
+              })}
             </div>
+
+            {/* Bottom Compact Answer Key Section */}
+            {questions.length > 0 && (
+              <section className="academic-card p-5 space-y-4" aria-label="Cavab açarı">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="h-4 w-4 text-academic-accent" />
+                    <h3 className="font-display text-base font-bold text-academic-ink">
+                      Cavab açarı
+                    </h3>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-pressed={showAnswers}
+                    onClick={() => setShowAnswers((prev) => !prev)}
+                    className="rounded-xl border-academic-line text-xs font-semibold"
+                  >
+                    {showAnswers ? 'Cavabları gizlət' : 'Cavabları göstər'}
+                  </Button>
+                </div>
+
+                {showAnswers ? (
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[15px] sm:grid-cols-3 lg:grid-cols-4 tabular-nums">
+                    {questions.map((q, idx) => {
+                      const isRubricOpen =
+                        q.question_type === 'essay' || (q.rubric && q.rubric.length > 0);
+                      let compactAns = q.correct_answer?.trim() || '—';
+                      if (!isOpenEndedQuestionType(q.question_type) && Array.isArray(q.options) && q.options.length > 0) {
+                        const matchIdx = q.options.indexOf(q.correct_answer);
+                        if (matchIdx !== -1) {
+                          compactAns = OPTION_LETTERS[matchIdx] ?? compactAns;
+                        }
+                      } else if (isRubricOpen && compactAns.length > 16) {
+                        compactAns = '—';
+                      } else if (compactAns.length > 24) {
+                        compactAns = `${compactAns.slice(0, 22)}…`;
+                      }
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-baseline gap-2 border-b border-academic-line/60 pb-1"
+                          title={compactAns === '—' ? 'Meyar üzrə qiymətləndirilir' : undefined}
+                        >
+                          <span className="font-bold text-muted-foreground w-6 text-right shrink-0">
+                            {idx + 1}.
+                          </span>
+                          <span className="font-semibold text-academic-ink truncate">
+                            {compactAns}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Cavab açarını görmək üçün &ldquo;Cavabları göstər&rdquo; düyməsini klikləyin.
+                  </p>
+                )}
+              </section>
+            )}
           </div>
         )}
       </div>
